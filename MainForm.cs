@@ -1357,9 +1357,7 @@ namespace ICAO_CSV
      		OleDbCommand command4 = new OleDbCommand(query2, conn);
      		OleDbDataReader dBreader = command4.ExecuteReader();
 			
-			//SqlCommand command = new SqlCommand("SELECT ICAO FROM Stations_ICAO_IATA",conn);			
 			
-        	//SqlDataReader dBreader = command.ExecuteReader();
 
         	if (dBreader.HasRows)
         	{
@@ -1569,40 +1567,15 @@ namespace ICAO_CSV
 		
 		public void GetCSV()
 		{
-			//Airport List from OCC.mdb
+			if (_stationsCache == null) LoadStationsCache();
 			string APList="";
-			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
-			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= OCC.mdb";
-				
-			conn.Open();
-			var query2 = "SELECT * FROM Stations_ICAO_IATA";
-     		OleDbCommand command4 = new OleDbCommand(query2, conn);
-     		OleDbDataReader dBreader = command4.ExecuteReader();
-			
-			//SqlCommand command = new SqlCommand("SELECT ICAO FROM Stations_ICAO_IATA",conn);			
-			
-        	//SqlDataReader dBreader = command.ExecuteReader();
-
-        	if (dBreader.HasRows)
-        	{
-            	while (dBreader.Read())
-            	{
-            		
-                	if(!dBreader.IsDBNull(0)) 
-                	{
-                		string LH=dBreader.GetString(3);
-                		string FedEx=dBreader.GetString(4);
-                		string Charters=dBreader.GetString(5);
-                		if(LH=="Yes"||FedEx=="Yes"||Charters=="Yes")
-                		{
-                			APList+=dBreader.GetString(1)+",";
-                		}
-                	}
-            	}
-        	}
-			
-			conn.Close();
-			APList = APList.Substring(0,APList.Length -1);
+			foreach (var entry in _stationsCache)
+			{
+				string[] row = entry.Value;
+				if (row[1] == "Yes" || row[2] == "Yes" || row[3] == "Yes")
+					APList += entry.Key + ",";
+			}
+			APList = APList.Substring(0, APList.Length - 1);
 			
 			//c62b1e08-c60e-41ba-a654-30cb2807a682
 			
@@ -1665,12 +1638,12 @@ namespace ICAO_CSV
 			var lines = File.ReadAllLines("ICAO-CSV.csv");
 			string reader ="";
             int dataRowStart = 0;
+            Regex CSVParser = new Regex(",(?=(?:[^\"]*\"[^\"]*\")*(?![^\"]*\"))", RegexOptions.Compiled);
             for (int i = dataRowStart; i < lines.Length; i++)
             {
                 if(i==0)reader+= lines[i]+"\n";
                 if(i>0)
-                {	
-                	Regex CSVParser = new Regex(",(?=(?:[^\"]*\"[^\"]*\")*(?![^\"]*\"))");
+                {
                 	String[] subs = CSVParser.Split(lines[i]);
                 	
                 	string stringStateName="";
