@@ -43,7 +43,6 @@ namespace ICAO_CSV
 	        this.FormClosing += MainForm_FormClosing;
 
 			//
-			// TODO: Add constructor code after the InitializeComponent() call.
 			//
 		}
 		
@@ -692,35 +691,22 @@ namespace ICAO_CSV
 			Btn_addAPT.Tag=i.ToString();
         }
 		
+		private static readonly string[] _monthAbbrevs = { "", "JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC" };
+
+		public static string MonthAbbrev(string mm)
+		{
+			int m;
+			if (int.TryParse(mm, out m) && m >= 1 && m <= 12) return _monthAbbrevs[m];
+			return mm;
+		}
+
 		public static string dateTransformation(string notamDate)
 		{
-			string reportDate ="";
-			string notamHour ="";
-			string notamDay ="";
-			string notamMonth ="";
-			string notamYear="";
-			
-			notamDate=notamDate.Substring(0,16);
-     		notamHour=notamDate.Substring(11,5);
-     		notamDay=notamDate.Substring(8,2);
-     		notamMonth=notamDate.Substring(5,2);
-     		if(notamMonth=="01")notamMonth="JAN";
-     		if(notamMonth=="02")notamMonth="FEB";
-     		if(notamMonth=="03")notamMonth="MAR";
-     		if(notamMonth=="04")notamMonth="APR";
-     		if(notamMonth=="05")notamMonth="MAY";
-     		if(notamMonth=="06")notamMonth="JUN";
-     		if(notamMonth=="07")notamMonth="JUL";
-     		if(notamMonth=="08")notamMonth="AUG";
-     		if(notamMonth=="09")notamMonth="SEP";
-     		if(notamMonth=="10")notamMonth="OCT";
-     		if(notamMonth=="11")notamMonth="NOV";
-     		if(notamMonth=="12")notamMonth="DEC";
-     		notamYear=notamDate.Substring(0,4);
-     		//reportDate=notamDay+notamMonth+notamYear+" "+notamHour;
-     		reportDate=notamDay+notamMonth+notamYear;
-     		
-     		return reportDate;
+			notamDate = notamDate.Substring(0, 16);
+			string notamDay   = notamDate.Substring(8, 2);
+			string notamMonth = MonthAbbrev(notamDate.Substring(5, 2));
+			string notamYear  = notamDate.Substring(0, 4);
+			return notamDay + notamMonth + notamYear;
 		}
 		public void Sup_Report()
 		{
@@ -760,7 +746,6 @@ namespace ICAO_CSV
      		string output="";
      		string test="";
      		string result="";
-     		string impactTest="";
      		
      		
      		if (dBreader.HasRows)
@@ -768,25 +753,6 @@ namespace ICAO_CSV
             	while (dBreader.Read())
             	{
             		string loaded_aviobook="";
-//            		test=dBreader.GetString(8);
-//            		
-//     
-//            		
-//            		if(test=="ZSSS")
-//            		{
-//            			if(!dBreader.IsDBNull(13))
-//            			{
-//            				//output="test";
-//            				impactTest="0";
-//            				impactTest=dBreader.GetString(13);
-//            				//output=impactTest;
-//            				if (impactTest!="C") output+="T";
-//            				if(impactTest=="C") output+=impactTest;
-//            				
-//            			}
-//            		}
-            		
-            		
             		Impact="";
             		Status="";
             		Remark="";
@@ -837,21 +803,18 @@ namespace ICAO_CSV
             				{
             					todayInt= Int32.Parse(todayString);
             					endWindowInt= Int32.Parse(tomorrowString);
-            					//RchTxtCSV.Text=tomorrowString;
             				}
             				
             				if(radBtn_Sup_7days.Checked==true)
             				{
             					todayInt= Int32.Parse(todayString);
             					endWindowInt= Int32.Parse(sevenDaysString);
-            					//RchTxtCSV.Text=sevenDaysString;
             				}
             				
             				if(radBtn_Sup_31days.Checked==true)
             				{
             					todayInt= Int32.Parse(todayString);
             					endWindowInt= Int32.Parse(thirtyOneDaysString);
-            					//RchTxtCSV.Text=thirtyOneDaysString;
             				}       					
             				         				
             				if(tillDateInt>todayInt && fromDateInt<endWindowInt)
@@ -859,10 +822,6 @@ namespace ICAO_CSV
             					string LHtype="LH";
             					string SHtype="FedEx";
             					string Chartertype="Charters";
-            					
-            					string fromTest= fromDateInt.ToString();
-            					string tomorrowTest=tomorrowInt.ToString();
-            					//RchTxtCSV.Text=fromTest+"<br />"+tomorrowTest;
             					
             					string checkbox_status="";
 		            				if(loaded_aviobook=="Yes")
@@ -919,7 +878,6 @@ namespace ICAO_CSV
 			            				"</th>"+checkbox_status+"<th style=\"font-weight:normal;\">"+Remark+"</th></tr>";
 			            				
             					}
-		            			//RchTxtCSV.Text=twenty4H_APClsdCharters;
             				}
             			}
             		}
@@ -1049,31 +1007,10 @@ namespace ICAO_CSV
      		string output="";
      		string test="";
      		string result="";
-     		string impactTest="";
      		if (dBreader.HasRows)
         	{
             	while (dBreader.Read())
             	{
-            		
-//            		test=dBreader.GetString(8);
-//            		
-//     
-//            		
-//            		if(test=="ZSSS")
-//            		{
-//            			if(!dBreader.IsDBNull(13))
-//            			{
-//            				//output="test";
-//            				impactTest="0";
-//            				impactTest=dBreader.GetString(13);
-//            				//output=impactTest;
-//            				if (impactTest!="C") output+="T";
-//            				if(impactTest=="C") output+=impactTest;
-//            				
-//            			}
-//            		}
-//            		
-            		
             		Impact="";
             		Status="";
             		Remark="";
@@ -1121,21 +1058,18 @@ namespace ICAO_CSV
             				{
             					todayInt= Int32.Parse(todayString);
             					endWindowInt= Int32.Parse(tomorrowString);
-            					//RchTxtCSV.Text=tomorrowString;
             				}
             				
             				if(radBtn_7days.Checked==true)
             				{
             					todayInt= Int32.Parse(todayString);
             					endWindowInt= Int32.Parse(sevenDaysString);
-            					//RchTxtCSV.Text=sevenDaysString;
             				}
             				
             				if(radBtn_31days.Checked==true)
             				{
             					todayInt= Int32.Parse(todayString);
             					endWindowInt= Int32.Parse(thirtyOneDaysString);
-            					//RchTxtCSV.Text=thirtyOneDaysString;
             				}       					
             				         				
             				if(tillDateInt>todayInt && fromDateInt<endWindowInt)
@@ -1144,9 +1078,6 @@ namespace ICAO_CSV
             					string SHtype="FedEx";
             					string Chartertype="Charters";
             					
-            					string fromTest= fromDateInt.ToString();
-            					string tomorrowTest=tomorrowInt.ToString();
-            					//RchTxtCSV.Text=fromTest+"<br />"+tomorrowTest;
             					
             					
             					//Next 24 hrs
@@ -1252,7 +1183,6 @@ namespace ICAO_CSV
 			            				if(Impact=="M") MiscCharters+="<tr><th style=\"color:SeaGreen;\">"+location+"</th><th>"+key+"</th><th style=\"font-family:Courier New;\">"+fromDate+"-"+tillDate+"</th><th style=\"width:400px; font-weight:normal;\">"+Remark+"</th></tr>";
 		            				}
             					}
-		            			//RchTxtCSV.Text=twenty4H_APClsdCharters;
             				}
             			}
             		}
@@ -1408,81 +1338,10 @@ namespace ICAO_CSV
 //		public void StartApp()
 //		{
 //			//string CSV="CSV";
-//			//RchTxtCSV.Text = CSV;
 //			
 //		}
 		
 		public void Reload_text(){
-			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
-			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= ICAO_storedNotams.mdb";
-				
-			conn.Open();
-			var query2 = "SELECT * FROM filteredNotams_table";
-     		OleDbCommand command4 = new OleDbCommand(query2, conn);
-     		OleDbDataReader dBreader = command4.ExecuteReader();
-     		
-     		string testText="";
-     		
-     		string []keyList=new string[100000];
-     		
-     		int i=0;
-     		if (dBreader.HasRows)
-        	{
-            	while (dBreader.Read())
-            	{
-            		if(!dBreader.IsDBNull(10)) keyList[i]= dBreader.GetString(10);
-            
-            		i++;
-            	}
-     		}
-     		conn.Close();
-     		
-     		
-     		string [,]notamsList= new string[2,100000] ;
-     		
-     		i=0;
-     		
-     		//notamsList[0,3]="Test 1";
-     	    //notamsList[1,3]="Text";
-     		string notamText="";
-     		foreach (string key in keyList) {
-
-     			notamsList[0,i]=key;
-     			
-     			
-				notamsList[1,i]=notamText;
-
-     			i++;
-     			
-     		}
-     		
-     		//for (int j=0; j<keyList.Length; j++) {
-     			int j=440;
-     			string keyTest=keyList[j];
-	     	    conn.Open();
-	 			//var query3 = "SELECT * FROM storedNotams_table WHERE key='"+keyTest+"'";
-	 			var query3 = "SELECT * FROM storedNotams_table WHERE ID=46511";
-	 			OleDbCommand command5 = new OleDbCommand(query3, conn);
-	 			OleDbDataReader dBreader2 = command5.ExecuteReader();
-	 			
-	 			if (dBreader2.HasRows)
-	        	{
-	            	while (dBreader2.Read())
-	            	{
-	            		if(!dBreader2.IsDBNull(15)) notamsList[1,j]= dBreader2.GetString(15);
-	            
-	            
-	            	}
-	     		}
-	     		conn.Close();
-     		//}
-     	    
-     		testText=notamsList[0,440]+" "+keyTest+" "+notamsList[1,440];
-     		
-     		RchTxtCSV.Text=testText;
-     		
-     		
-     		
 		}
 	
 		
@@ -1537,56 +1396,18 @@ namespace ICAO_CSV
         	DateTime threeMonths = today.AddDays(91);
             			
             var todayString= DateTime.Now.ToString("yyyyMMdd");
-            
-            string todayYear="";
-            string todayMonth="";
-            string todayDay="";
-            
-            todayYear=todayString.Substring(2,2);
-     		todayMonth=todayString.Substring(4,2);
-     		todayDay=todayString.Substring(6,2);
-     		
-     		if(todayMonth=="01")todayMonth="JAN";
-     		if(todayMonth=="02")todayMonth="FEB";
-     		if(todayMonth=="03")todayMonth="MAR";
-     		if(todayMonth=="04")todayMonth="APR";
-     		if(todayMonth=="05")todayMonth="MAY";
-     		if(todayMonth=="06")todayMonth="JUN";
-     		if(todayMonth=="07")todayMonth="JUL";
-     		if(todayMonth=="08")todayMonth="AUG";
-     		if(todayMonth=="09")todayMonth="SEP";
-     		if(todayMonth=="10")todayMonth="OCT";
-     		if(todayMonth=="11")todayMonth="NOV";
-     		if(todayMonth=="12")todayMonth="DEC";
-     		
-     		string stringToday="";
-     		stringToday=todayDay+todayMonth+todayYear;
-            
-            var threeMonthsString= threeMonths.ToString("yyyyMMdd");
-            
-            string threeMonthsYear="";
-            string threeMonthsMonth="";
-            string threeMonthsDay="";
-            
-            threeMonthsYear=threeMonthsString.Substring(2,2);
-     		threeMonthsMonth=threeMonthsString.Substring(4,2);
-     		threeMonthsDay=threeMonthsString.Substring(6,2);
-     		
-     		if(threeMonthsMonth=="01")threeMonthsMonth="JAN";
-     		if(threeMonthsMonth=="02")threeMonthsMonth="FEB";
-     		if(threeMonthsMonth=="03")threeMonthsMonth="MAR";
-     		if(threeMonthsMonth=="04")threeMonthsMonth="APR";
-     		if(threeMonthsMonth=="05")threeMonthsMonth="MAY";
-     		if(threeMonthsMonth=="06")threeMonthsMonth="JUN";
-     		if(threeMonthsMonth=="07")threeMonthsMonth="JUL";
-     		if(threeMonthsMonth=="08")threeMonthsMonth="AUG";
-     		if(threeMonthsMonth=="09")threeMonthsMonth="SEP";
-     		if(threeMonthsMonth=="10")threeMonthsMonth="OCT";
-     		if(threeMonthsMonth=="11")threeMonthsMonth="NOV";
-     		if(threeMonthsMonth=="12")threeMonthsMonth="DEC";
-     		
-     		string stringThreeMonths="";
-     		stringThreeMonths=threeMonthsDay+threeMonthsMonth+threeMonthsYear;
+
+            string todayYear  = todayString.Substring(2, 2);
+            string todayMonth = MonthAbbrev(todayString.Substring(4, 2));
+            string todayDay   = todayString.Substring(6, 2);
+            string stringToday = todayDay + todayMonth + todayYear;
+
+            var threeMonthsString = threeMonths.ToString("yyyyMMdd");
+
+            string threeMonthsYear  = threeMonthsString.Substring(2, 2);
+            string threeMonthsMonth = MonthAbbrev(threeMonthsString.Substring(4, 2));
+            string threeMonthsDay   = threeMonthsString.Substring(6, 2);
+            string stringThreeMonths = threeMonthsDay + threeMonthsMonth + threeMonthsYear;
             
      		RchTxt_FilterNotams.Text=stringToday+" "+stringThreeMonths;
                         				
@@ -2377,44 +2198,20 @@ namespace ICAO_CSV
             		if(!dBKeptreader.IsDBNull(14)) Remark=dBKeptreader.GetString(14);
             		notam_text=notam_text.Replace("(char)39","'");
             		
-            		fromDate=fromDate.Substring(0,16);
-     				fromHour=fromDate.Substring(11,5);
-     				fromDay=fromDate.Substring(8,2);
-     				fromMonth=fromDate.Substring(5,2);
-     				if(fromMonth=="01")fromMonth="JAN";
-     				if(fromMonth=="02")fromMonth="FEB";
-     				if(fromMonth=="03")fromMonth="MAR";
-     				if(fromMonth=="04")fromMonth="APR";
-     				if(fromMonth=="05")fromMonth="MAY";
-     				if(fromMonth=="06")fromMonth="JUN";
-     				if(fromMonth=="07")fromMonth="JUL";
-     				if(fromMonth=="08")fromMonth="AUG";
-     				if(fromMonth=="09")fromMonth="SEP";
-     				if(fromMonth=="10")fromMonth="OCT";
-     				if(fromMonth=="11")fromMonth="NOV";
-     				if(fromMonth=="12")fromMonth="DEC";
-     				fromYear=fromDate.Substring(0,4);
-     				fromDateText=fromDay+fromMonth+fromYear+"("+fromHour+")";
-     				
-     				tillDate=tillDate.Substring(0,16);
-     				tillHour=tillDate.Substring(11,5);
-     				tillDay=tillDate.Substring(8,2);
-     				tillMonth=tillDate.Substring(5,2);
-     				if(tillMonth=="01")tillMonth="JAN";
-     				if(tillMonth=="02")tillMonth="FEB";
-     				if(tillMonth=="03")tillMonth="MAR";
-     				if(tillMonth=="04")tillMonth="APR";
-     				if(tillMonth=="05")tillMonth="MAY";
-     				if(tillMonth=="06")tillMonth="JUN";
-     				if(tillMonth=="07")tillMonth="JUL";
-     				if(tillMonth=="08")tillMonth="AUG";
-     				if(tillMonth=="09")tillMonth="SEP";
-     				if(tillMonth=="10")tillMonth="OCT";
-     				if(tillMonth=="11")tillMonth="NOV";
-     				if(tillMonth=="12")tillMonth="DEC";
-     				tillYear=tillDate.Substring(0,4);
-     				tillDateText=tillDay+tillMonth+tillYear+"("+tillHour+")";
-            		
+            		fromDate  = fromDate.Substring(0, 16);
+     				fromHour  = fromDate.Substring(11, 5);
+     				fromDay   = fromDate.Substring(8, 2);
+     				fromMonth = MonthAbbrev(fromDate.Substring(5, 2));
+     				fromYear  = fromDate.Substring(0, 4);
+     				fromDateText = fromDay + fromMonth + fromYear + "(" + fromHour + ")";
+
+     				tillDate  = tillDate.Substring(0, 16);
+     				tillHour  = tillDate.Substring(11, 5);
+     				tillDay   = tillDate.Substring(8, 2);
+     				tillMonth = MonthAbbrev(tillDate.Substring(5, 2));
+     				tillYear  = tillDate.Substring(0, 4);
+     				tillDateText = tillDay + tillMonth + tillYear + "(" + tillHour + ")";
+
             		richText+= notam_key+"\n"+fromDateText+" - "+tillDateText+"\n"+notam_text+"\n"+Impact+": "+Remark+"\n"+"\n";
             	}
      		}
@@ -2491,26 +2288,13 @@ namespace ICAO_CSV
      				lbl_notam_key.Left = 510;
      				tabPage1.Controls.Add(lbl_notam_key);
             		
-     				fromDate=fromDate.Substring(0,16);
-     				fromHour=fromDate.Substring(11,5);
-     				fromDay=fromDate.Substring(8,2);
-     				fromMonth=fromDate.Substring(5,2);
-     				if(fromMonth=="01")fromMonth="JAN";
-     				if(fromMonth=="02")fromMonth="FEB";
-     				if(fromMonth=="03")fromMonth="MAR";
-     				if(fromMonth=="04")fromMonth="APR";
-     				if(fromMonth=="05")fromMonth="MAY";
-     				if(fromMonth=="06")fromMonth="JUN";
-     				if(fromMonth=="07")fromMonth="JUL";
-     				if(fromMonth=="08")fromMonth="AUG";
-     				if(fromMonth=="09")fromMonth="SEP";
-     				if(fromMonth=="10")fromMonth="OCT";
-     				if(fromMonth=="11")fromMonth="NOV";
-     				if(fromMonth=="12")fromMonth="DEC";
-     				fromYear=fromDate.Substring(0,4);
-     				fromDateText=fromDay+fromMonth+fromYear+"("+fromHour+")";
+     				fromDate  = fromDate.Substring(0, 16);
+     				fromHour  = fromDate.Substring(11, 5);
+     				fromDay   = fromDate.Substring(8, 2);
+     				fromMonth = MonthAbbrev(fromDate.Substring(5, 2));
+     				fromYear  = fromDate.Substring(0, 4);
+     				fromDateText = fromDay + fromMonth + fromYear + "(" + fromHour + ")";
      				Label lbl_notam_from = new Label();
-            		//FontFamily courier =  new FontFamily("Courier New");
 					lbl_notam_from.Font = new Font(courier, 10, FontStyle.Regular);
 					lbl_notam_from.Tag ="dispose";
 					lbl_notam_from.Top = Top;
@@ -2519,27 +2303,14 @@ namespace ICAO_CSV
      				lbl_notam_from.Text = "From : "+ fromDateText;
      				lbl_notam_from.Left = 635;
      				tabPage1.Controls.Add(lbl_notam_from);
-     				
-     				tillDate=tillDate.Substring(0,16);
-     				tillHour=tillDate.Substring(11,5);
-     				tillDay=tillDate.Substring(8,2);
-     				tillMonth=tillDate.Substring(5,2);
-     				if(tillMonth=="01")tillMonth="JAN";
-     				if(tillMonth=="02")tillMonth="FEB";
-     				if(tillMonth=="03")tillMonth="MAR";
-     				if(tillMonth=="04")tillMonth="APR";
-     				if(tillMonth=="05")tillMonth="MAY";
-     				if(tillMonth=="06")tillMonth="JUN";
-     				if(tillMonth=="07")tillMonth="JUL";
-     				if(tillMonth=="08")tillMonth="AUG";
-     				if(tillMonth=="09")tillMonth="SEP";
-     				if(tillMonth=="10")tillMonth="OCT";
-     				if(tillMonth=="11")tillMonth="NOV";
-     				if(tillMonth=="12")tillMonth="DEC";
-     				tillYear=tillDate.Substring(0,4);
-     				tillDateText=tillDay+tillMonth+tillYear+"("+tillHour+")";
+
+     				tillDate  = tillDate.Substring(0, 16);
+     				tillHour  = tillDate.Substring(11, 5);
+     				tillDay   = tillDate.Substring(8, 2);
+     				tillMonth = MonthAbbrev(tillDate.Substring(5, 2));
+     				tillYear  = tillDate.Substring(0, 4);
+     				tillDateText = tillDay + tillMonth + tillYear + "(" + tillHour + ")";
      				Label lbl_notam_till = new Label();
-            		//FontFamily courier =  new FontFamily("Courier New");
 					lbl_notam_till.Font = new Font(courier, 10, FontStyle.Regular);
 					lbl_notam_till.Tag ="dispose";
 					lbl_notam_till.Top = Top;
@@ -2747,7 +2518,6 @@ namespace ICAO_CSV
 		void Keep_Notam(int notam_ID)
 		{
 			string stringIDNotam =notam_ID.ToString();
-			//RchTxtCSV.Text=stringIDNotam;
 			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= ICAO_storedNotams.mdb";
 				
@@ -2763,7 +2533,6 @@ namespace ICAO_CSV
 		void Ignore_Notam(int notam_ID)
 		{
 			string stringIDNotam =notam_ID.ToString();
-			//RchTxtCSV.Text=stringIDNotam;
 			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= ICAO_storedNotams.mdb";
 				
@@ -3055,26 +2824,13 @@ namespace ICAO_CSV
      				lbl_notam_key.Left = 210;
      				tabPage2.Controls.Add(lbl_notam_key);
             		
-     				fromDate=fromDate.Substring(0,16);
-     				fromHour=fromDate.Substring(11,5);
-     				fromDay=fromDate.Substring(8,2);
-     				fromMonth=fromDate.Substring(5,2);
-     				if(fromMonth=="01")fromMonth="JAN";
-     				if(fromMonth=="02")fromMonth="FEB";
-     				if(fromMonth=="03")fromMonth="MAR";
-     				if(fromMonth=="04")fromMonth="APR";
-     				if(fromMonth=="05")fromMonth="MAY";
-     				if(fromMonth=="06")fromMonth="JUN";
-     				if(fromMonth=="07")fromMonth="JUL";
-     				if(fromMonth=="08")fromMonth="AUG";
-     				if(fromMonth=="09")fromMonth="SEP";
-     				if(fromMonth=="10")fromMonth="OCT";
-     				if(fromMonth=="11")fromMonth="NOV";
-     				if(fromMonth=="12")fromMonth="DEC";
-     				fromYear=fromDate.Substring(0,4);
-     				fromDateText=fromDay+fromMonth+fromYear+"("+fromHour+")";
+     				fromDate  = fromDate.Substring(0, 16);
+     				fromHour  = fromDate.Substring(11, 5);
+     				fromDay   = fromDate.Substring(8, 2);
+     				fromMonth = MonthAbbrev(fromDate.Substring(5, 2));
+     				fromYear  = fromDate.Substring(0, 4);
+     				fromDateText = fromDay + fromMonth + fromYear + "(" + fromHour + ")";
      				Label lbl_notam_from = new Label();
-            		//FontFamily courier =  new FontFamily("Courier New");
 					lbl_notam_from.Font = new Font(courier, 10, FontStyle.Regular);
 					lbl_notam_from.Tag ="dispose";
 					lbl_notam_from.Top = Top;
@@ -3083,27 +2839,14 @@ namespace ICAO_CSV
      				lbl_notam_from.Text = "From : "+ fromDateText;
      				lbl_notam_from.Left = 335;
      				tabPage2.Controls.Add(lbl_notam_from);
-     				
-     				tillDate=tillDate.Substring(0,16);
-     				tillHour=tillDate.Substring(11,5);
-     				tillDay=tillDate.Substring(8,2);
-     				tillMonth=tillDate.Substring(5,2);
-     				if(tillMonth=="01")tillMonth="JAN";
-     				if(tillMonth=="02")tillMonth="FEB";
-     				if(tillMonth=="03")tillMonth="MAR";
-     				if(tillMonth=="04")tillMonth="APR";
-     				if(tillMonth=="05")tillMonth="MAY";
-     				if(tillMonth=="06")tillMonth="JUN";
-     				if(tillMonth=="07")tillMonth="JUL";
-     				if(tillMonth=="08")tillMonth="AUG";
-     				if(tillMonth=="09")tillMonth="SEP";
-     				if(tillMonth=="10")tillMonth="OCT";
-     				if(tillMonth=="11")tillMonth="NOV";
-     				if(tillMonth=="12")tillMonth="DEC";
-     				tillYear=tillDate.Substring(0,4);
-     				tillDateText=tillDay+tillMonth+tillYear+"("+tillHour+")";
+
+     				tillDate  = tillDate.Substring(0, 16);
+     				tillHour  = tillDate.Substring(11, 5);
+     				tillDay   = tillDate.Substring(8, 2);
+     				tillMonth = MonthAbbrev(tillDate.Substring(5, 2));
+     				tillYear  = tillDate.Substring(0, 4);
+     				tillDateText = tillDay + tillMonth + tillYear + "(" + tillHour + ")";
      				Label lbl_notam_till = new Label();
-            		//FontFamily courier =  new FontFamily("Courier New");
 					lbl_notam_till.Font = new Font(courier, 10, FontStyle.Regular);
 					lbl_notam_till.Tag ="dispose";
 					lbl_notam_till.Top = Top;
@@ -3304,7 +3047,6 @@ namespace ICAO_CSV
 		{
 			string stringIDNotam =notam_ID.ToString();
 			string Imp = I;
-			//RchTxtCSV.Text=stringIDNotam +"Letter : "+ Imp;
 			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= ICAO_storedNotams.mdb";
 			conn.Open();
@@ -3324,7 +3066,6 @@ namespace ICAO_CSV
         	}
         	conn.Close();
         	
-        	//RchTxtCSV.Text=stringIDNotam+" "+Impact;
 			conn.Open();
 			var update ="";
 			if(Impact=="")
@@ -3351,7 +3092,6 @@ namespace ICAO_CSV
 		}
 		void Remark_Notam(int notam_ID, string remark)
 		{
-			//RchTxtCSV.Text= notam_ID +" : "+remark;
 			string stringIDNotam =notam_ID.ToString();
 			
 			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
@@ -3373,23 +3113,18 @@ namespace ICAO_CSV
 //		{
 //			
 //			// Downloading XML Notams from Web Service
-//    		MessageBox.Show("Downloading XML Notams from Web Service...", "Info");
 //    		GetXML();
 //
 //    		// Deleting withdrawned Notams from ICAO_storedNOTAMS.mdb
-//    		MessageBox.Show("Deleting withdrawn NOTAMs from ICAO_storedNOTAMS.mdb...", "Info");
 //    		deleteWithdrawnedNotams();
 //
 //		    // Adding New Notams to the Filtered NOTAMS table
-//		    MessageBox.Show("Adding new NOTAMs to the Filtered NOTAMS table...", "Info");
 //		    NewNotams();
 //		
 //		    // Deleting Notams from the Filtered NOTAMS table
-//		    MessageBox.Show("Deleting old NOTAMs from the Filtered NOTAMS table...", "Info");
 //		    DelOld();
 //		
 //		    // DB Updated
-//		    MessageBox.Show("Database successfully updated!", "Done");
 //
 //		}
 
@@ -3539,7 +3274,6 @@ namespace ICAO_CSV
      		int AP_ID=0;
      		string ICAO="";
      		string RWYs="";
-     		string testICAO="";
      		int Top = 0;
      					
      		Button[] update_Buttons = new Button[20000];
@@ -3555,7 +3289,6 @@ namespace ICAO_CSV
             		if(!dBreader.IsDBNull(0)) AP_ID=dBreader.GetInt32(0);
             		if(!dBreader.IsDBNull(1)) ICAO=dBreader.GetString(1);
             		if(!dBreader.IsDBNull(6)) RWYs=dBreader.GetString(6);
-            		testICAO+=ICAO+", ";
             		Label lbl_ICAO = new Label();
             		FontFamily courier =  new FontFamily("Courier New");
 					lbl_ICAO.Font = new Font(courier, 10, FontStyle.Regular);
@@ -3600,7 +3333,6 @@ namespace ICAO_CSV
             	}       		
         	}
         	conn.Close();
-        	//RchTxtCSV.Text=testICAO;
 		}
 		void Update_RWYs(int AP_ID)
 		{
