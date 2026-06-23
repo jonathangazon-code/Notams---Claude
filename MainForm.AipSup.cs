@@ -4,6 +4,8 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Data.OleDb;
 
+namespace ICAO_CSV
+{
 	[ComVisible(true)]
 	public class AviobookScriptBridge
 	{
