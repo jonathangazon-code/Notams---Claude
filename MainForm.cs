@@ -289,7 +289,7 @@ namespace ICAO_CSV
 			
 			int i=0;
 			
-			CheckBox[] ChckBx_Loaded_Aviobook = new CheckBox[32000];
+			Dictionary<int, CheckBox> ChckBx_Loaded_Aviobook = new Dictionary<int, CheckBox>();
 			
 			if (dBreader.HasRows)
         	{
@@ -514,8 +514,8 @@ namespace ICAO_CSV
      		ChckBx_APT_FedEx.Checked=false;
      		ChckBx_APT_Charters.Checked=false;
      		
-     		Button[] del_APT_Buttons = new Button[3200];
-     		Button[] edit_APT_Buttons = new Button[3200];
+     		Dictionary<int, Button> del_APT_Buttons = new Dictionary<int, Button>();
+     		Dictionary<int, Button> edit_APT_Buttons = new Dictionary<int, Button>();
      		int i=0;
      		Top=70;
      		
@@ -2101,8 +2101,8 @@ namespace ICAO_CSV
      		string RWYs="";
      		string richText="";
      					
-     		Button[] update_Buttons = new Button[20000];
-     		RichTextBox[] RchTxt_RWYs= new RichTextBox[20000];
+     		Dictionary<int, Button> update_Buttons = new Dictionary<int, Button>();
+     		Dictionary<int, RichTextBox> RchTxt_RWYs = new Dictionary<int, RichTextBox>();
 			//Label[] ICAO= new Label[20000];
      		
         	if (OCCdBreader.HasRows)
@@ -2217,18 +2217,18 @@ namespace ICAO_CSV
      		int nbNotams = 0;
      		int Top = 0;
      					
-     		Button[] keep_Buttons = new Button[20000];
-     		RichTextBox[] RchTxt_notam_text= new RichTextBox[20000];
-			CheckBox[] apt_CLSD_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_CATI_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_NILS_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_NOALTN_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_FUEL_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_MISC_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_AIPSUP_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_RWYCLSD_Chckbox= new CheckBox[20000];
-			TextBox[] remark_Txtbox= new TextBox[20000];
-			Button[] remark_Buttons = new Button[20000];
+     		Dictionary<int, Button> keep_Buttons = new Dictionary<int, Button>();
+     		Dictionary<int, RichTextBox> RchTxt_notam_text = new Dictionary<int, RichTextBox>();
+			Dictionary<int, CheckBox> apt_CLSD_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_CATI_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_NILS_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_NOALTN_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_FUEL_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_MISC_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_AIPSUP_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_RWYCLSD_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, TextBox> remark_Txtbox = new Dictionary<int, TextBox>();
+			Dictionary<int, Button> remark_Buttons = new Dictionary<int, Button>();
      		
 			Status="";
      		Impact="";
@@ -2703,8 +2703,8 @@ namespace ICAO_CSV
      		int AP_ID=0;
      		string RWYs="";
 
-     		Button[] update_Buttons = new Button[20000];
-     		RichTextBox[] RchTxt_RWYs= new RichTextBox[20000];
+     		Dictionary<int, Button> update_Buttons = new Dictionary<int, Button>();
+     		Dictionary<int, RichTextBox> RchTxt_RWYs = new Dictionary<int, RichTextBox>();
 			//Label[] ICAO= new Label[20000];
      		
         	if (OCCdBreader.HasRows)
@@ -2754,19 +2754,19 @@ namespace ICAO_CSV
      		string tillDateText="";
      		int nbNotams = 0;
      		int Top = 0;
-     		Button[] keep_Buttons = new Button[20000];
+     		Dictionary<int, Button> keep_Buttons = new Dictionary<int, Button>();
      		//Label[] lbl_notam_text= new Label[20000];
-     		RichTextBox[] RchTxt_notam_text = new RichTextBox[20000];
-			CheckBox[] apt_CLSD_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_CATI_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_NILS_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_NOALTN_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_FUEL_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_MISC_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_AIPSUP_Chckbox= new CheckBox[20000];
-			CheckBox[] apt_RWYCLSD_Chckbox= new CheckBox[20000];
-			TextBox[] remark_Txtbox= new TextBox[20000];
-			Button[] remark_Buttons = new Button[20000];
+     		Dictionary<int, RichTextBox> RchTxt_notam_text = new Dictionary<int, RichTextBox>();
+			Dictionary<int, CheckBox> apt_CLSD_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_CATI_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_NILS_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_NOALTN_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_FUEL_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_MISC_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_AIPSUP_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox> apt_RWYCLSD_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, TextBox> remark_Txtbox = new Dictionary<int, TextBox>();
+			Dictionary<int, Button> remark_Buttons = new Dictionary<int, Button>();
      		string Status="";
      		string Impact="";
      		string Remark="";
@@ -3249,8 +3249,8 @@ namespace ICAO_CSV
      		string RWYs="";
      		int Top = 0;
      					
-     		Button[] update_Buttons = new Button[20000];
-     		RichTextBox[] RchTxt_RWYs= new RichTextBox[20000];
+     		Dictionary<int, Button> update_Buttons = new Dictionary<int, Button>();
+     		Dictionary<int, RichTextBox> RchTxt_RWYs = new Dictionary<int, RichTextBox>();
 			//Label[] ICAO= new Label[20000];
      		
      		
