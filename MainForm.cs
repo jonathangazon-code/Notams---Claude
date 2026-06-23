@@ -98,9 +98,11 @@ namespace ICAO_CSV
 		void Btn_analyzeNotamsClick(object sender, EventArgs e)   { Filter_Notams(); }
 		void Btn_delWithdrawnedClick(object sender, EventArgs e)  { deleteWithdrawnedNotams(); }
 		void Btn_reportClick(object sender, EventArgs e)          { Report(); }
-		void Btn_printReportClick(object sender, EventArgs e)     { Web_report.Print(); }
-		void Btn_AIP_Sup_reportClick(object sender, EventArgs e)  { Sup_Report(); }
-		void Btn_Sup_printReportClick(object sender, EventArgs e) { Web_Sup_report.Print(); }
+		void Btn_printReportClick(object sender, EventArgs e)        { Web_report.Print(); }
+		void Btn_exportReportClick(object sender, EventArgs e)       { ExportToPdf(Web_report, "NOTAMS_report"); }
+		void Btn_AIP_Sup_reportClick(object sender, EventArgs e)     { Sup_Report(); }
+		void Btn_Sup_printReportClick(object sender, EventArgs e)    { Web_Sup_report.Print(); }
+		void Btn_Sup_exportReportClick(object sender, EventArgs e)   { ExportToPdf(Web_Sup_report, "AIP_SUP_report"); }
 		void Btn_restartAppClick(object sender, EventArgs e)      { Application.Restart(); }
 		void Btn_XMLClick(object sender, EventArgs e)             { GetXML(); }
 		void Btn_reloadClick(object sender, EventArgs e)          { Reload_text(); }
