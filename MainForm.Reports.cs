@@ -54,7 +54,7 @@ namespace ICAO_CSV
 				bool   isNext24 = (fromInt <= tomorrowInt);
 
 				string lhColor  = "RoyalBlue";
-				string shColor  = "RebeccaPurple";
+				string shColor  = "#663399";
 				string chColor  = "SeaGreen";
 
 				if (IsOpsType("LH", ICAO) == "Yes")
@@ -91,7 +91,7 @@ namespace ICAO_CSV
 				"<h1>Notam Report - " + window + "</h1><p>" + reportDate + "</p>" +
 				"<table border=\"1\" style=\"width:700px;text-align:left;font-family:Calibri;font-size:12px;border:1px solid black;border-collapse:collapse;\">" +
 				Section("RoyalBlue",    "Long Haul",  t_APClsdLH,t_RWYClsdLH,t_CatILH,t_NilsLH,t_NoAltnLH,t_FuelLH,t_MiscLH, APClsdLH,RWYClsdLH,CatILH,NilsLH,NoAltnLH,FuelLH,MiscLH) +
-				Section("RebeccaPurple","Short Haul",  t_APClsdSH,t_RWYClsdSH,t_CatISH,t_NilsSH,t_NoAltnSH,t_FuelSH,t_MiscSH, APClsdSH,RWYClsdSH,CatISH,NilsSH,NoAltnSH,FuelSH,MiscSH) +
+				Section("#663399","Short Haul",  t_APClsdSH,t_RWYClsdSH,t_CatISH,t_NilsSH,t_NoAltnSH,t_FuelSH,t_MiscSH, APClsdSH,RWYClsdSH,CatISH,NilsSH,NoAltnSH,FuelSH,MiscSH) +
 				Section("SeaGreen",     "Charters",    t_APClsdC, t_RWYClsdC, t_CatIC, t_NilsC, t_NoAltnC, t_FuelC, t_MiscC,  APClsdC, RWYClsdC, CatIC, NilsC, NoAltnC, FuelC, MiscC) +
 				"</table></body></html>";
 
