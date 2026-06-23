@@ -58,8 +58,6 @@ namespace ICAO_CSV
 		private System.Windows.Forms.TextBox TxtBox_APT_ICAO;
 		private System.Windows.Forms.Button Btn_printReport;
 		private System.Windows.Forms.Button Btn_exportReport;
-		private System.Windows.Forms.TabPage AIP_Sup;
-		private System.Windows.Forms.RichTextBox RchTxtBox_Test;
 		private System.Windows.Forms.TabPage AIP_SUP_report;
 		private System.Windows.Forms.Button Btn_Sup_printReport;
 		private System.Windows.Forms.Button Btn_Sup_exportReport;
@@ -142,8 +140,6 @@ namespace ICAO_CSV
 			this.ChckBx_APT_LH = new System.Windows.Forms.CheckBox();
 			this.TxtBox_APT_IATA = new System.Windows.Forms.TextBox();
 			this.TxtBox_APT_ICAO = new System.Windows.Forms.TextBox();
-			this.AIP_Sup = new System.Windows.Forms.TabPage();
-			this.RchTxtBox_Test = new System.Windows.Forms.RichTextBox();
 			this.AIP_SUP_report = new System.Windows.Forms.TabPage();
 			this.Btn_Sup_printReport = new System.Windows.Forms.Button();
 			this.Btn_Sup_exportReport = new System.Windows.Forms.Button();
@@ -160,7 +156,6 @@ namespace ICAO_CSV
 			this.tabPage4.SuspendLayout();
 			this.tabPage5.SuspendLayout();
 			this.APT_List.SuspendLayout();
-			this.AIP_Sup.SuspendLayout();
 			this.AIP_SUP_report.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -273,7 +268,6 @@ namespace ICAO_CSV
 			this.tabControl1.Controls.Add(this.tabPage4);
 			this.tabControl1.Controls.Add(this.tabPage5);
 			this.tabControl1.Controls.Add(this.APT_List);
-			this.tabControl1.Controls.Add(this.AIP_Sup);
 			this.tabControl1.Controls.Add(this.AIP_SUP_report);
 			this.tabControl1.Location = new System.Drawing.Point(12, 10);
 			this.tabControl1.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
@@ -698,27 +692,7 @@ namespace ICAO_CSV
 			this.TxtBox_APT_ICAO.Name = "TxtBox_APT_ICAO";
 			this.TxtBox_APT_ICAO.Size = new System.Drawing.Size(65, 22);
 			this.TxtBox_APT_ICAO.TabIndex = 7;
-			// 
-			// AIP_Sup
-			// 
-			this.AIP_Sup.Controls.Add(this.RchTxtBox_Test);
-			this.AIP_Sup.Location = new System.Drawing.Point(4, 25);
-			this.AIP_Sup.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
-			this.AIP_Sup.Name = "AIP_Sup";
-			this.AIP_Sup.Size = new System.Drawing.Size(1877, 1239);
-			this.AIP_Sup.TabIndex = 6;
-			this.AIP_Sup.Text = "AIP SUP";
-			this.AIP_Sup.UseVisualStyleBackColor = true;
-			// 
-			// RchTxtBox_Test
-			// 
-			this.RchTxtBox_Test.Location = new System.Drawing.Point(1580, 167);
-			this.RchTxtBox_Test.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
-			this.RchTxtBox_Test.Name = "RchTxtBox_Test";
-			this.RchTxtBox_Test.Size = new System.Drawing.Size(132, 242);
-			this.RchTxtBox_Test.TabIndex = 0;
-			this.RchTxtBox_Test.Text = "";
-			// 
+			//
 			// AIP_SUP_report
 			// 
 			this.AIP_SUP_report.Controls.Add(this.Btn_Sup_printReport);
@@ -846,7 +820,6 @@ namespace ICAO_CSV
 			this.tabPage5.ResumeLayout(false);
 			this.APT_List.ResumeLayout(false);
 			this.APT_List.PerformLayout();
-			this.AIP_Sup.ResumeLayout(false);
 			this.AIP_SUP_report.ResumeLayout(false);
 			this.ResumeLayout(false);
 
