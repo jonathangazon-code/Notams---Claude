@@ -199,8 +199,9 @@ namespace ICAO_CSV
 			conn2.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= ICAO_storedNotams.mdb";
 			conn2.Open();
 			
-			var query2 = "SELECT * FROM filteredNotams_table WHERE ID="+i+" ";
+			var query2 = "SELECT * FROM filteredNotams_table WHERE ID=?";
      		OleDbCommand command4 = new OleDbCommand(query2, conn2);
+     		command4.Parameters.AddWithValue("?", i);
      		OleDbDataReader dBreader = command4.ExecuteReader();
      		
 			
@@ -220,9 +221,11 @@ namespace ICAO_CSV
 			conn2.Open();
 		
 			
-			var update = "UPDATE filteredNotams_table SET Loaded_Aviobook='"+newStatus+"'WHERE ID="+i+"";
+			var update = "UPDATE filteredNotams_table SET Loaded_Aviobook=? WHERE ID=?";
      		OleDbCommand commandUpdate = new OleDbCommand(update, conn2);
-     		OleDbDataReader dBUpdate = commandUpdate.ExecuteReader();
+     		commandUpdate.Parameters.AddWithValue("?", newStatus);
+     		commandUpdate.Parameters.AddWithValue("?", i);
+     		commandUpdate.ExecuteNonQuery();
 			
 			conn2.Close();
 			
@@ -618,11 +621,12 @@ namespace ICAO_CSV
 			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= OCC.mdb";
 			conn.Open();
-			string insertlog = "DELETE From Stations_ICAO_IATA WHERE ID="+i+"";
+			string insertlog = "DELETE From Stations_ICAO_IATA WHERE ID=?";
 
 			OleDbCommand commandeinsert = new OleDbCommand(insertlog, conn);
+			commandeinsert.Parameters.AddWithValue("?", i);
 			// Execution
-							
+
 			commandeinsert.ExecuteNonQuery();
 				
 			conn.Close();
@@ -653,8 +657,9 @@ namespace ICAO_CSV
 			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= OCC.mdb";
 			conn.Open();
-			var query2 = "Select * From Stations_ICAO_IATA WHERE ID="+i+"";
+			var query2 = "Select * From Stations_ICAO_IATA WHERE ID=?";
      		OleDbCommand command4 = new OleDbCommand(query2, conn);
+     		command4.Parameters.AddWithValue("?", i);
      		OleDbDataReader reader2 = command4.ExecuteReader();
      		
 			while (reader2.Read())
@@ -1331,8 +1336,8 @@ namespace ICAO_CSV
 			"MiscCharters='"+MiscCharters+"'"+	
            	"WHERE ID=1";
      		OleDbCommand commandUpdate = new OleDbCommand(update, conn2);
-     		OleDbDataReader dBUpdate = commandUpdate.ExecuteReader();
-			
+     		commandUpdate.ExecuteNonQuery();
+
 			conn2.Close();
      		
 			Web_report.DocumentText = report;
@@ -1358,10 +1363,11 @@ namespace ICAO_CSV
 		{
 			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= OCC.mdb";
-				
+
 			conn.Open();
-			var query2 = "SELECT * FROM Stations_ICAO_IATA WHERE ICAO='"+location+"'";
+			var query2 = "SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?";
      		OleDbCommand command4 = new OleDbCommand(query2, conn);
+     		command4.Parameters.AddWithValue("?", location);
      		OleDbDataReader dBreader = command4.ExecuteReader();
      		
      		string IsOps="";
@@ -1393,10 +1399,11 @@ namespace ICAO_CSV
 		{
 			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= OCC.mdb";
-				
+
 			conn.Open();
-			var query2 = "SELECT * FROM Stations_ICAO_IATA WHERE ICAO='"+location+"'";
+			var query2 = "SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?";
      		OleDbCommand command4 = new OleDbCommand(query2, conn);
+     		command4.Parameters.AddWithValue("?", location);
      		OleDbDataReader dBreader = command4.ExecuteReader();
      		
      		string IATA="";
@@ -1719,13 +1726,20 @@ namespace ICAO_CSV
         				all=all.Replace("\'","(char)39");
                 		all=all.Replace("\"","(char)34");
         				
-        				var insertlog = "INSERT INTO storedNotams_table ([Notam_id], [startdate], [enddate], [all], [location], [Created], [key])" 
-					    +"VALUES ('"+key+"','"+startDate+"','"+endDate+"','"+all+"','"+location+"','"+creationDate+" // "+revisionDate+"','"+key+"')";
+        				var insertlog = "INSERT INTO storedNotams_table ([Notam_id], [startdate], [enddate], [all], [location], [Created], [key])"
+					    +" VALUES (?,?,?,?,?,?,?)";
 			     	
 //						try
 //						{
 							//connNotams.Open();
 							OleDbCommand commandeinsert = new OleDbCommand(insertlog, connNotams);
+							commandeinsert.Parameters.AddWithValue("?", key);
+							commandeinsert.Parameters.AddWithValue("?", startDate);
+							commandeinsert.Parameters.AddWithValue("?", endDate);
+							commandeinsert.Parameters.AddWithValue("?", all);
+							commandeinsert.Parameters.AddWithValue("?", location);
+							commandeinsert.Parameters.AddWithValue("?", creationDate+" // "+revisionDate);
+							commandeinsert.Parameters.AddWithValue("?", key);
 							// Execution
 							commandeinsert.ExecuteNonQuery();
 							//connNotams.Close();
@@ -1982,13 +1996,33 @@ namespace ICAO_CSV
                 		
                 	}
                 	
-                	 var insertlog = "INSERT INTO storedNotams_table ([StateName], [StateCode], [Notam_id], [entity], [status], [Qcode], [Area], [SubArea], [Condition], [Subject], [Modifier], [message], [startdate], [enddate], [all], [location], [isICAO], [Created], [key], [type])" 
-					+"VALUES ('"+stringStateName+"','"+stringStateCode+"','"+stringid+"','"+stringentity+"','"+stringstatus+"','"+stringQcode+"','"+stringArea+"','"+stringSubArea+"','"+stringCondition+"','"+stringSubject+"','"+stringModifier+"','"+stringmessage+"','"+stringstartdate+"','"+stringenddate+"','"+stringall+"','"+stringlocation+"','"+stringisICAO+"','"+stringCreated+"','"+stringkey+"','"+stringtype+"')";
-			     	
+                	var insertlog = "INSERT INTO storedNotams_table ([StateName], [StateCode], [Notam_id], [entity], [status], [Qcode], [Area], [SubArea], [Condition], [Subject], [Modifier], [message], [startdate], [enddate], [all], [location], [isICAO], [Created], [key], [type])"
+					+" VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+
 //					try
 //					{
 						connNotams.Open();
 						OleDbCommand commandeinsert = new OleDbCommand(insertlog, connNotams);
+						commandeinsert.Parameters.AddWithValue("?", stringStateName);
+						commandeinsert.Parameters.AddWithValue("?", stringStateCode);
+						commandeinsert.Parameters.AddWithValue("?", stringid);
+						commandeinsert.Parameters.AddWithValue("?", stringentity);
+						commandeinsert.Parameters.AddWithValue("?", stringstatus);
+						commandeinsert.Parameters.AddWithValue("?", stringQcode);
+						commandeinsert.Parameters.AddWithValue("?", stringArea);
+						commandeinsert.Parameters.AddWithValue("?", stringSubArea);
+						commandeinsert.Parameters.AddWithValue("?", stringCondition);
+						commandeinsert.Parameters.AddWithValue("?", stringSubject);
+						commandeinsert.Parameters.AddWithValue("?", stringModifier);
+						commandeinsert.Parameters.AddWithValue("?", stringmessage);
+						commandeinsert.Parameters.AddWithValue("?", stringstartdate);
+						commandeinsert.Parameters.AddWithValue("?", stringenddate);
+						commandeinsert.Parameters.AddWithValue("?", stringall);
+						commandeinsert.Parameters.AddWithValue("?", stringlocation);
+						commandeinsert.Parameters.AddWithValue("?", stringisICAO);
+						commandeinsert.Parameters.AddWithValue("?", stringCreated);
+						commandeinsert.Parameters.AddWithValue("?", stringkey);
+						commandeinsert.Parameters.AddWithValue("?", stringtype);
 						// Execution
 						commandeinsert.ExecuteNonQuery();
 						connNotams.Close();
@@ -2035,8 +2069,9 @@ namespace ICAO_CSV
         	{
         		if(notamFiltered[j]!=null)
         		{  		
-        			var queryCheckIfWithdrawned = "SELECT COUNT(*) FROM storedNotams_table WHERE key='"+notamFiltered[j]+"'";
+        			var queryCheckIfWithdrawned = "SELECT COUNT(*) FROM storedNotams_table WHERE key=?";
         			OleDbCommand commandCheckIfWithdrawned = new OleDbCommand(queryCheckIfWithdrawned, connNotams);
+        			commandCheckIfWithdrawned.Parameters.AddWithValue("?", notamFiltered[j]);
      				Int32 count = (Int32) commandCheckIfWithdrawned.ExecuteScalar();
      			
      				if(count==0)notamWithdrawnedNOTAM[j]+=notamFiltered[j];
@@ -2051,9 +2086,10 @@ namespace ICAO_CSV
         	{
 				if(notamWithdrawnedNOTAM[k]!=null)
         		{
-		        	var deletelog = "DELETE FROM filteredNotams_table WHERE key='"+notamWithdrawnedNOTAM[k]+"'";
-							
+		        	var deletelog = "DELETE FROM filteredNotams_table WHERE key=?";
+
 					OleDbCommand commandedelete = new OleDbCommand(deletelog, connNotams);
+					commandedelete.Parameters.AddWithValue("?", notamWithdrawnedNOTAM[k]);
 					commandedelete.ExecuteNonQuery();
 					
 					notamDelMonitor+=notamWithdrawnedNOTAM[k]+"\n";
@@ -2098,8 +2134,9 @@ namespace ICAO_CSV
         	{
         		if(notamFiltered[j]!=null)
         		{  		
-        			var queryCheckIfNew = "SELECT COUNT(*) FROM filteredNotams_table WHERE key='"+notamFiltered[j]+"'";
+        			var queryCheckIfNew = "SELECT COUNT(*) FROM filteredNotams_table WHERE key=?";
         			OleDbCommand commandCheckIfNew = new OleDbCommand(queryCheckIfNew, connNotams);
+        			commandCheckIfNew.Parameters.AddWithValue("?", notamFiltered[j]);
      				Int32 count = (Int32) commandCheckIfNew.ExecuteScalar();
      			
      				if(count==0)notamNewNOTAM[j]+=notamFiltered[j];
@@ -2122,8 +2159,9 @@ namespace ICAO_CSV
 					string key=notamNewNOTAM[k];
 					string Checked="N";
 					connNotams.Open();
-					var queryNewNotam = "SELECT * FROM storedNotams_table WHERE key='"+notamNewNOTAM[k]+"'";
+					var queryNewNotam = "SELECT * FROM storedNotams_table WHERE key=?";
 					OleDbCommand commandNewNotam = new OleDbCommand(queryNewNotam, connNotams);
+					commandNewNotam.Parameters.AddWithValue("?", notamNewNOTAM[k]);
      				OleDbDataReader NewNotamReader = commandNewNotam.ExecuteReader();					
 					if (NewNotamReader.HasRows)
         			{
@@ -2144,11 +2182,22 @@ namespace ICAO_CSV
 					connNotams.Close();
 					//On encode le snouveaux notals ds FILTERED NOTAMS
 					
-					 var insertNewNotam = "INSERT INTO filteredNotams_table ([StateName], [Subject], [Modifier], [message], [startdate], [enddate], [all], [location], [Created], [key], [Checked])" 
-					+"VALUES ('"+StateName+"','"+Subject+"','"+Modifier+"','"+message+"','"+startdate+"','"+enddate+"','"+all+"','"+location+"','"+Created+"','"+key+"','"+Checked+"')";
+					var insertNewNotam = "INSERT INTO filteredNotams_table ([StateName], [Subject], [Modifier], [message], [startdate], [enddate], [all], [location], [Created], [key], [Checked])"
+					+" VALUES (?,?,?,?,?,?,?,?,?,?,?)";
 
 					connNotams.Open();
 					OleDbCommand commandeinsertNewNotam = new OleDbCommand(insertNewNotam, connNotams);
+					commandeinsertNewNotam.Parameters.AddWithValue("?", StateName);
+					commandeinsertNewNotam.Parameters.AddWithValue("?", Subject);
+					commandeinsertNewNotam.Parameters.AddWithValue("?", Modifier);
+					commandeinsertNewNotam.Parameters.AddWithValue("?", message);
+					commandeinsertNewNotam.Parameters.AddWithValue("?", startdate);
+					commandeinsertNewNotam.Parameters.AddWithValue("?", enddate);
+					commandeinsertNewNotam.Parameters.AddWithValue("?", all);
+					commandeinsertNewNotam.Parameters.AddWithValue("?", location);
+					commandeinsertNewNotam.Parameters.AddWithValue("?", created);
+					commandeinsertNewNotam.Parameters.AddWithValue("?", key);
+					commandeinsertNewNotam.Parameters.AddWithValue("?", Checked);
 					commandeinsertNewNotam.ExecuteNonQuery();
 					connNotams.Close();
 					
@@ -2262,8 +2311,9 @@ namespace ICAO_CSV
 			connOCC.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= OCC.mdb";
 						
 			connOCC.Open();
-			var queryOCC = "SELECT * FROM Stations_ICAO_IATA WHERE ICAO='"+AP+"'";
+			var queryOCC = "SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?";
      		OleDbCommand commandOCC = new OleDbCommand(queryOCC, connOCC);
+     		commandOCC.Parameters.AddWithValue("?", AP);
      		OleDbDataReader OCCdBreader = commandOCC.ExecuteReader();
      		int AP_ID=0;
      		string RWYs="";
@@ -2319,8 +2369,9 @@ namespace ICAO_CSV
      		string Remark="";
      		
         	conn.Open();
-			var query1 = "SELECT * FROM filteredNotams_table WHERE (Status='K') AND (location='"+AP+"')";
+			var query1 = "SELECT * FROM filteredNotams_table WHERE (Status='K') AND (location=?)";
      		OleDbCommand command3 = new OleDbCommand(query1, conn);
+     		command3.Parameters.AddWithValue("?", AP);
      		OleDbDataReader dBKeptreader = command3.ExecuteReader();
         	
      		if (dBKeptreader.HasRows)
@@ -2385,8 +2436,9 @@ namespace ICAO_CSV
      		
         	//DIPLAY THE NEW FILTERED NOTAMS
 			conn.Open();
-			var query2 = "SELECT * FROM filteredNotams_table WHERE (Checked='N') AND (location='"+AP+"')";
+			var query2 = "SELECT * FROM filteredNotams_table WHERE (Checked='N') AND (location=?)";
      		OleDbCommand command4 = new OleDbCommand(query2, conn);
+     		command4.Parameters.AddWithValue("?", AP);
      		OleDbDataReader dBreader = command4.ExecuteReader();
      		notam_ID=0;
      		notam_key="";
@@ -2712,9 +2764,10 @@ namespace ICAO_CSV
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= ICAO_storedNotams.mdb";
 				
 			conn.Open();
-			var update = "UPDATE filteredNotams_table SET Status='K' WHERE ID="+notam_ID+"";
+			var update = "UPDATE filteredNotams_table SET Status='K' WHERE ID=?";
      		OleDbCommand command4 = new OleDbCommand(update, conn);
-     		OleDbDataReader dBreader = command4.ExecuteReader();
+     		command4.Parameters.AddWithValue("?", notam_ID);
+     		command4.ExecuteNonQuery();
      		conn.Close();
      		Filter_Notams();
      		ICAO_Notams();
@@ -2727,9 +2780,10 @@ namespace ICAO_CSV
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= ICAO_storedNotams.mdb";
 				
 			conn.Open();
-			var update = "UPDATE filteredNotams_table SET Status='' WHERE ID="+notam_ID+"";
+			var update = "UPDATE filteredNotams_table SET Status='' WHERE ID=?";
      		OleDbCommand command4 = new OleDbCommand(update, conn);
-     		OleDbDataReader dBreader = command4.ExecuteReader();
+     		command4.Parameters.AddWithValue("?", notam_ID);
+     		command4.ExecuteNonQuery();
      		conn.Close();
      		Filter_Notams();
      		ICAO_Notams();
@@ -2794,9 +2848,10 @@ namespace ICAO_CSV
         	{
         		if(notamKeyList[i]!="")
         		{
-        			var deletelog = "DELETE FROM filteredNotams_table WHERE key='"+notamKeyList[i]+"'";
-					
+        			var deletelog = "DELETE FROM filteredNotams_table WHERE key=?";
+
 					OleDbCommand commandedelete = new OleDbCommand(deletelog, conn);
+					commandedelete.Parameters.AddWithValue("?", notamKeyList[i]);
 					commandedelete.ExecuteNonQuery();
 					deletedNotams+=notamKeyList[i];
         		}
@@ -2820,9 +2875,10 @@ namespace ICAO_CSV
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= ICAO_storedNotams.mdb";
 				
 			conn.Open();
-			var update = "UPDATE filteredNotams_table SET Checked='Y' WHERE (location='"+AP+"') AND (Checked='N')";
+			var update = "UPDATE filteredNotams_table SET Checked='Y' WHERE (location=?) AND (Checked='N')";
      		OleDbCommand command4 = new OleDbCommand(update, conn);
-     		OleDbDataReader dBreader = command4.ExecuteReader();
+     		command4.Parameters.AddWithValue("?", AP);
+     		command4.ExecuteNonQuery();
      		conn.Close();
      		Filter_Notams();
 		}
@@ -2910,12 +2966,13 @@ namespace ICAO_CSV
 			connOCC.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= OCC.mdb";
 						
 			connOCC.Open();
-			var queryOCC = "SELECT * FROM Stations_ICAO_IATA WHERE ICAO='"+AP+"'";
+			var queryOCC = "SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?";
      		OleDbCommand commandOCC = new OleDbCommand(queryOCC, connOCC);
+     		commandOCC.Parameters.AddWithValue("?", AP);
      		OleDbDataReader OCCdBreader = commandOCC.ExecuteReader();
      		int AP_ID=0;
      		string RWYs="";
-     					
+
      		Button[] update_Buttons = new Button[20000];
      		RichTextBox[] RchTxt_RWYs= new RichTextBox[20000];
 			//Label[] ICAO= new Label[20000];
@@ -2938,15 +2995,16 @@ namespace ICAO_CSV
         	connOCC.Close();
 			//Ignore box Ticked or not
 			conn.Open();
-			if(ChckBox_SeeIgnored.Checked) 
+			if(ChckBox_SeeIgnored.Checked)
 			{
-				query2 = "SELECT * FROM filteredNotams_table WHERE location='"+AP+"'";
+				query2 = "SELECT * FROM filteredNotams_table WHERE location=?";
 			}
-     		else 
+     		else
      		{
-     			query2 = "SELECT * FROM filteredNotams_table WHERE (Status='K') AND (location='"+AP+"')";
+     			query2 = "SELECT * FROM filteredNotams_table WHERE (Status='K') AND (location=?)";
      		}
 			OleDbCommand command4 = new OleDbCommand(query2, conn);
+			command4.Parameters.AddWithValue("?", AP);
      		OleDbDataReader dBreader = command4.ExecuteReader();
      		int notam_ID=0;
      		string notam_key="";
@@ -3263,9 +3321,10 @@ namespace ICAO_CSV
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= ICAO_storedNotams.mdb";
 			conn.Open();
 			string Impact="";
-			var query2= "SELECT * FROM filteredNotams_table WHERE ID="+notam_ID+"";
-			
+			var query2= "SELECT * FROM filteredNotams_table WHERE ID=?";
+
 			OleDbCommand command4 = new OleDbCommand(query2, conn);
+			command4.Parameters.AddWithValue("?", notam_ID);
      		OleDbDataReader dBreader = command4.ExecuteReader();
      		
         	if (dBreader.HasRows)
@@ -3281,15 +3340,14 @@ namespace ICAO_CSV
 			conn.Open();
 			var update ="";
 			if(Impact=="")
-			{
-				update = "UPDATE filteredNotams_table SET Impact='"+I+"' WHERE ID="+notam_ID+"";
-			}
-			if(Impact!="")
-			{
-				update = "UPDATE filteredNotams_table SET Impact='' WHERE ID="+notam_ID+"";
-			}
+				update = "UPDATE filteredNotams_table SET Impact=? WHERE ID=?";
+			else
+				update = "UPDATE filteredNotams_table SET Impact='' WHERE ID=?";
+
      		OleDbCommand command = new OleDbCommand(update, conn);
-     		OleDbDataReader dBupdate = command.ExecuteReader();
+     		if(Impact=="") command.Parameters.AddWithValue("?", I);
+     		command.Parameters.AddWithValue("?", notam_ID);
+     		command.ExecuteNonQuery();
      		conn.Close();
      		ICAO_Notams();
      		Filter_Notams();
@@ -3312,10 +3370,12 @@ namespace ICAO_CSV
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= ICAO_storedNotams.mdb";
 			conn.Open();
 			
-			var update = "UPDATE filteredNotams_table SET Remark='"+remark+"' WHERE ID="+notam_ID+"";
-		
+			var update = "UPDATE filteredNotams_table SET Remark=? WHERE ID=?";
+
      		OleDbCommand command = new OleDbCommand(update, conn);
-     		OleDbDataReader dBupdate = command.ExecuteReader();
+     		command.Parameters.AddWithValue("?", remark);
+     		command.Parameters.AddWithValue("?", notam_ID);
+     		command.ExecuteNonQuery();
      		conn.Close();
      		ICAO_Notams();
 			
@@ -3564,8 +3624,9 @@ namespace ICAO_CSV
 			
 
 			conn.Open();
-			var query2 = "SELECT * FROM Stations_ICAO_IATA WHERE ID="+AP_ID+"";
+			var query2 = "SELECT * FROM Stations_ICAO_IATA WHERE ID=?";
      		OleDbCommand command4 = new OleDbCommand(query2, conn);
+     		command4.Parameters.AddWithValue("?", AP_ID);
      		OleDbDataReader dBreader = command4.ExecuteReader();
 
         	if (dBreader.HasRows)
@@ -3590,10 +3651,12 @@ namespace ICAO_CSV
 			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
 			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= OCC.mdb";
 			
-			var updatelog = "UPDATE Stations_ICAO_IATA SET RWYs='"+RWYs+"' WHERE ICAO='"+ICAO+"'";
+			var updatelog = "UPDATE Stations_ICAO_IATA SET RWYs=? WHERE ICAO=?";
 
 			conn.Open();
 			OleDbCommand commandeinsert = new OleDbCommand(updatelog, conn);
+			commandeinsert.Parameters.AddWithValue("?", RWYs);
+			commandeinsert.Parameters.AddWithValue("?", ICAO);
 			// Execution
 			commandeinsert.ExecuteNonQuery();
 			conn.Close();
@@ -3635,24 +3698,30 @@ namespace ICAO_CSV
 				Btn_addAPT.Text="Add Airport !";
 				string editID=Btn_addAPT.Tag.ToString();
 				int intID=int.Parse(editID);
-				var updatelog = "UPDATE Stations_ICAO_IATA SET ICAO='"+stringICAO+"',IATA='"+stringIATA+"'," +
-					"LH='"+stringLongHaul+"',FedEx='"+stringFedEx+"',Charters='"+stringCharters+"' WHERE ID="+intID+"";
-				
+				var updatelog = "UPDATE Stations_ICAO_IATA SET ICAO=?,IATA=?,LH=?,FedEx=?,Charters=? WHERE ID=?";
+
 				OleDbCommand commandeinsert = new OleDbCommand(updatelog, conn);
+				commandeinsert.Parameters.AddWithValue("?", stringICAO);
+				commandeinsert.Parameters.AddWithValue("?", stringIATA);
+				commandeinsert.Parameters.AddWithValue("?", stringLongHaul);
+				commandeinsert.Parameters.AddWithValue("?", stringFedEx);
+				commandeinsert.Parameters.AddWithValue("?", stringCharters);
+				commandeinsert.Parameters.AddWithValue("?", intID);
 				// Execution
 				commandeinsert.ExecuteNonQuery();
 				Airport_List();
 			}
 			else
 			{
-				var insertlog = "INSERT INTO Stations_ICAO_IATA ([ICAO], [IATA], [LH], [FedEx], [Charters]) VALUES" +
-"					('"+stringICAO+"','"+stringIATA+"','"+stringLongHaul+"','"+stringFedEx+"','"+stringCharters+"')";
+				var insertlog = "INSERT INTO Stations_ICAO_IATA ([ICAO], [IATA], [LH], [FedEx], [Charters]) VALUES (?,?,?,?,?)";
 
-				//var insertlog = "INSERT INTO morningTable(db_dlaFx) Values ('"+dlaFx+"')";
 				OleDbCommand commandeinsert = new OleDbCommand(insertlog, conn);
+				commandeinsert.Parameters.AddWithValue("?", stringICAO);
+				commandeinsert.Parameters.AddWithValue("?", stringIATA);
+				commandeinsert.Parameters.AddWithValue("?", stringLongHaul);
+				commandeinsert.Parameters.AddWithValue("?", stringFedEx);
+				commandeinsert.Parameters.AddWithValue("?", stringCharters);
 				// Execution
-				
-				
 				commandeinsert.ExecuteNonQuery();
 				Airport_List();
 			}
