@@ -31,8 +31,9 @@ namespace ICAO_CSV
 			// The InitializeComponent() call is required for Windows Forms designer support.
 			//
 			InitializeComponent();
-			
+
 			StartApp();
+			LoadStationsCache();
 			//Report();
 			tab_RWYs();
 			Airport_List();
@@ -628,8 +629,9 @@ namespace ICAO_CSV
 			// Execution
 
 			commandeinsert.ExecuteNonQuery();
-				
+
 			conn.Close();
+			LoadStationsCache();
 
 				//}
 //				catch(Exception Ex)
@@ -1359,62 +1361,48 @@ namespace ICAO_CSV
 
 			
 		}
+		// Cache en mémoire : ICAO → [IATA, LH, FedEx, Charters]
+		// Chargé une seule fois au démarrage, rafraîchi après toute modification des stations.
+		private static Dictionary<string, string[]> _stationsCache = null;
+
+		public static void LoadStationsCache()
+		{
+			_stationsCache = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
+			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= OCC.mdb";
+			conn.Open();
+			OleDbCommand cmd = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA", conn);
+			OleDbDataReader reader = cmd.ExecuteReader();
+			while (reader.Read())
+			{
+				string icao = !reader.IsDBNull(1) ? reader.GetString(1) : "";
+				if (icao == "") continue;
+				string iata     = !reader.IsDBNull(2) ? reader.GetString(2) : "";
+				string lh       = !reader.IsDBNull(3) ? reader.GetString(3) : "";
+				string fedex    = !reader.IsDBNull(4) ? reader.GetString(4) : "";
+				string charters = !reader.IsDBNull(5) ? reader.GetString(5) : "";
+				_stationsCache[icao] = new string[] { iata, lh, fedex, charters };
+			}
+			conn.Close();
+		}
+
 		public static string IsOpsType(string OpsType, string location)
 		{
-			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
-			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= OCC.mdb";
-
-			conn.Open();
-			var query2 = "SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?";
-     		OleDbCommand command4 = new OleDbCommand(query2, conn);
-     		command4.Parameters.AddWithValue("?", location);
-     		OleDbDataReader dBreader = command4.ExecuteReader();
-     		
-     		string IsOps="";
-     		
-     		if (dBreader.HasRows)
-        	{
-            	while (dBreader.Read())
-            	{
-            		if(OpsType=="LH")
-            		{
-            			if(!dBreader.IsDBNull(3)) IsOps = dBreader.GetString(3);
-            		}
-            		if(OpsType=="FedEx")
-            		{
-            			if(!dBreader.IsDBNull(4)) IsOps = dBreader.GetString(4);
-            		}
-            		if(OpsType=="Charters")
-            		{
-            			if(!dBreader.IsDBNull(5)) IsOps = dBreader.GetString(5);
-            		}
-            	}
-            }
-     		conn.Close();
-//     		if(IsOps=="Yes")return true;
-//     		else return false;
-			return IsOps;
+			if (_stationsCache == null) LoadStationsCache();
+			string[] row;
+			if (!_stationsCache.TryGetValue(location, out row)) return "";
+			if (OpsType == "LH")       return row[1];
+			if (OpsType == "FedEx")    return row[2];
+			if (OpsType == "Charters") return row[3];
+			return "";
 		}
+
 		public static string GetIATA(string location)
 		{
-			System.Data.OleDb.OleDbConnection conn = new System.Data.OleDb.OleDbConnection();
-			conn.ConnectionString = @"Provider=Microsoft.JET.OLEDB.4.0;" + @"Data source= OCC.mdb";
-
-			conn.Open();
-			var query2 = "SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?";
-     		OleDbCommand command4 = new OleDbCommand(query2, conn);
-     		command4.Parameters.AddWithValue("?", location);
-     		OleDbDataReader dBreader = command4.ExecuteReader();
-     		
-     		string IATA="";
-     		if (dBreader.HasRows)
-        	{
-            	while (dBreader.Read())
-            	{
-            		if(!dBreader.IsDBNull(2)) IATA = dBreader.GetString(2);
-            	}
-     		}
-     		conn.Close();
+			if (_stationsCache == null) LoadStationsCache();
+			string[] row;
+			if (!_stationsCache.TryGetValue(location, out row)) return "";
+			string IATA = row[0];
      		return IATA;
 		}
 //		public void StartApp()
@@ -3727,13 +3715,14 @@ namespace ICAO_CSV
 			}
 				
 				conn.Close();
+				LoadStationsCache();
 				//}
 				//catch(Exception Ex)
 				//{
 					//MessageBox.Show("Could not update the database. Your record has not been saved. If error persist, contact the administrator.", "Access database issue", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				//}
-			
-			
+
+
 				Airport_List();
 		}
 		void Btn_printReportClick(object sender, EventArgs e)
