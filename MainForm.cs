@@ -21,7 +21,6 @@ namespace ICAO_CSV
 			LoadStationsCache();
 			tab_RWYs();
 			Airport_List();
-			AIP_SUP_Checklist();
 			this.FormClosing += MainForm_FormClosing;
 		}
 
