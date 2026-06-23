@@ -30,7 +30,7 @@ namespace ICAO_CSV
 
 				var proc = new System.Diagnostics.Process();
 				proc.StartInfo.FileName        = wkhtmlExe;
-				proc.StartInfo.Arguments       = "--dpi 150 --disable-smart-shrinking \"" + tempHtml + "\" \"" + pdfPath + "\"";
+				proc.StartInfo.Arguments       = "--dpi 300 --disable-smart-shrinking \"" + tempHtml + "\" \"" + pdfPath + "\"";
 				proc.StartInfo.UseShellExecute = false;
 				proc.StartInfo.CreateNoWindow  = true;
 				proc.Start();
