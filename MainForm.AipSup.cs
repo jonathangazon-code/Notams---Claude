@@ -45,18 +45,7 @@ namespace ICAO_CSV
 
 		public void AIP_SUP_Checklist() { } // replaced by HTML checkboxes in Sup_Report()
 
-		private static void AddLabel(System.Windows.Forms.Control parent, FontFamily family, string text, int top, int left, int width, System.Drawing.Color color)
-		{
-			Label lbl = new Label();
-			lbl.Font      = new Font(family, 11.0f, FontStyle.Bold);
-			lbl.Tag       = "dispose";
-			lbl.Top       = top;
-			lbl.Left      = left;
-			lbl.Size      = new Size(width, 16);
-			lbl.ForeColor = color;
-			lbl.Text      = text;
-			parent.Controls.Add(lbl);
-		}
+
 
 		public void Sup_Report()
 		{
