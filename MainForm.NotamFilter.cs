@@ -8,6 +8,74 @@ namespace ICAO_CSV
 {
 	public partial class MainForm
 	{
+		private static readonly string[] _notamKeywords = {
+			"CLSD", "U/S", "OTS", "UNSERVICEABLE", "OUT OF SERVICE",
+			"ILS", "GP", "LOC", "RWY", "TWY", "APCH", "DEP",
+			"FUEL", "AVBL", "NOT AVBL", "NIL", "LTD",
+			"CAT I", "CAT II", "CAT III", "PERM", "H24", "DAILY"
+		};
+
+		private static Color ImpactColor(string impact)
+		{
+			switch (impact)
+			{
+				case "A":  return Color.FromArgb(200, 40,  40);
+				case "R":  return Color.FromArgb(200, 90,   0);
+				case "C":  return Color.FromArgb(170, 100,  0);
+				case "N":  return Color.FromArgb(150, 80,   0);
+				case "D":  return Color.FromArgb(100,  0, 150);
+				case "F":  return Color.FromArgb(  0, 60, 180);
+				case "AS": return Color.FromArgb(  0, 120, 60);
+				default:   return Color.FromArgb( 80, 80,  80);
+			}
+		}
+
+		private static string ImpactLabel(string impact)
+		{
+			switch (impact)
+			{
+				case "A":  return "AP CLSD";
+				case "R":  return "RWY CLSD";
+				case "C":  return "CAT I";
+				case "N":  return "No ILS";
+				case "D":  return "Not ALTN";
+				case "F":  return "FUEL";
+				case "AS": return "AIP SUP";
+				case "M":  return "MISC";
+				default:   return "";
+			}
+		}
+
+		private static void AppendRtb(RichTextBox rtb, string text, Color color, bool bold, float size = 10f)
+		{
+			rtb.SelectionStart  = rtb.TextLength;
+			rtb.SelectionLength = 0;
+			rtb.SelectionColor  = color;
+			rtb.SelectionFont   = new Font("Courier New", size, bold ? FontStyle.Bold : FontStyle.Regular);
+			rtb.AppendText(text);
+		}
+
+		private static void HighlightKeywords(RichTextBox rtb)
+		{
+			Font boldFont = new Font("Courier New", 10, FontStyle.Bold);
+			string txt = rtb.Text;
+			foreach (string kw in _notamKeywords)
+			{
+				int idx = 0;
+				while (true)
+				{
+					idx = txt.IndexOf(kw, idx, StringComparison.OrdinalIgnoreCase);
+					if (idx < 0) break;
+					rtb.SelectionStart  = idx;
+					rtb.SelectionLength = kw.Length;
+					rtb.SelectionFont   = boldFont;
+					idx += kw.Length;
+				}
+			}
+			rtb.SelectionStart  = 0;
+			rtb.SelectionLength = 0;
+		}
+
 		void Filter_Notams()
 		{
 			tabPage1.VerticalScroll.Value = 0;
@@ -16,7 +84,6 @@ namespace ICAO_CSV
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 
-			// Last unchecked airport
 			string AP = "";
 			OleDbDataReader APreader = new OleDbCommand(
 				"SELECT location FROM filteredNotams_table WHERE (Checked='N') ORDER BY location DESC", conn).ExecuteReader();
@@ -24,7 +91,6 @@ namespace ICAO_CSV
 				if (!APreader.IsDBNull(0)) AP = APreader.GetString(0);
 			conn.Close();
 
-			// RWY info for this airport
 			OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
 			connOCC.Open();
 			OleDbCommand cmdOCC = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?", connOCC);
@@ -35,11 +101,14 @@ namespace ICAO_CSV
 				if (!OCCreader.IsDBNull(6)) RWYs = OCCreader.GetString(6);
 			connOCC.Close();
 
-			string richText = AP + "\n";
-			foreach (string rwy in RWYs.Split('/')) richText += rwy + "\n";
-			richText += "_____________________________\n\n";
+			// Build colored summary in RchTxt_FilterNotams
+			RchTxt_FilterNotams.Clear();
+			AppendRtb(RchTxt_FilterNotams, AP + "\n", Color.MidnightBlue, true, 13f);
+			foreach (string rwy in RWYs.Split('/'))
+				if (rwy.Trim() != "")
+					AppendRtb(RchTxt_FilterNotams, rwy.Trim() + "\n", Color.DarkGreen, false, 10f);
+			AppendRtb(RchTxt_FilterNotams, "─────────────────────────────\n\n", Color.Gray, false, 9f);
 
-			// Previously kept NOTAMs
 			conn.Open();
 			OleDbCommand cmdKept = new OleDbCommand(
 				"SELECT * FROM filteredNotams_table WHERE (Status='K') AND (location=?)", conn);
@@ -47,19 +116,29 @@ namespace ICAO_CSV
 			OleDbDataReader keptReader = cmdKept.ExecuteReader();
 			while (keptReader.Read())
 			{
-				string fromDate  = !keptReader.IsDBNull(5)  ? keptReader.GetString(5)  : "";
-				string tillDate  = !keptReader.IsDBNull(6)  ? keptReader.GetString(6)  : "";
-				string text      = !keptReader.IsDBNull(7)  ? keptReader.GetString(7)  : "";
-				string notamKey  = !keptReader.IsDBNull(10) ? keptReader.GetString(10) : "";
-				string Impact    = !keptReader.IsDBNull(13) ? keptReader.GetString(13) : "";
-				string Remark    = !keptReader.IsDBNull(14) ? keptReader.GetString(14) : "";
+				string fromDate = !keptReader.IsDBNull(5)  ? keptReader.GetString(5)  : "";
+				string tillDate = !keptReader.IsDBNull(6)  ? keptReader.GetString(6)  : "";
+				string text     = !keptReader.IsDBNull(7)  ? keptReader.GetString(7)  : "";
+				string notamKey = !keptReader.IsDBNull(10) ? keptReader.GetString(10) : "";
+				string Impact   = !keptReader.IsDBNull(13) ? keptReader.GetString(13) : "";
+				string Remark   = !keptReader.IsDBNull(14) ? keptReader.GetString(14) : "";
 				text = text.Replace("(char)39", "'");
-				richText += notamKey + "\n" + FormatDate(fromDate) + " - " + FormatDate(tillDate) + "\n" + text + "\n" + Impact + ": " + Remark + "\n\n";
+
+				Color ic = ImpactColor(Impact);
+				string ilabel = ImpactLabel(Impact);
+
+				AppendRtb(RchTxt_FilterNotams, notamKey, ic, true, 11f);
+				if (ilabel != "") AppendRtb(RchTxt_FilterNotams, "  [" + ilabel + "]", ic, false, 9f);
+				AppendRtb(RchTxt_FilterNotams, "\n", Color.Black, false);
+				AppendRtb(RchTxt_FilterNotams, FormatDate(fromDate) + "  →  " + FormatDate(tillDate) + "\n", Color.DimGray, false, 9f);
+				AppendRtb(RchTxt_FilterNotams, text + "\n", Color.Black, false, 10f);
+				if (Remark != "") AppendRtb(RchTxt_FilterNotams, "▶ " + Remark + "\n", ic, false, 9f);
+				AppendRtb(RchTxt_FilterNotams, "\n", Color.Black, false);
 			}
 			conn.Close();
-			RchTxt_FilterNotams.Text = richText;
 
 			// New unchecked NOTAMs
+			FontFamily courier = new FontFamily("Courier New");
 			conn.Open();
 			OleDbCommand cmdNew = new OleDbCommand(
 				"SELECT * FROM filteredNotams_table WHERE (Checked='N') AND (location=?)", conn);
@@ -69,39 +148,40 @@ namespace ICAO_CSV
 			int nbNotams = 0;
 			int Top = 100;
 
-			Dictionary<int, Button>      keep_Buttons      = new Dictionary<int, Button>();
-			Dictionary<int, RichTextBox> RchTxt_notam_text = new Dictionary<int, RichTextBox>();
-			Dictionary<int, CheckBox>    apt_CLSD_Chckbox  = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_CATI_Chckbox  = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_NILS_Chckbox  = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_NOALTN_Chckbox= new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_FUEL_Chckbox  = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_MISC_Chckbox  = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_AIPSUP_Chckbox= new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_RWYCLSD_Chckbox=new Dictionary<int, CheckBox>();
-			Dictionary<int, TextBox>     remark_Txtbox     = new Dictionary<int, TextBox>();
-			Dictionary<int, Button>      remark_Buttons    = new Dictionary<int, Button>();
+			Dictionary<int, Button>      keep_Buttons       = new Dictionary<int, Button>();
+			Dictionary<int, RichTextBox> RchTxt_notam_text  = new Dictionary<int, RichTextBox>();
+			Dictionary<int, CheckBox>    apt_CLSD_Chckbox   = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox>    apt_CATI_Chckbox   = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox>    apt_NILS_Chckbox   = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox>    apt_NOALTN_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox>    apt_FUEL_Chckbox   = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox>    apt_MISC_Chckbox   = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox>    apt_AIPSUP_Chckbox = new Dictionary<int, CheckBox>();
+			Dictionary<int, CheckBox>    apt_RWYCLSD_Chckbox= new Dictionary<int, CheckBox>();
+			Dictionary<int, TextBox>     remark_Txtbox      = new Dictionary<int, TextBox>();
+			Dictionary<int, Button>      remark_Buttons     = new Dictionary<int, Button>();
 
 			while (dBreader.Read())
 			{
-				int    notam_ID  = !dBreader.IsDBNull(0)  ? dBreader.GetInt32(0)  : 0;
-				string fromDate  = !dBreader.IsDBNull(5)  ? dBreader.GetString(5)  : "";
-				string tillDate  = !dBreader.IsDBNull(6)  ? dBreader.GetString(6)  : "";
-				string notam_text= !dBreader.IsDBNull(7)  ? dBreader.GetString(7)  : "";
-				string notam_key = !dBreader.IsDBNull(10) ? dBreader.GetString(10) : "";
-				string Status    = !dBreader.IsDBNull(12) ? dBreader.GetString(12) : "";
-				string Impact    = !dBreader.IsDBNull(13) ? dBreader.GetString(13) : "";
-				string Remark    = !dBreader.IsDBNull(14) ? dBreader.GetString(14) : "";
+				int    notam_ID   = !dBreader.IsDBNull(0)  ? dBreader.GetInt32(0)   : 0;
+				string fromDate   = !dBreader.IsDBNull(5)  ? dBreader.GetString(5)  : "";
+				string tillDate   = !dBreader.IsDBNull(6)  ? dBreader.GetString(6)  : "";
+				string notam_text = !dBreader.IsDBNull(7)  ? dBreader.GetString(7)  : "";
+				string notam_key  = !dBreader.IsDBNull(10) ? dBreader.GetString(10) : "";
+				string Status     = !dBreader.IsDBNull(12) ? dBreader.GetString(12) : "";
+				string Impact     = !dBreader.IsDBNull(13) ? dBreader.GetString(13) : "";
+				string Remark     = !dBreader.IsDBNull(14) ? dBreader.GetString(14) : "";
 				notam_text = notam_text.Replace("(char)39", "'");
 
-				FontFamily courier = new FontFamily("Courier New");
+				Color keyColor = HasImpact(Impact) ? ImpactColor(Impact) : Color.MidnightBlue;
 
-				AddNotamLabel(tabPage1, courier, notam_key, Top, 510, 125);
-				AddNotamLabel(tabPage1, courier, "From : " + FormatDate(fromDate), Top, 635, 200);
-				AddNotamLabel(tabPage1, courier, "Till : " + FormatDate(tillDate), Top, 840, 200);
+				AddNotamLabel(tabPage1, courier, notam_key, Top, 510, 140, keyColor, true, 11f);
+				AddNotamLabel(tabPage1, courier, FormatDate(fromDate), Top,    655, 190, Color.DimGray, false, 10f);
+				AddNotamLabel(tabPage1, courier, FormatDate(tillDate), Top,    850, 190, Color.DimGray, false, 10f);
 
 				int height = Math.Max(notam_text.Length / 50 * 20, 80);
 				RchTxt_notam_text[notam_ID] = MakeNotamRichText(courier, notam_text, Top+20, 510, height, Status == "K");
+				HighlightKeywords(RchTxt_notam_text[notam_ID]);
 				tabPage1.Controls.Add(RchTxt_notam_text[notam_ID]);
 
 				keep_Buttons[notam_ID] = MakeKeepButton(courier, Status, new Point(1070, Top+20));
@@ -119,8 +199,8 @@ namespace ICAO_CSV
 
 					if (HasImpact(Impact))
 					{
-						remark_Txtbox[notam_ID] = new TextBox { Tag="dispose", Top=Top+94, Left=1070, Size=new Size(250,24), Text=Remark };
-						remark_Buttons[notam_ID] = new Button  { Tag="dispose", Top=Top+92, Left=1320, Size=new Size(40,24), Text="OK" };
+						remark_Txtbox[notam_ID]  = new TextBox { Tag="dispose", Top=Top+94, Left=1070, Size=new Size(250,24), Text=Remark };
+						remark_Buttons[notam_ID] = new Button  { Tag="dispose", Top=Top+92, Left=1320, Size=new Size(40,24),  Text="OK" };
 						int ri = notam_ID;
 						remark_Buttons[notam_ID].Click += (s, e) => Remark_Notam(ri, remark_Txtbox[ri].Text);
 						tabPage1.Controls.Add(remark_Txtbox[notam_ID]);
@@ -133,9 +213,9 @@ namespace ICAO_CSV
 			}
 			conn.Close();
 
-			Lbl_location.Text = AP;
+			Lbl_location.Text        = AP;
 			Lbl_notamsUnchecked.Text = "Notams Unchecked : " + nbNotams;
-			Btn_submitNotams.Top = Top + 30;
+			Btn_submitNotams.Top     = Top + 30;
 		}
 
 		void ICAO_Notams()
@@ -155,9 +235,13 @@ namespace ICAO_CSV
 				if (!OCCreader.IsDBNull(6)) RWYs = OCCreader.GetString(6);
 			connOCC.Close();
 
-			string stationHTML = "<p style=\"font:Courier New;\"><b><u>" + AP + "</u></b><br />" + RWYs + "</p>";
+			string stationHTML = "<html><body style=\"font-family:Courier New;font-size:12px;\">" +
+				"<b><u style=\"color:MidnightBlue;font-size:14px;\">" + AP + "</u></b><br/>" +
+				"<span style=\"color:DarkGreen;\">" + RWYs.Replace("/", "<br/>") + "</span>" +
+				"</body></html>";
 			Web_ICAONotams.DocumentText = stationHTML;
 
+			FontFamily courier = new FontFamily("Courier New");
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			string query2 = ChckBox_SeeIgnored.Checked
@@ -183,7 +267,7 @@ namespace ICAO_CSV
 
 			while (dBreader.Read())
 			{
-				int    notam_ID   = !dBreader.IsDBNull(0)  ? dBreader.GetInt32(0)  : 0;
+				int    notam_ID   = !dBreader.IsDBNull(0)  ? dBreader.GetInt32(0)   : 0;
 				string fromDate   = !dBreader.IsDBNull(5)  ? dBreader.GetString(5)  : "";
 				string tillDate   = !dBreader.IsDBNull(6)  ? dBreader.GetString(6)  : "";
 				string notam_text = !dBreader.IsDBNull(7)  ? dBreader.GetString(7)  : "";
@@ -193,14 +277,15 @@ namespace ICAO_CSV
 				string Remark     = !dBreader.IsDBNull(14) ? dBreader.GetString(14) : "";
 				notam_text = notam_text.Replace("(char)39", "'");
 
-				FontFamily courier = new FontFamily("Courier New");
+				Color keyColor = HasImpact(Impact) ? ImpactColor(Impact) : Color.MidnightBlue;
 
-				AddNotamLabel(tabPage2, courier, notam_key, Top, 210, 125);
-				AddNotamLabel(tabPage2, courier, "From : " + FormatDate(fromDate), Top, 335, 200);
-				AddNotamLabel(tabPage2, courier, "Till : " + FormatDate(tillDate), Top, 540, 200);
+				AddNotamLabel(tabPage2, courier, notam_key, Top, 210, 140, keyColor, true, 11f);
+				AddNotamLabel(tabPage2, courier, FormatDate(fromDate), Top, 355, 190, Color.DimGray, false, 10f);
+				AddNotamLabel(tabPage2, courier, FormatDate(tillDate), Top, 550, 190, Color.DimGray, false, 10f);
 
 				int height = Math.Max(notam_text.Length / 50 * 20, 80);
 				RchTxt_notam_text[notam_ID] = MakeNotamRichText(courier, notam_text, Top+20, 210, height, Status == "K");
+				HighlightKeywords(RchTxt_notam_text[notam_ID]);
 				tabPage2.Controls.Add(RchTxt_notam_text[notam_ID]);
 
 				keep_Buttons[notam_ID] = MakeKeepButton(courier, Status, new Point(770, Top+20));
@@ -218,8 +303,8 @@ namespace ICAO_CSV
 
 					if (HasImpact(Impact))
 					{
-						remark_Txtbox[notam_ID] = new TextBox { Tag="dispose", Top=Top+94, Left=770, Size=new Size(250,24), Text=Remark };
-						remark_Buttons[notam_ID] = new Button  { Tag="dispose", Top=Top+92, Left=1020, Size=new Size(40,24), Text="OK" };
+						remark_Txtbox[notam_ID]  = new TextBox { Tag="dispose", Top=Top+94, Left=770,  Size=new Size(250,24), Text=Remark };
+						remark_Buttons[notam_ID] = new Button  { Tag="dispose", Top=Top+92, Left=1020, Size=new Size(40,24),  Text="OK" };
 						int ri = notam_ID;
 						remark_Buttons[notam_ID].Click += (s, e) => Remark_Notam(ri, remark_Txtbox[ri].Text);
 						tabPage2.Controls.Add(remark_Txtbox[notam_ID]);
@@ -303,25 +388,31 @@ namespace ICAO_CSV
 			string AP = Lbl_location.Text;
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
-			OleDbCommand cmd = new OleDbCommand("UPDATE filteredNotams_table SET Checked='Y' WHERE (location=?) AND (Checked='N')", conn);
+			OleDbCommand cmd = new OleDbCommand(
+				"UPDATE filteredNotams_table SET Checked='Y' WHERE (location=?) AND (Checked='N')", conn);
 			cmd.Parameters.AddWithValue("?", AP);
 			cmd.ExecuteNonQuery();
 			conn.Close();
 			Filter_Notams();
 		}
 
-		void Btn_ICAOClick(object sender, EventArgs e)            { ICAO_Notams(); }
-		void ChckBox_SeeIgnoredCheckedChanged(object sender, EventArgs e) { ICAO_Notams(); }
+		void Btn_ICAOClick(object sender, EventArgs e)                        { ICAO_Notams(); }
+		void ChckBox_SeeIgnoredCheckedChanged(object sender, EventArgs e)     { ICAO_Notams(); }
 
 		public void ShowAutoPopup(string message, int durationMs = 1200)
 		{
 			Form popup = new Form
 			{
-				StartPosition = FormStartPosition.CenterScreen,
-				FormBorderStyle = FormBorderStyle.FixedToolWindow,
+				StartPosition    = FormStartPosition.CenterScreen,
+				FormBorderStyle  = FormBorderStyle.FixedToolWindow,
 				Width = 350, Height = 120, TopMost = true, ControlBox = false
 			};
-			Label lbl = new Label { Dock = DockStyle.Fill, TextAlign = System.Drawing.ContentAlignment.MiddleCenter, Text = message, Font = new Font("Segoe UI", 10) };
+			Label lbl = new Label
+			{
+				Dock = DockStyle.Fill,
+				TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
+				Text = message, Font = new Font("Segoe UI", 10)
+			};
 			popup.Controls.Add(lbl);
 			popup.Shown += (s, e) =>
 			{
@@ -339,12 +430,20 @@ namespace ICAO_CSV
 		{
 			if (raw.Length < 16) return raw;
 			string d = raw.Substring(0, 16);
-			return d.Substring(8,2) + MonthAbbrev(d.Substring(5,2)) + d.Substring(0,4) + "(" + d.Substring(11,5) + ")";
+			return d.Substring(8,2) + " " + MonthAbbrev(d.Substring(5,2)) + " " + d.Substring(0,4) + " " + d.Substring(11,5) + "z";
 		}
 
-		private void AddNotamLabel(Control parent, FontFamily font, string text, int top, int left, int width)
+		private void AddNotamLabel(Control parent, FontFamily font, string text, int top, int left, int width,
+			Color color, bool bold = false, float size = 10f)
 		{
-			Label lbl = new Label { Font = new Font(font, 10, FontStyle.Regular), Tag = "dispose", Top = top, Left = left, Size = new Size(width, 16), ForeColor = Color.Black, Text = text };
+			Label lbl = new Label
+			{
+				Font      = new Font(font, size, bold ? FontStyle.Bold : FontStyle.Regular),
+				Tag       = "dispose",
+				Top       = top, Left = left,
+				Size      = new Size(width, 18),
+				ForeColor = color, Text = text
+			};
 			parent.Controls.Add(lbl);
 		}
 
@@ -352,11 +451,11 @@ namespace ICAO_CSV
 		{
 			return new RichTextBox
 			{
-				Font = new Font(font, 10, FontStyle.Regular), Tag = "dispose",
-				Top = top, Left = left, Size = new Size(550, height),
+				Font      = new Font(font, 10, FontStyle.Regular), Tag = "dispose",
+				Top       = top, Left = left, Size = new Size(550, height),
 				ForeColor = Color.Black,
-				BackColor = kept ? Color.CornflowerBlue : Color.LightCoral,
-				Text = text, ReadOnly = true
+				BackColor = kept ? Color.FromArgb(220, 230, 255) : Color.FromArgb(255, 225, 225),
+				Text      = text, ReadOnly = true
 			};
 		}
 
@@ -364,7 +463,7 @@ namespace ICAO_CSV
 		{
 			return new Button
 			{
-				Tag = "dispose", Location = location,
+				Tag       = "dispose", Location = location,
 				Size      = status == "K" ? new Size(50,25) : new Size(40,25),
 				Text      = status == "K" ? "Ignore" : "Keep",
 				BackColor = status == "K" ? Color.LightCoral : Color.CornflowerBlue,
@@ -380,20 +479,20 @@ namespace ICAO_CSV
 
 		private void AddImpactCheckboxes(Control parent, int notam_ID, string Impact, int Top,
 			int col1, int col2, int col3, int col4,
-			Dictionary<int,CheckBox> CLSD, Dictionary<int,CheckBox> CATI,
-			Dictionary<int,CheckBox> NILS, Dictionary<int,CheckBox> NOALTN,
-			Dictionary<int,CheckBox> FUEL, Dictionary<int,CheckBox> MISC,
+			Dictionary<int,CheckBox> CLSD,   Dictionary<int,CheckBox> CATI,
+			Dictionary<int,CheckBox> NILS,   Dictionary<int,CheckBox> NOALTN,
+			Dictionary<int,CheckBox> FUEL,   Dictionary<int,CheckBox> MISC,
 			Dictionary<int,CheckBox> AIPSUP, Dictionary<int,CheckBox> RWYCLSD)
 		{
 			int nid = notam_ID;
-			CLSD[notam_ID]   = AddImpactChk(parent, "APT CLSD", Top+44, col1, Impact=="A",  (s,e) => Impact_Notam(nid,"A"));
-			CATI[notam_ID]   = AddImpactChk(parent, "APT CATI", Top+44, col2, Impact=="C",  (s,e) => Impact_Notam(nid,"C"));
-			NILS[notam_ID]   = AddImpactChk(parent, "No ILS",   Top+44, col3, Impact=="N",  (s,e) => Impact_Notam(nid,"N"));
-			NOALTN[notam_ID] = AddImpactChk(parent, "Not ALTN", Top+68, col1, Impact=="D",  (s,e) => Impact_Notam(nid,"D"));
-			FUEL[notam_ID]   = AddImpactChk(parent, "Fuel",     Top+68, col2, Impact=="F",  (s,e) => Impact_Notam(nid,"F"));
-			MISC[notam_ID]   = AddImpactChk(parent, "MISC",     Top+68, col3, Impact=="M",  (s,e) => Impact_Notam(nid,"M"));
-			AIPSUP[notam_ID] = AddImpactChk(parent, "SUP",      Top+44, col4, Impact=="AS", (s,e) => Impact_Notam(nid,"AS"));
-			RWYCLSD[notam_ID]= AddImpactChk(parent, "RWY",      Top+68, col4, Impact=="R",  (s,e) => Impact_Notam(nid,"R"));
+			CLSD[notam_ID]    = AddImpactChk(parent, "APT CLSD", Top+44, col1, Impact=="A",  (s,e) => Impact_Notam(nid,"A"));
+			CATI[notam_ID]    = AddImpactChk(parent, "APT CATI", Top+44, col2, Impact=="C",  (s,e) => Impact_Notam(nid,"C"));
+			NILS[notam_ID]    = AddImpactChk(parent, "No ILS",   Top+44, col3, Impact=="N",  (s,e) => Impact_Notam(nid,"N"));
+			NOALTN[notam_ID]  = AddImpactChk(parent, "Not ALTN", Top+68, col1, Impact=="D",  (s,e) => Impact_Notam(nid,"D"));
+			FUEL[notam_ID]    = AddImpactChk(parent, "Fuel",     Top+68, col2, Impact=="F",  (s,e) => Impact_Notam(nid,"F"));
+			MISC[notam_ID]    = AddImpactChk(parent, "MISC",     Top+68, col3, Impact=="M",  (s,e) => Impact_Notam(nid,"M"));
+			AIPSUP[notam_ID]  = AddImpactChk(parent, "SUP",      Top+44, col4, Impact=="AS", (s,e) => Impact_Notam(nid,"AS"));
+			RWYCLSD[notam_ID] = AddImpactChk(parent, "RWY",      Top+68, col4, Impact=="R",  (s,e) => Impact_Notam(nid,"R"));
 		}
 
 		private CheckBox AddImpactChk(Control parent, string text, int top, int left, bool chked, EventHandler handler)
