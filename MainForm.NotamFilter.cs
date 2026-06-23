@@ -259,9 +259,6 @@ namespace ICAO_CSV
 		{
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
-			OleDbDataReader reader = new OleDbCommand(
-				"SELECT * FROM filteredNotams_table WHERE ID=?", conn) { }.ExecuteReader();
-
 			OleDbCommand qry = new OleDbCommand("SELECT * FROM filteredNotams_table WHERE ID=?", conn);
 			qry.Parameters.AddWithValue("?", notam_ID);
 			OleDbDataReader r = qry.ExecuteReader();

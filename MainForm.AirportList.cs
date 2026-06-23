@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using System.Data.OleDb;
 
@@ -146,11 +147,11 @@ namespace ICAO_CSV
 			var chkboxes = new List<CheckBox>();
 			var buttons  = new List<Button>();
 
-			foreach (Label     c in panel.Controls.OfType<Label>())      if (c.Tag?.ToString() == "dispose") labels.Add(c);
-			foreach (TextBox   c in panel.Controls.OfType<TextBox>())    if (c.Tag?.ToString() == "dispose") txtboxes.Add(c);
-			foreach (RichTextBox c in panel.Controls.OfType<RichTextBox>()) if (c.Tag?.ToString() == "dispose") richtxt.Add(c);
-			foreach (CheckBox  c in panel.Controls.OfType<CheckBox>())   if (c.Tag?.ToString() == "dispose") chkboxes.Add(c);
-			foreach (Button    c in panel.Controls.OfType<Button>())     if (c.Tag?.ToString() == "dispose") buttons.Add(c);
+			foreach (Label     c in panel.Controls.OfType<Label>())      if (c.Tag != null && c.Tag.ToString() == "dispose") labels.Add(c);
+			foreach (TextBox   c in panel.Controls.OfType<TextBox>())    if (c.Tag != null && c.Tag.ToString() == "dispose") txtboxes.Add(c);
+			foreach (RichTextBox c in panel.Controls.OfType<RichTextBox>()) if (c.Tag != null && c.Tag.ToString() == "dispose") richtxt.Add(c);
+			foreach (CheckBox  c in panel.Controls.OfType<CheckBox>())   if (c.Tag != null && c.Tag.ToString() == "dispose") chkboxes.Add(c);
+			foreach (Button    c in panel.Controls.OfType<Button>())     if (c.Tag != null && c.Tag.ToString() == "dispose") buttons.Add(c);
 
 			foreach (var c in labels)   { panel.Controls.Remove(c); c.Dispose(); }
 			foreach (var c in txtboxes) { panel.Controls.Remove(c); c.Dispose(); }
