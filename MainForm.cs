@@ -2834,7 +2834,7 @@ namespace ICAO_CSV
         	conn.Open();
         	for(int i=0;i<notamKeyList.Length;i++)
         	{
-        		if(notamKeyList[i]!="")
+        		if(!string.IsNullOrEmpty(notamKeyList[i]))
         		{
         			var deletelog = "DELETE FROM filteredNotams_table WHERE key=?";
 
