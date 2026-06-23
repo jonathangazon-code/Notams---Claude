@@ -57,10 +57,12 @@ namespace ICAO_CSV
 		private System.Windows.Forms.TextBox TxtBox_APT_IATA;
 		private System.Windows.Forms.TextBox TxtBox_APT_ICAO;
 		private System.Windows.Forms.Button Btn_printReport;
+		private System.Windows.Forms.Button Btn_exportReport;
 		private System.Windows.Forms.TabPage AIP_Sup;
 		private System.Windows.Forms.RichTextBox RchTxtBox_Test;
 		private System.Windows.Forms.TabPage AIP_SUP_report;
 		private System.Windows.Forms.Button Btn_Sup_printReport;
+		private System.Windows.Forms.Button Btn_Sup_exportReport;
 		private System.Windows.Forms.RadioButton radBtn_Sup_31days;
 		private System.Windows.Forms.RadioButton radBtn_Sup_7days;
 		private System.Windows.Forms.RadioButton radBtn_Sup_24Hrs;
@@ -119,6 +121,7 @@ namespace ICAO_CSV
 			this.Btn_updateDB = new System.Windows.Forms.Button();
 			this.tabPage4 = new System.Windows.Forms.TabPage();
 			this.Btn_printReport = new System.Windows.Forms.Button();
+			this.Btn_exportReport = new System.Windows.Forms.Button();
 			this.radBtn_31days = new System.Windows.Forms.RadioButton();
 			this.radBtn_7days = new System.Windows.Forms.RadioButton();
 			this.radBtn_24Hrs = new System.Windows.Forms.RadioButton();
@@ -143,6 +146,7 @@ namespace ICAO_CSV
 			this.RchTxtBox_Test = new System.Windows.Forms.RichTextBox();
 			this.AIP_SUP_report = new System.Windows.Forms.TabPage();
 			this.Btn_Sup_printReport = new System.Windows.Forms.Button();
+			this.Btn_Sup_exportReport = new System.Windows.Forms.Button();
 			this.radBtn_Sup_31days = new System.Windows.Forms.RadioButton();
 			this.radBtn_Sup_7days = new System.Windows.Forms.RadioButton();
 			this.radBtn_Sup_24Hrs = new System.Windows.Forms.RadioButton();
@@ -441,6 +445,7 @@ namespace ICAO_CSV
 			// tabPage4
 			// 
 			this.tabPage4.Controls.Add(this.Btn_printReport);
+			this.tabPage4.Controls.Add(this.Btn_exportReport);
 			this.tabPage4.Controls.Add(this.radBtn_31days);
 			this.tabPage4.Controls.Add(this.radBtn_7days);
 			this.tabPage4.Controls.Add(this.radBtn_24Hrs);
@@ -470,7 +475,21 @@ namespace ICAO_CSV
 			this.Btn_printReport.Text = "Print";
 			this.Btn_printReport.UseVisualStyleBackColor = false;
 			this.Btn_printReport.Click += new System.EventHandler(this.Btn_printReportClick);
-			// 
+			//
+			// Btn_exportReport
+			//
+			this.Btn_exportReport.BackColor = System.Drawing.Color.DarkGreen;
+			this.Btn_exportReport.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.Btn_exportReport.ForeColor = System.Drawing.SystemColors.ButtonHighlight;
+			this.Btn_exportReport.Location = new System.Drawing.Point(822, 5);
+			this.Btn_exportReport.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+			this.Btn_exportReport.Name = "Btn_exportReport";
+			this.Btn_exportReport.Size = new System.Drawing.Size(100, 28);
+			this.Btn_exportReport.TabIndex = 9;
+			this.Btn_exportReport.Text = "Export PDF";
+			this.Btn_exportReport.UseVisualStyleBackColor = false;
+			this.Btn_exportReport.Click += new System.EventHandler(this.Btn_exportReportClick);
+			//
 			// radBtn_31days
 			// 
 			this.radBtn_31days.Location = new System.Drawing.Point(565, 4);
@@ -703,6 +722,7 @@ namespace ICAO_CSV
 			// AIP_SUP_report
 			// 
 			this.AIP_SUP_report.Controls.Add(this.Btn_Sup_printReport);
+			this.AIP_SUP_report.Controls.Add(this.Btn_Sup_exportReport);
 			this.AIP_SUP_report.Controls.Add(this.radBtn_Sup_31days);
 			this.AIP_SUP_report.Controls.Add(this.radBtn_Sup_7days);
 			this.AIP_SUP_report.Controls.Add(this.radBtn_Sup_24Hrs);
@@ -730,7 +750,21 @@ namespace ICAO_CSV
 			this.Btn_Sup_printReport.Text = "Print";
 			this.Btn_Sup_printReport.UseVisualStyleBackColor = false;
 			this.Btn_Sup_printReport.Click += new System.EventHandler(this.Btn_Sup_printReportClick);
-			// 
+			//
+			// Btn_Sup_exportReport
+			//
+			this.Btn_Sup_exportReport.BackColor = System.Drawing.Color.DarkGreen;
+			this.Btn_Sup_exportReport.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.Btn_Sup_exportReport.ForeColor = System.Drawing.SystemColors.ButtonHighlight;
+			this.Btn_Sup_exportReport.Location = new System.Drawing.Point(825, 4);
+			this.Btn_Sup_exportReport.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+			this.Btn_Sup_exportReport.Name = "Btn_Sup_exportReport";
+			this.Btn_Sup_exportReport.Size = new System.Drawing.Size(100, 28);
+			this.Btn_Sup_exportReport.TabIndex = 16;
+			this.Btn_Sup_exportReport.Text = "Export PDF";
+			this.Btn_Sup_exportReport.UseVisualStyleBackColor = false;
+			this.Btn_Sup_exportReport.Click += new System.EventHandler(this.Btn_Sup_exportReportClick);
+			//
 			// radBtn_Sup_31days
 			// 
 			this.radBtn_Sup_31days.Location = new System.Drawing.Point(568, 2);
