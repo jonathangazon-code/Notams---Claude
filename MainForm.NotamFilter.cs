@@ -101,14 +101,19 @@ namespace ICAO_CSV
 				if (!OCCreader.IsDBNull(6)) RWYs = OCCreader.GetString(6);
 			connOCC.Close();
 
-			// Build colored summary in RchTxt_FilterNotams
+			// Header RTB: airport + RWYs only, height adapts to RWY count
+			string[] rwyList = RWYs.Split('/');
+			int rwyCount = 0;
+			foreach (string r in rwyList) if (r.Trim() != "") rwyCount++;
+			RchTxt_FilterNotams.Size = new Size(490, 28 + rwyCount * 18 + 8);
 			RchTxt_FilterNotams.Clear();
 			AppendRtb(RchTxt_FilterNotams, AP + "\n", Color.MidnightBlue, true, 13f);
-			foreach (string rwy in RWYs.Split('/'))
+			foreach (string rwy in rwyList)
 				if (rwy.Trim() != "")
 					AppendRtb(RchTxt_FilterNotams, rwy.Trim() + "\n", Color.DarkGreen, false, 10f);
-			AppendRtb(RchTxt_FilterNotams, "─────────────────────────────\n\n", Color.Gray, false, 9f);
 
+			// Per-NOTAM RTBs with colored left border strip (Option B)
+			int keptTop = RchTxt_FilterNotams.Bottom + 8;
 			conn.Open();
 			OleDbCommand cmdKept = new OleDbCommand(
 				"SELECT * FROM filteredNotams_table WHERE (Status='K') AND (location=?)", conn);
@@ -127,13 +132,28 @@ namespace ICAO_CSV
 				Color ic = ImpactColor(Impact);
 				string ilabel = ImpactLabel(Impact);
 
-				AppendRtb(RchTxt_FilterNotams, notamKey, ic, true, 11f);
-				if (ilabel != "") AppendRtb(RchTxt_FilterNotams, "  [" + ilabel + "]", ic, false, 9f);
-				AppendRtb(RchTxt_FilterNotams, "\n", Color.Black, false);
-				AppendRtb(RchTxt_FilterNotams, FormatDate(fromDate) + "  →  " + FormatDate(tillDate) + "\n", Color.DimGray, false, 9f);
-				AppendRtb(RchTxt_FilterNotams, text + "\n", Color.Black, false, 10f);
-				if (Remark != "") AppendRtb(RchTxt_FilterNotams, "▶ " + Remark + "\n", ic, false, 9f);
-				AppendRtb(RchTxt_FilterNotams, "\n", Color.Black, false);
+				int lines = 3 + (Remark != "" ? 1 : 0) + Math.Max(text.Length / 55, 1);
+				int rtbHeight = lines * 16 + 8;
+
+				Panel container = new Panel { Tag = "dispose", Left = 7, Top = keptTop, Width = 490, Height = rtbHeight };
+				Panel strip     = new Panel { Left = 0, Top = 0, Width = 4, Height = rtbHeight, BackColor = ic };
+				RichTextBox rtb = new RichTextBox
+				{
+					Tag = "dispose", Left = 6, Top = 0, Width = 482, Height = rtbHeight,
+					BorderStyle = BorderStyle.None, ReadOnly = true,
+					BackColor = SystemColors.Window, ScrollBars = RichTextBoxScrollBars.None
+				};
+				AppendRtb(rtb, notamKey, ic, true, 11f);
+				if (ilabel != "") AppendRtb(rtb, "  [" + ilabel + "]", ic, false, 9f);
+				AppendRtb(rtb, "\n", Color.Black, false);
+				AppendRtb(rtb, FormatDate(fromDate) + "  →  " + FormatDate(tillDate) + "\n", Color.DimGray, false, 9f);
+				AppendRtb(rtb, text + "\n", Color.Black, false, 10f);
+				if (Remark != "") AppendRtb(rtb, "▶ " + Remark + "\n", ic, false, 9f);
+				HighlightKeywords(rtb);
+				container.Controls.Add(strip);
+				container.Controls.Add(rtb);
+				tabPage1.Controls.Add(container);
+				keptTop += rtbHeight + 6;
 			}
 			conn.Close();
 
