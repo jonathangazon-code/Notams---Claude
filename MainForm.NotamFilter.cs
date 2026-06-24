@@ -58,6 +58,7 @@ namespace ICAO_CSV
 		private static void HighlightKeywords(RichTextBox rtb)
 		{
 			Font boldFont = new Font("Courier New", 10, FontStyle.Bold);
+			Color kwColor = Color.FromArgb(180, 0, 0);
 			string txt = rtb.Text;
 			foreach (string kw in _notamKeywords)
 			{
@@ -69,6 +70,7 @@ namespace ICAO_CSV
 					rtb.SelectionStart  = idx;
 					rtb.SelectionLength = kw.Length;
 					rtb.SelectionFont   = boldFont;
+					rtb.SelectionColor  = kwColor;
 					idx += kw.Length;
 				}
 			}
@@ -132,14 +134,9 @@ namespace ICAO_CSV
 				Color ic = ImpactColor(Impact);
 				string ilabel = ImpactLabel(Impact);
 
-				int lines = 3 + (Remark != "" ? 1 : 0) + Math.Max(text.Length / 55, 1);
-				int rtbHeight = lines * 16 + 8;
-
-				Panel container = new Panel { Tag = "dispose", Left = 7, Top = keptTop, Width = 490, Height = rtbHeight };
-				Panel strip     = new Panel { Left = 0, Top = 0, Width = 4, Height = rtbHeight, BackColor = ic };
 				RichTextBox rtb = new RichTextBox
 				{
-					Tag = "dispose", Left = 6, Top = 0, Width = 482, Height = rtbHeight,
+					Tag = "dispose", Left = 6, Top = 0, Width = 482, Height = 2000,
 					BorderStyle = BorderStyle.None, ReadOnly = true,
 					BackColor = SystemColors.Window, ScrollBars = RichTextBoxScrollBars.None
 				};
@@ -150,6 +147,13 @@ namespace ICAO_CSV
 				AppendRtb(rtb, text + "\n", Color.Black, false, 10f);
 				if (Remark != "") AppendRtb(rtb, "▶ " + Remark + "\n", ic, false, 9f);
 				HighlightKeywords(rtb);
+
+				int totalLines = rtb.GetLineFromCharIndex(rtb.TextLength) + 1;
+				int rtbHeight  = totalLines * 17 + 12;
+				rtb.Height = rtbHeight;
+
+				Panel container = new Panel { Tag = "dispose", Left = 7, Top = keptTop, Width = 490, Height = rtbHeight };
+				Panel strip     = new Panel { Left = 0, Top = 0, Width = 4, Height = rtbHeight, BackColor = ic };
 				container.Controls.Add(strip);
 				container.Controls.Add(rtb);
 				tabPage1.Controls.Add(container);
@@ -474,7 +478,7 @@ namespace ICAO_CSV
 				Font      = new Font(font, 10, FontStyle.Regular), Tag = "dispose",
 				Top       = top, Left = left, Size = new Size(550, height),
 				ForeColor = Color.Black,
-				BackColor = kept ? Color.FromArgb(220, 230, 255) : Color.FromArgb(255, 225, 225),
+				BackColor = kept ? Color.FromArgb(220, 230, 255) : SystemColors.Window,
 				Text      = text, ReadOnly = true
 			};
 		}
