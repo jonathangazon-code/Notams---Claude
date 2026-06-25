@@ -853,7 +853,11 @@ namespace ICAO_CSV
 
 			// Both textboxes live inside a fixed-position container panel; they are laid
 			// out with panel-relative coordinates so toggling visibility never drifts.
-			Panel remarkRow = new Panel { Tag="dispose", Top=Top+94, Left=col1, Width=770, Height=26 };
+			// Panel width = real available width in the tab (minus the vertical scrollbar)
+			// so the textboxes never trigger a horizontal scrollbar.
+			int avail = tabPage1.ClientSize.Width - col1 - SystemInformation.VerticalScrollBarWidth - 12;
+			if (avail < 300) avail = 300;
+			Panel remarkRow = new Panel { Tag="dispose", Top=Top+94, Left=col1, Width=avail, Height=26 };
 			tabPage1.Controls.Add(remarkRow);
 
 			// Impact remark textbox: stored remark > impact first-line > empty
@@ -922,9 +926,10 @@ namespace ICAO_CSV
 		private void LayoutRemarkBoxes(int notam_ID)
 		{
 			if (!_pendRemark.ContainsKey(notam_ID) || !_pendSupRemark.ContainsKey(notam_ID)) return;
-			const int W = 770, GAP = 8;
+			const int GAP = 8;
 			TextBox r  = _pendRemark[notam_ID];
 			TextBox sp = _pendSupRemark[notam_ID];
+			int W = (r.Parent != null) ? r.Parent.Width : 770;
 
 			bool impactOn = false;
 			if (_pendImpactChks.ContainsKey(notam_ID))
