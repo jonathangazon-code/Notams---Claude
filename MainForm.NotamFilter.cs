@@ -112,6 +112,7 @@ namespace ICAO_CSV
 			System.Text.StringBuilder shapes = new System.Text.StringBuilder();
 			System.Text.StringBuilder labels = new System.Text.StringBuilder();
 
+			double spacing = 11;
 			for (int i = 0; i < headings.Count; i++)
 			{
 				double half = maxHalf * (lengths[i] > 0 ? lengths[i] / maxLen : 1.0);
@@ -120,8 +121,15 @@ namespace ICAO_CSV
 				double dx = Math.Sin(rad) * half;
 				double dy = -Math.Cos(rad) * half;
 
-				double x1 = cx - dx, y1 = cy - dy;
-				double x2 = cx + dx, y2 = cy + dy;
+				// Offset parallel runways (same QFU) perpendicular to their axis
+				int parallelIdx = 0;
+				for (int k = 0; k < i; k++) if (headings[k] == headings[i]) parallelIdx++;
+				double offMag = parallelIdx * spacing;
+				double ocx = cx + Math.Cos(rad) * offMag;
+				double ocy = cy + Math.Sin(rad) * offMag;
+
+				double x1 = ocx - dx, y1 = ocy - dy;
+				double x2 = ocx + dx, y2 = ocy + dy;
 
 				shapes.Append("<v:line style=\"position:absolute\" from=\"" + F(x1) + "," + F(y1) +
 					"\" to=\"" + F(x2) + "," + F(y2) + "\" strokecolor=\"#607d8b\" strokeweight=\"7px\">" +
@@ -129,8 +137,8 @@ namespace ICAO_CSV
 				shapes.Append("<v:line style=\"position:absolute\" from=\"" + F(x1) + "," + F(y1) +
 					"\" to=\"" + F(x2) + "," + F(y2) + "\" strokecolor=\"#cfd8dc\" strokeweight=\"1px\">" +
 					"<v:stroke dashstyle=\"dash\"/></v:line>");
-				labels.Append(RwyLabel(end1[i], x1, y1, cx, cy));
-				if (end2[i] != "") labels.Append(RwyLabel(end2[i], x2, y2, cx, cy));
+				labels.Append(RwyLabel(end1[i], x1, y1, ocx, ocy));
+				if (end2[i] != "") labels.Append(RwyLabel(end2[i], x2, y2, ocx, ocy));
 			}
 
 			return "<div style=\"position:relative;width:" + W + "px;height:" + H + "px\">" +
