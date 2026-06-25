@@ -270,6 +270,7 @@ namespace ICAO_CSV
 			this.tabControl1.SelectedIndex = 0;
 			this.tabControl1.Size = new System.Drawing.Size(1885, 1268);
 			this.tabControl1.TabIndex = 20;
+			this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
 			// 
 			// tabPage1
 			// 
@@ -797,12 +798,13 @@ namespace ICAO_CSV
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.AutoScroll = true;
+			this.AutoScroll = false;
 			this.ClientSize = new System.Drawing.Size(1901, 1055);
 			this.Controls.Add(this.tabControl1);
 			this.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
 			this.Name = "MainForm";
 			this.Text = "ICAO-CSV";
+			this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
 			this.tabControl1.ResumeLayout(false);
 			this.tabPage1.ResumeLayout(false);
 			this.tabPage2.ResumeLayout(false);
