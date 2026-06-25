@@ -218,6 +218,7 @@ namespace ICAO_CSV
 			this.Lbl_location.Size = new System.Drawing.Size(128, 28);
 			this.Lbl_location.TabIndex = 11;
 			this.Lbl_location.Text = "Location";
+			this.Lbl_location.Visible = false;
 			// 
 			// Btn_delOld
 			// 
@@ -237,10 +238,11 @@ namespace ICAO_CSV
 			this.Lbl_notamsUnchecked.Size = new System.Drawing.Size(260, 25);
 			this.Lbl_notamsUnchecked.TabIndex = 15;
 			this.Lbl_notamsUnchecked.Text = "Notams unchecked :";
+			this.Lbl_notamsUnchecked.Visible = false;
 			// 
 			// Btn_analyzeNotams
 			// 
-			this.Btn_analyzeNotams.Location = new System.Drawing.Point(847, 6);
+			this.Btn_analyzeNotams.Location = new System.Drawing.Point(1644, 6);
 			this.Btn_analyzeNotams.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
 			this.Btn_analyzeNotams.Name = "Btn_analyzeNotams";
 			this.Btn_analyzeNotams.Size = new System.Drawing.Size(221, 34);

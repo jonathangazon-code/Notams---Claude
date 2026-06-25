@@ -220,6 +220,14 @@ namespace ICAO_CSV
 				if (!OCCreader.IsDBNull(6)) RWYs = OCCreader.GetString(6);
 			connOCC.Close();
 
+			// Count of new (unchecked) NOTAMs for the airport card badge
+			conn.Open();
+			OleDbCommand cmdCnt = new OleDbCommand(
+				"SELECT COUNT(*) FROM filteredNotams_table WHERE (Checked='N') AND (location=?)", conn);
+			cmdCnt.Parameters.AddWithValue("?", AP);
+			int newCount = Convert.ToInt32(cmdCnt.ExecuteScalar());
+			conn.Close();
+
 			// Header WebBrowser: Option D style (dark anthracite)
 			string[] rwyList = RWYs.Split('/');
 			int rwyCount = 0;
@@ -248,13 +256,16 @@ namespace ICAO_CSV
 				"v\\:*{behavior:url(#default#VML)}" +
 				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden;position:relative}" +
 				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
+				".newbadge{font-size:11px;font-weight:normal;letter-spacing:0;color:#ffca28;margin-left:10px}" +
 				".sub{font-size:11px;color:#78909c;margin-top:1px;margin-bottom:8px}" +
 				".blk{font-size:11px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:5px 12px;margin-top:8px;margin-right:10px;vertical-align:top}" +
 				".rwyline{white-space:nowrap;line-height:1.9}" +
 				".diagram{position:absolute;top:8px;right:14px}" +
 				"</style></head><body>" +
 				"<div class=\"diagram\">" + rwySvg + "</div>" +
-				"<div class=\"icao\">" + AP + "</div>" +
+				"<div class=\"icao\">" + AP +
+				(newCount > 0 ? "<span class=\"newbadge\">" + newCount + " new</span>" : "") +
+				"</div>" +
 				iataLine +
 				"<table cellspacing=\"0\" cellpadding=\"0\"><tr>" +
 				"<td class=\"blk\">" + leftCol + "</td>" +
@@ -318,7 +329,7 @@ namespace ICAO_CSV
 			OleDbDataReader dBreader = cmdNew.ExecuteReader();
 
 			int nbNotams = 0;
-			int Top = 100;
+			int Top = 6;
 
 			Dictionary<int, Button>      keep_Buttons       = new Dictionary<int, Button>();
 			Dictionary<int, RichTextBox> RchTxt_notam_text  = new Dictionary<int, RichTextBox>();
