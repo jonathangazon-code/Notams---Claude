@@ -396,7 +396,32 @@ namespace ICAO_CSV
 
 			Lbl_location.Text        = AP;
 			Lbl_notamsUnchecked.Text = "Notams Unchecked : " + nbNotams;
-			Btn_submitNotams.Top     = Top + 30;
+
+			int barTop  = Top + 20;
+			int barLeft = 510;
+			int barW    = 860;
+			int barH    = 38;
+
+			Panel statusBar = new Panel
+			{
+				Tag = "dispose", Top = barTop, Left = barLeft,
+				Width = barW, Height = barH,
+				BackColor = Color.FromArgb(26, 26, 26)
+			};
+			Label statusLbl = new Label
+			{
+				Text      = nbNotams + " NOTAM" + (nbNotams > 1 ? "s" : "") + " unchecked  ·  " + AP,
+				ForeColor = Color.FromArgb(144, 164, 174),
+				Font      = new Font("Courier New", 10),
+				AutoSize  = true, Top = 10, Left = 14
+			};
+			statusBar.Controls.Add(statusLbl);
+			tabPage1.Controls.Add(statusBar);
+			statusBar.SendToBack();
+
+			Btn_submitNotams.Top  = barTop + 4;
+			Btn_submitNotams.Left = barLeft + barW - Btn_submitNotams.Width - 14;
+			Btn_submitNotams.BringToFront();
 		}
 
 		void ICAO_Notams()
@@ -647,7 +672,7 @@ namespace ICAO_CSV
 
 		private static WebBrowser MakeNotamWebBrowser(string text, int top, int left, int height, bool kept)
 		{
-			string bg = kept ? "#dce3ff" : "#f8f8f8";
+			string bg = kept ? "#dce3ff" : "#ffffff";
 			WebBrowser wb = new WebBrowser
 			{
 				Tag = "dispose", Top = top, Left = left, Size = new Size(550, height),
@@ -655,7 +680,7 @@ namespace ICAO_CSV
 			};
 			wb.DocumentText =
 				"<html><head><style>" +
-				"body{margin:0;padding:4px 8px;background:" + bg + ";font-family:'Courier New',monospace;font-size:10px;overflow:hidden;line-height:1.55}" +
+				"body{margin:2px;padding:4px 8px;background:" + bg + ";font-family:'Courier New',monospace;font-size:12px;overflow:hidden;line-height:1.6;border:1px solid #222}" +
 				"</style></head><body>" +
 				HighlightKeywordsHtml(text) +
 				"</body></html>";
