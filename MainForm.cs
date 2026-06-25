@@ -18,6 +18,7 @@ namespace ICAO_CSV
 		{
 			InitializeComponent();
 			StartApp();
+			EnsureSchema();
 			LoadStationsCache();
 			tab_RWYs();
 			Airport_List();
