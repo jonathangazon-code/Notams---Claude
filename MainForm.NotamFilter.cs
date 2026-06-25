@@ -851,14 +851,19 @@ namespace ICAO_CSV
 
 			bool supAuto = !supStored && supSug;
 
+			// Both textboxes live inside a fixed-position container panel; they are laid
+			// out with panel-relative coordinates so toggling visibility never drifts.
+			Panel remarkRow = new Panel { Tag="dispose", Top=Top+94, Left=col1, Width=770, Height=26 };
+			tabPage1.Controls.Add(remarkRow);
+
 			// Impact remark textbox: stored remark > impact first-line > empty
 			string remarkInit;
 			if (stored) remarkInit = storedRemark;
 			else if (sugCode != "") remarkInit = notamText.Replace("\r\n", "\n").Split('\n')[0].Trim();
 			else remarkInit = "";
-			TextBox remark = new TextBox { Tag="dispose", Top=Top+94, Left=col1, Size=new Size(250,24), Text=remarkInit };
+			TextBox remark = new TextBox { Top=0, Left=0, Size=new Size(250,24), Text=remarkInit };
 			_pendRemark[notam_ID] = remark;
-			tabPage1.Controls.Add(remark);
+			remarkRow.Controls.Add(remark);
 
 			CheckBox[] chks = new CheckBox[7];
 			for (int i = 0; i < 7; i++)
@@ -905,19 +910,19 @@ namespace ICAO_CSV
 			if (supStored) supInit = storedSupRef;
 			else if (supAuto) supInit = ExtractSupRef(notamText);
 			else supInit = "";
-			TextBox supRef = new TextBox { Tag="dispose", Top=Top+94, Left=col4, Size=new Size(220,24), Text=supInit };
+			TextBox supRef = new TextBox { Top=0, Left=0, Size=new Size(220,24), Text=supInit };
 			_pendSupRemark[notam_ID] = supRef;
-			tabPage1.Controls.Add(supRef);
+			remarkRow.Controls.Add(supRef);
 
 			LayoutRemarkBoxes(notam_ID);   // initial visibility/width
 		}
 
-		// Show only the relevant textbox(es) and size them to fit the available width:
-		// one box -> full width; two boxes -> 2/3 impact remark, 1/3 SUP reference.
+		// Show only the relevant textbox(es), sized to fit the panel width (panel-relative
+		// coords): one box -> full width; two boxes -> 2/3 impact remark, 1/3 SUP reference.
 		private void LayoutRemarkBoxes(int notam_ID)
 		{
 			if (!_pendRemark.ContainsKey(notam_ID) || !_pendSupRemark.ContainsKey(notam_ID)) return;
-			const int LEFT = 1070, AVAIL = 770, GAP = 8;
+			const int W = 770, GAP = 8;
 			TextBox r  = _pendRemark[notam_ID];
 			TextBox sp = _pendSupRemark[notam_ID];
 
@@ -928,11 +933,11 @@ namespace ICAO_CSV
 
 			if (impactOn && supOn)
 			{
-				r.Visible = true;  r.Left = LEFT;                       r.Width = AVAIL * 2 / 3;
-				sp.Visible = true; sp.Left = LEFT + AVAIL * 2 / 3 + GAP; sp.Width = AVAIL / 3 - GAP;
+				r.Visible = true;  r.Left = 0;               r.Width = W * 2 / 3;
+				sp.Visible = true; sp.Left = W * 2 / 3 + GAP; sp.Width = W / 3 - GAP;
 			}
-			else if (impactOn) { r.Visible = true; r.Left = LEFT; r.Width = AVAIL; sp.Visible = false; }
-			else if (supOn)    { sp.Visible = true; sp.Left = LEFT; sp.Width = AVAIL; r.Visible = false; }
+			else if (impactOn) { r.Visible = true; r.Left = 0; r.Width = W; sp.Visible = false; }
+			else if (supOn)    { sp.Visible = true; sp.Left = 0; sp.Width = W; r.Visible = false; }
 			else               { r.Visible = false; sp.Visible = false; }
 		}
 
