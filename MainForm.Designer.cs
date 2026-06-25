@@ -41,7 +41,7 @@ namespace ICAO_CSV
 		private System.Windows.Forms.RichTextBox RchTxt_updateRWYs;
 		private System.Windows.Forms.Label Lbl_ICAO_RWYs;
 		private System.Windows.Forms.Button Btn_updateRWys;
-		private System.Windows.Forms.RichTextBox RchTxt_FilterNotams;
+		private System.Windows.Forms.WebBrowser Web_FilterHeader;
 		private System.Windows.Forms.Button btn_report;
 		private System.Windows.Forms.RadioButton radBtn_24Hrs;
 		private System.Windows.Forms.RadioButton radBtn_noFilter;
@@ -105,7 +105,7 @@ namespace ICAO_CSV
 			this.Btn_submitNotams = new System.Windows.Forms.Button();
 			this.tabControl1 = new System.Windows.Forms.TabControl();
 			this.tabPage1 = new System.Windows.Forms.TabPage();
-			this.RchTxt_FilterNotams = new System.Windows.Forms.RichTextBox();
+			this.Web_FilterHeader = new System.Windows.Forms.WebBrowser();
 			this.tabPage2 = new System.Windows.Forms.TabPage();
 			this.Web_ICAONotams = new System.Windows.Forms.WebBrowser();
 			this.ChckBox_SeeIgnored = new System.Windows.Forms.CheckBox();
@@ -279,7 +279,7 @@ namespace ICAO_CSV
 			// tabPage1
 			// 
 			this.tabPage1.AutoScroll = true;
-			this.tabPage1.Controls.Add(this.RchTxt_FilterNotams);
+			this.tabPage1.Controls.Add(this.Web_FilterHeader);
 			this.tabPage1.Controls.Add(this.Lbl_location);
 			this.tabPage1.Controls.Add(this.Btn_submitNotams);
 			this.tabPage1.Controls.Add(this.Btn_analyzeNotams);
@@ -293,15 +293,13 @@ namespace ICAO_CSV
 			this.tabPage1.Text = "Filter New Notams";
 			this.tabPage1.UseVisualStyleBackColor = true;
 			// 
-			// RchTxt_FilterNotams
-			// 
-			this.RchTxt_FilterNotams.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.RchTxt_FilterNotams.Location = new System.Drawing.Point(7, 6);
-			this.RchTxt_FilterNotams.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-			this.RchTxt_FilterNotams.Name = "RchTxt_FilterNotams";
-			this.RchTxt_FilterNotams.Size = new System.Drawing.Size(652, 962);
-			this.RchTxt_FilterNotams.TabIndex = 20;
-			this.RchTxt_FilterNotams.Text = "";
+			// Web_FilterHeader
+			//
+			this.Web_FilterHeader.Location = new System.Drawing.Point(7, 6);
+			this.Web_FilterHeader.Name = "Web_FilterHeader";
+			this.Web_FilterHeader.Size = new System.Drawing.Size(490, 90);
+			this.Web_FilterHeader.TabIndex = 20;
+			this.Web_FilterHeader.ScrollBarsEnabled = false;
 			// 
 			// tabPage2
 			// 
