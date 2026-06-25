@@ -78,13 +78,13 @@ namespace ICAO_CSV
 			rtb.SelectionLength = 0;
 		}
 
-		// Builds an SVG airport diagram: each physical runway drawn as a strip,
-		// oriented by its QFU (designator x 10 deg) and scaled by its length.
+		// Builds a VML airport diagram (WebBrowser control runs IE7 mode -> no inline SVG).
+		// Each physical runway is a strip oriented by its QFU (designator x 10 deg),
+		// scaled by its length, with both threshold labels.
 		private static string BuildRwySvg(System.Collections.Generic.List<string> rwyClean)
 		{
 			int W = 130, H = 110, cx = 65, cy = 55, maxHalf = 40;
 
-			// Parse physical runways from pairs (i, i+1)
 			System.Collections.Generic.List<int>    headings = new System.Collections.Generic.List<int>();
 			System.Collections.Generic.List<double> lengths  = new System.Collections.Generic.List<double>();
 			System.Collections.Generic.List<string> end1     = new System.Collections.Generic.List<string>();
@@ -109,8 +109,8 @@ namespace ICAO_CSV
 			foreach (double l in lengths) if (l > maxLen) maxLen = l;
 			if (maxLen <= 0) maxLen = 1;
 
-			System.Text.StringBuilder sb = new System.Text.StringBuilder();
-			sb.Append("<svg width=\"" + W + "\" height=\"" + H + "\" viewBox=\"0 0 " + W + " " + H + "\">");
+			System.Text.StringBuilder shapes = new System.Text.StringBuilder();
+			System.Text.StringBuilder labels = new System.Text.StringBuilder();
 
 			for (int i = 0; i < headings.Count; i++)
 			{
@@ -120,28 +120,29 @@ namespace ICAO_CSV
 				double dx = Math.Sin(rad) * half;
 				double dy = -Math.Cos(rad) * half;
 
-				double x1 = cx - dx, y1 = cy - dy;   // end1 (threshold of d1)
-				double x2 = cx + dx, y2 = cy + dy;   // end2 (threshold of d2)
+				double x1 = cx - dx, y1 = cy - dy;
+				double x2 = cx + dx, y2 = cy + dy;
 
-				sb.Append("<line x1=\"" + F(x1) + "\" y1=\"" + F(y1) + "\" x2=\"" + F(x2) + "\" y2=\"" + F(y2) +
-					"\" stroke=\"#546e7a\" stroke-width=\"7\" stroke-linecap=\"round\"/>");
-				sb.Append("<line x1=\"" + F(x1) + "\" y1=\"" + F(y1) + "\" x2=\"" + F(x2) + "\" y2=\"" + F(y2) +
-					"\" stroke=\"#90a4ae\" stroke-width=\"1\" stroke-dasharray=\"3 3\"/>");
-				sb.Append(RwyLabel(end1[i], x1, y1, cx, cy));
-				if (end2[i] != "") sb.Append(RwyLabel(end2[i], x2, y2, cx, cy));
+				shapes.Append("<v:line style=\"position:absolute\" from=\"" + F(x1) + "," + F(y1) +
+					"\" to=\"" + F(x2) + "," + F(y2) + "\" strokecolor=\"#607d8b\" strokeweight=\"7px\">" +
+					"<v:stroke endcap=\"round\"/></v:line>");
+				shapes.Append("<v:line style=\"position:absolute\" from=\"" + F(x1) + "," + F(y1) +
+					"\" to=\"" + F(x2) + "," + F(y2) + "\" strokecolor=\"#cfd8dc\" strokeweight=\"1px\">" +
+					"<v:stroke dashstyle=\"dash\"/></v:line>");
+				labels.Append(RwyLabel(end1[i], x1, y1, cx, cy));
+				if (end2[i] != "") labels.Append(RwyLabel(end2[i], x2, y2, cx, cy));
 			}
 
-			sb.Append("</svg>");
-			return sb.ToString();
+			return "<div style=\"position:relative;width:" + W + "px;height:" + H + "px\">" +
+				shapes.ToString() + labels.ToString() + "</div>";
 		}
 
 		private static string RwyLabel(string text, double x, double y, double cx, double cy)
 		{
-			// Push label slightly outward from the field center
-			double ox = (x - cx) * 0.18, oy = (y - cy) * 0.18;
-			double lx = x + ox, ly = y + oy + 3;
-			return "<text x=\"" + F(lx) + "\" y=\"" + F(ly) +
-				"\" fill=\"#b0bec5\" font-size=\"9\" font-family=\"monospace\" text-anchor=\"middle\">" + text + "</text>";
+			double ox = (x - cx) * 0.22, oy = (y - cy) * 0.22;
+			double lx = x + ox - 9, ly = y + oy - 7;
+			return "<div style=\"position:absolute;left:" + F(lx) + "px;top:" + F(ly) +
+				"px;width:18px;text-align:center;font-size:9px;color:#b0bec5;font-family:monospace\">" + text + "</div>";
 		}
 
 		private static string F(double v) { return v.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture); }
@@ -234,7 +235,8 @@ namespace ICAO_CSV
 			}
 			string rwySvg = BuildRwySvg(rwyClean);
 			Web_FilterHeader.DocumentText =
-				"<html><head><style>" +
+				"<html xmlns:v=\"urn:schemas-microsoft-com:vml\"><head><style>" +
+				"v\\:*{behavior:url(#default#VML)}" +
 				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden}" +
 				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
 				".sub{font-size:11px;color:#78909c;margin-top:1px;margin-bottom:8px}" +
