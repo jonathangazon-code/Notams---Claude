@@ -110,40 +110,24 @@ namespace ICAO_CSV
 			int headerHeight = 0;
 
 			string iata = GetIATA(AP);
-			string[] rwyItems = new string[0];
-			{
-				var tmp = new List<string>();
-				foreach (string r in rwyList) if (r.Trim() != "") tmp.Add(r.Trim());
-				rwyItems = tmp.ToArray();
-			}
-			string rwyRows = "";
-			for (int i = 0; i + 1 < rwyItems.Length; i += 2)
-				rwyRows += "<div class=\"pair\">" +
-					"<span class=\"rwy rwy-left\">"  + rwyItems[i]     + "</span>" +
-					"<span class=\"sep\">|</span>" +
-					"<span class=\"rwy rwy-right\">" + rwyItems[i + 1] + "</span>" +
-					"</div>";
-			if (rwyItems.Length % 2 == 1)
-				rwyRows += "<div class=\"pair\"><span class=\"rwy rwy-left\">" + rwyItems[rwyItems.Length - 1] + "</span></div>";
-
-			int pairCount = (rwyItems.Length + 1) / 2;
-			headerHeight = 60 + pairCount * 26;
+			int lineCount = 1;
+			foreach (char c in RWYs) if (c == '\n') lineCount++;
+			headerHeight = 60 + lineCount * 20;
 			Web_FilterHeader.Size = new Size(490, headerHeight);
 
 			string iataLine = (iata != "" && iata != AP) ? "<div class=\"sub\">IATA: " + iata + "</div>" : "";
+			string rwyHtml = RWYs.Replace("&", "&amp;").Replace("<", "&lt;")
+				.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", "<br>");
 			Web_FilterHeader.DocumentText =
 				"<html><head><style>" +
 				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden}" +
 				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
 				".sub{font-size:11px;color:#78909c;margin-top:1px;margin-bottom:8px}" +
-				".pair{display:block;margin-bottom:5px}" +
-				".rwy{display:inline-block;background:#37474f;color:#b0bec5;font-size:12px;padding:4px 14px}" +
-				".rwy-left{border-left:2px solid #546e7a}" +
-				".sep{display:inline-block;color:#546e7a;font-size:14px;padding:0 8px;vertical-align:middle}" +
+				".rwys{font-size:11px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:5px 10px;margin-top:8px;line-height:1.8}" +
 				"</style></head><body>" +
 				"<div class=\"icao\">" + AP + "</div>" +
 				iataLine +
-				rwyRows +
+				"<div class=\"rwys\">" + rwyHtml + "</div>" +
 				"</body></html>";
 
 			// Per-NOTAM RTBs with colored left border strip (Option B)
