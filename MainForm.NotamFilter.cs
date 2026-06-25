@@ -238,19 +238,20 @@ namespace ICAO_CSV
 			Web_FilterHeader.DocumentText =
 				"<html xmlns:v=\"urn:schemas-microsoft-com:vml\"><head><style>" +
 				"v\\:*{behavior:url(#default#VML)}" +
-				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden}" +
+				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden;position:relative}" +
 				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
 				".sub{font-size:11px;color:#78909c;margin-top:1px;margin-bottom:8px}" +
-				".blk{float:left;font-size:11px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:5px 12px;margin-top:8px;margin-right:10px}" +
+				".blk{font-size:11px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:5px 12px;margin-top:8px;margin-right:10px;vertical-align:top}" +
 				".rwyline{white-space:nowrap;line-height:1.9}" +
-				".diagram{float:right;margin-top:4px}" +
+				".diagram{position:absolute;top:8px;right:14px}" +
 				"</style></head><body>" +
 				"<div class=\"diagram\">" + rwySvg + "</div>" +
 				"<div class=\"icao\">" + AP + "</div>" +
 				iataLine +
-				"<div style=\"clear:left\"></div>" +
-				"<div class=\"blk\">" + leftCol + "</div>" +
-				"<div class=\"blk\">" + rightCol + "</div>" +
+				"<table cellspacing=\"0\" cellpadding=\"0\"><tr>" +
+				"<td class=\"blk\">" + leftCol + "</td>" +
+				"<td class=\"blk\">" + rightCol + "</td>" +
+				"</tr></table>" +
 				"</body></html>";
 
 			// Per-NOTAM RTBs with colored left border strip (Option B)
