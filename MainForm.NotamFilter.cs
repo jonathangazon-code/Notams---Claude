@@ -103,19 +103,34 @@ namespace ICAO_CSV
 				if (!OCCreader.IsDBNull(6)) RWYs = OCCreader.GetString(6);
 			connOCC.Close();
 
-			// Header RTB: airport + RWYs only, height adapts to RWY count
+			// Header WebBrowser: Option D style (dark anthracite)
 			string[] rwyList = RWYs.Split('/');
 			int rwyCount = 0;
 			foreach (string r in rwyList) if (r.Trim() != "") rwyCount++;
-			RchTxt_FilterNotams.Size = new Size(490, 28 + rwyCount * 18 + 8);
-			RchTxt_FilterNotams.Clear();
-			AppendRtb(RchTxt_FilterNotams, AP + "\n", Color.MidnightBlue, true, 13f);
+			int headerHeight = 68 + (int)Math.Ceiling(rwyCount / 4.0) * 30;
+			Web_FilterHeader.Size = new Size(490, headerHeight);
+
+			string iata = GetIATA(AP);
+			string rwyBadges = "";
 			foreach (string rwy in rwyList)
 				if (rwy.Trim() != "")
-					AppendRtb(RchTxt_FilterNotams, rwy.Trim() + "\n", Color.DarkGreen, false, 10f);
+					rwyBadges += "<span class=\"rwy\">" + rwy.Trim() + "</span>";
+			string iataLine = (iata != "" && iata != AP) ? "<div class=\"sub\">IATA: " + iata + "</div>" : "";
+			Web_FilterHeader.DocumentText =
+				"<html><head><style>" +
+				"body{margin:0;padding:12px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden}" +
+				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
+				".sub{font-size:11px;color:#78909c;margin-top:1px}" +
+				".rwys{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}" +
+				".rwy{background:#37474f;color:#b0bec5;font-size:11px;padding:3px 8px;border-radius:3px;border-left:2px solid #546e7a}" +
+				"</style></head><body>" +
+				"<div class=\"icao\">" + AP + "</div>" +
+				iataLine +
+				"<div class=\"rwys\">" + rwyBadges + "</div>" +
+				"</body></html>";
 
 			// Per-NOTAM RTBs with colored left border strip (Option B)
-			int keptTop = RchTxt_FilterNotams.Bottom + 8;
+			int keptTop = Web_FilterHeader.Bottom + 8;
 			conn.Open();
 			OleDbCommand cmdKept = new OleDbCommand(
 				"SELECT * FROM filteredNotams_table WHERE (Status='K') AND (location=?)", conn);
