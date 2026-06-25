@@ -118,13 +118,13 @@ namespace ICAO_CSV
 			}
 			string rwyRows = "";
 			for (int i = 0; i + 1 < rwyItems.Length; i += 2)
-				rwyRows += "<tr>" +
-					"<td class=\"rwy rwy-left\">"  + rwyItems[i]     + "</td>" +
-					"<td class=\"sep\">|</td>" +
-					"<td class=\"rwy rwy-right\">" + rwyItems[i + 1] + "</td>" +
-					"</tr><tr class=\"spacer\"><td colspan=\"3\"></td></tr>";
+				rwyRows += "<div class=\"pair\">" +
+					"<span class=\"rwy rwy-left\">"  + rwyItems[i]     + "</span>" +
+					"<span class=\"sep\">|</span>" +
+					"<span class=\"rwy rwy-right\">" + rwyItems[i + 1] + "</span>" +
+					"</div>";
 			if (rwyItems.Length % 2 == 1)
-				rwyRows += "<tr><td class=\"rwy rwy-left\">" + rwyItems[rwyItems.Length - 1] + "</td><td></td><td></td></tr>";
+				rwyRows += "<div class=\"pair\"><span class=\"rwy rwy-left\">" + rwyItems[rwyItems.Length - 1] + "</span></div>";
 
 			int pairCount = (rwyItems.Length + 1) / 2;
 			headerHeight = 60 + pairCount * 26;
@@ -136,16 +136,14 @@ namespace ICAO_CSV
 				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden}" +
 				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
 				".sub{font-size:11px;color:#78909c;margin-top:1px;margin-bottom:8px}" +
-				"table{border-collapse:separate;border-spacing:0}" +
-				".rwy{background:#37474f;color:#b0bec5;font-size:12px;padding:4px 14px}" +
-				".rwy-left{border-radius:3px 0 0 3px;border-left:2px solid #546e7a}" +
-				".rwy-right{border-radius:0 3px 3px 0}" +
-				".sep{color:#546e7a;font-size:14px;padding:0 8px;text-align:center;vertical-align:middle}" +
-				".spacer{height:5px}" +
+				".pair{display:block;margin-bottom:5px}" +
+				".rwy{display:inline-block;background:#37474f;color:#b0bec5;font-size:12px;padding:4px 14px}" +
+				".rwy-left{border-left:2px solid #546e7a}" +
+				".sep{display:inline-block;color:#546e7a;font-size:14px;padding:0 8px;vertical-align:middle}" +
 				"</style></head><body>" +
 				"<div class=\"icao\">" + AP + "</div>" +
 				iataLine +
-				"<table>" + rwyRows + "</table>" +
+				rwyRows +
 				"</body></html>";
 
 			// Per-NOTAM RTBs with colored left border strip (Option B)
