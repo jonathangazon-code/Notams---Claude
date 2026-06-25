@@ -248,7 +248,10 @@ namespace ICAO_CSV
 			this.Btn_analyzeNotams.Size = new System.Drawing.Size(221, 34);
 			this.Btn_analyzeNotams.TabIndex = 16;
 			this.Btn_analyzeNotams.Text = "Analyze New Notams !";
-			this.Btn_analyzeNotams.UseVisualStyleBackColor = true;
+			this.Btn_analyzeNotams.BackColor = System.Drawing.Color.SeaGreen;
+			this.Btn_analyzeNotams.ForeColor = System.Drawing.Color.White;
+			this.Btn_analyzeNotams.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+			this.Btn_analyzeNotams.UseVisualStyleBackColor = false;
 			this.Btn_analyzeNotams.Click += new System.EventHandler(this.Btn_analyzeNotamsClick);
 			// 
 			// Btn_submitNotams

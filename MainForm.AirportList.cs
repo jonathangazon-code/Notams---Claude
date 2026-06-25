@@ -147,6 +147,7 @@ namespace ICAO_CSV
 			var chkboxes = new List<CheckBox>();
 			var buttons  = new List<Button>();
 			var panels   = new List<Panel>();
+			var browsers = new List<WebBrowser>();
 
 			foreach (Label       c in panel.Controls.OfType<Label>())       if (c.Tag != null && c.Tag.ToString() == "dispose") labels.Add(c);
 			foreach (TextBox     c in panel.Controls.OfType<TextBox>())     if (c.Tag != null && c.Tag.ToString() == "dispose") txtboxes.Add(c);
@@ -154,6 +155,7 @@ namespace ICAO_CSV
 			foreach (CheckBox    c in panel.Controls.OfType<CheckBox>())    if (c.Tag != null && c.Tag.ToString() == "dispose") chkboxes.Add(c);
 			foreach (Button      c in panel.Controls.OfType<Button>())      if (c.Tag != null && c.Tag.ToString() == "dispose") buttons.Add(c);
 			foreach (Panel       c in panel.Controls.OfType<Panel>())       if (c.Tag != null && c.Tag.ToString() == "dispose") panels.Add(c);
+			foreach (WebBrowser  c in panel.Controls.OfType<WebBrowser>())  if (c.Tag != null && c.Tag.ToString() == "dispose") browsers.Add(c);
 
 			foreach (var c in labels)   { panel.Controls.Remove(c); c.Dispose(); }
 			foreach (var c in txtboxes) { panel.Controls.Remove(c); c.Dispose(); }
@@ -161,6 +163,7 @@ namespace ICAO_CSV
 			foreach (var c in chkboxes) { panel.Controls.Remove(c); c.Dispose(); }
 			foreach (var c in buttons)  { panel.Controls.Remove(c); c.Dispose(); }
 			foreach (var c in panels)   { panel.Controls.Remove(c); c.Dispose(); }
+			foreach (var c in browsers) { panel.Controls.Remove(c); c.Dispose(); }
 		}
 
 		private void AddDisposableLabel(System.Windows.Forms.Control parent, FontFamily family, string text, int top, int left, int width, System.Drawing.Color color)
