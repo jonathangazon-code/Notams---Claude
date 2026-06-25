@@ -9,10 +9,10 @@ namespace ICAO_CSV
 	public partial class MainForm
 	{
 		private static readonly string[] _notamKeywords = {
-			"CLSD", "U/S", "OTS", "UNSERVICEABLE", "OUT OF SERVICE",
+			"CLSD", "U/S", "UNSERVICEABLE", "OUT OF SERVICE",
 			"ILS", "GP", "LOC", "RWY", "TWY", "APCH", "DEP",
 			"FUEL", "AVBL", "NOT AVBL", "NIL", "LTD",
-			"CAT I", "CAT II", "CAT III", "PERM", "H24", "DAILY"
+			"CAT I", "CAT II", "CAT III", "PERM", "H24", "DAILY", "SUP"
 		};
 
 		private static Color ImpactColor(string impact)
@@ -57,12 +57,17 @@ namespace ICAO_CSV
 
 		private static void HighlightKeywords(RichTextBox rtb)
 		{
+			HighlightKeywords(rtb, 0);
+		}
+
+		private static void HighlightKeywords(RichTextBox rtb, int startChar)
+		{
 			Font boldFont = new Font("Courier New", 10, FontStyle.Bold);
 			Color kwColor = Color.FromArgb(180, 0, 0);
 			string txt = rtb.Text;
 			foreach (string kw in _notamKeywords)
 			{
-				int idx = 0;
+				int idx = startChar;
 				while (true)
 				{
 					idx = txt.IndexOf(kw, idx, StringComparison.OrdinalIgnoreCase);
@@ -210,6 +215,30 @@ namespace ICAO_CSV
 				if (!APreader.IsDBNull(0)) AP = APreader.GetString(0);
 			conn.Close();
 
+			// No unchecked NOTAMs left -> show the "all checked" state and stop
+			if (AP == "")
+			{
+				Web_FilterHeader.Size = new Size(490, 100);
+				string ts = DateTime.Now.ToString("dd MMM yyyy HH:mm").ToUpper() + "z";
+				Web_FilterHeader.DocumentText =
+					"<html><head><style>" +
+					"body{margin:0;padding:0;background:#263238;font-family:'Courier New',monospace;overflow:hidden}" +
+					".card{padding:22px 28px}" +
+					".tick{float:left;width:48px;height:48px;line-height:48px;text-align:center;border-radius:24px;background:#2e7d52;color:#fff;font-size:26px;margin-right:18px}" +
+					".title{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:2px;padding-top:4px}" +
+					".sub{font-size:11px;color:#78909c;margin-top:3px}" +
+					"</style></head><body><div class=\"card\">" +
+					"<div class=\"tick\">&#10003;</div>" +
+					"<div class=\"title\">ALL NOTAMS CHECKED</div>" +
+					"<div class=\"sub\">Last reviewed &middot; " + ts + "</div>" +
+					"</div></body></html>";
+				Lbl_location.Text        = "";
+				Lbl_notamsUnchecked.Text = "Notams Unchecked : 0";
+				Btn_submitNotams.Visible = false;
+				return;
+			}
+			Btn_submitNotams.Visible = true;
+
 			OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
 			connOCC.Open();
 			OleDbCommand cmdOCC = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?", connOCC);
@@ -303,9 +332,10 @@ namespace ICAO_CSV
 				if (ilabel != "") AppendRtb(rtb, "  [" + ilabel + "]", ic, false, 9f);
 				AppendRtb(rtb, "\n", Color.Black, false);
 				AppendRtb(rtb, FormatDate(fromDate) + "  →  " + FormatDate(tillDate) + "\n", Color.DimGray, false, 9f);
+				int textStart = rtb.TextLength;
 				AppendRtb(rtb, text + "\n", Color.Black, false, 10f);
 				if (Remark != "") AppendRtb(rtb, "▶ " + Remark + "\n", ic, false, 9f);
-				HighlightKeywords(rtb);
+				HighlightKeywords(rtb, textStart);
 
 				int totalLines = rtb.GetLineFromCharIndex(rtb.TextLength) + 1;
 				int rtbHeight  = totalLines * 17 + 12;
