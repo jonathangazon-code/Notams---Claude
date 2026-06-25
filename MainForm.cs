@@ -21,6 +21,7 @@ namespace ICAO_CSV
 			LoadStationsCache();
 			tab_RWYs();
 			Airport_List();
+			Filter_Notams();
 			this.FormClosing += MainForm_FormClosing;
 		}
 
@@ -95,7 +96,6 @@ namespace ICAO_CSV
 		void Btn_splitClick(object sender, EventArgs e)           { Split(); }
 		void Btn_newNotamsClick(object sender, EventArgs e)       { NewNotams(); }
 		void Btn_delOldClick(object sender, EventArgs e)          { DelOld(); }
-		void Btn_analyzeNotamsClick(object sender, EventArgs e)   { Filter_Notams(); }
 		void Btn_delWithdrawnedClick(object sender, EventArgs e)  { deleteWithdrawnedNotams(); }
 		void Btn_reportClick(object sender, EventArgs e)          { Report(); }
 		void Btn_printReportClick(object sender, EventArgs e)        { Web_report.Print(); }

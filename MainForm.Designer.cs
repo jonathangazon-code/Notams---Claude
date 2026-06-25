@@ -23,7 +23,6 @@ namespace ICAO_CSV
 		private System.Windows.Forms.Label Lbl_location;
 		private System.Windows.Forms.Button Btn_delOld;
 		private System.Windows.Forms.Label Lbl_notamsUnchecked;
-		private System.Windows.Forms.Button Btn_analyzeNotams;
 		private System.Windows.Forms.Button Btn_submitNotams;
 		private System.Windows.Forms.TabControl tabControl1;
 		private System.Windows.Forms.TabPage tabPage1;
@@ -101,7 +100,6 @@ namespace ICAO_CSV
 			this.Lbl_location = new System.Windows.Forms.Label();
 			this.Btn_delOld = new System.Windows.Forms.Button();
 			this.Lbl_notamsUnchecked = new System.Windows.Forms.Label();
-			this.Btn_analyzeNotams = new System.Windows.Forms.Button();
 			this.Btn_submitNotams = new System.Windows.Forms.Button();
 			this.tabControl1 = new System.Windows.Forms.TabControl();
 			this.tabPage1 = new System.Windows.Forms.TabPage();
@@ -239,21 +237,7 @@ namespace ICAO_CSV
 			this.Lbl_notamsUnchecked.TabIndex = 15;
 			this.Lbl_notamsUnchecked.Text = "Notams unchecked :";
 			this.Lbl_notamsUnchecked.Visible = false;
-			// 
-			// Btn_analyzeNotams
-			// 
-			this.Btn_analyzeNotams.Location = new System.Drawing.Point(1644, 6);
-			this.Btn_analyzeNotams.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-			this.Btn_analyzeNotams.Name = "Btn_analyzeNotams";
-			this.Btn_analyzeNotams.Size = new System.Drawing.Size(221, 34);
-			this.Btn_analyzeNotams.TabIndex = 16;
-			this.Btn_analyzeNotams.Text = "Analyze New Notams !";
-			this.Btn_analyzeNotams.BackColor = System.Drawing.Color.SeaGreen;
-			this.Btn_analyzeNotams.ForeColor = System.Drawing.Color.White;
-			this.Btn_analyzeNotams.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-			this.Btn_analyzeNotams.UseVisualStyleBackColor = false;
-			this.Btn_analyzeNotams.Click += new System.EventHandler(this.Btn_analyzeNotamsClick);
-			// 
+			//
 			// Btn_submitNotams
 			// 
 			this.Btn_submitNotams.Location = new System.Drawing.Point(811, 1159);
@@ -293,7 +277,6 @@ namespace ICAO_CSV
 			this.tabPage1.Controls.Add(this.Web_FilterHeader);
 			this.tabPage1.Controls.Add(this.Lbl_location);
 			this.tabPage1.Controls.Add(this.Btn_submitNotams);
-			this.tabPage1.Controls.Add(this.Btn_analyzeNotams);
 			this.tabPage1.Controls.Add(this.Lbl_notamsUnchecked);
 			this.tabPage1.Location = new System.Drawing.Point(4, 25);
 			this.tabPage1.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
