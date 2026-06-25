@@ -230,7 +230,8 @@ namespace ICAO_CSV
 			string leftCol = "", rightCol = "";
 			for (int i = 0; i < rwyClean.Count; i++)
 			{
-				string cell = rwyClean[i].Replace("&", "&amp;").Replace("<", "&lt;") + "<br>";
+				string cell = "<div class=\"rwyline\">" +
+					rwyClean[i].Replace("&", "&amp;").Replace("<", "&lt;") + "</div>";
 				if (i % 2 == 0) leftCol += cell; else rightCol += cell;
 			}
 			string rwySvg = BuildRwySvg(rwyClean);
@@ -240,7 +241,8 @@ namespace ICAO_CSV
 				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden}" +
 				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
 				".sub{font-size:11px;color:#78909c;margin-top:1px;margin-bottom:8px}" +
-				".blk{float:left;font-size:11px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:5px 12px;margin-top:8px;margin-right:10px;line-height:1.9}" +
+				".blk{float:left;font-size:11px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:5px 12px;margin-top:8px;margin-right:10px}" +
+				".rwyline{white-space:nowrap;line-height:1.9}" +
 				".diagram{float:right;margin-top:4px}" +
 				"</style></head><body>" +
 				"<div class=\"diagram\">" + rwySvg + "</div>" +
