@@ -107,26 +107,40 @@ namespace ICAO_CSV
 			string[] rwyList = RWYs.Split('/');
 			int rwyCount = 0;
 			foreach (string r in rwyList) if (r.Trim() != "") rwyCount++;
-			int headerHeight = 68 + (int)Math.Ceiling(rwyCount / 4.0) * 30;
-			Web_FilterHeader.Size = new Size(490, headerHeight);
+			int headerHeight = 0;
 
 			string iata = GetIATA(AP);
-			string rwyBadges = "";
-			foreach (string rwy in rwyList)
-				if (rwy.Trim() != "")
-					rwyBadges += "<span class=\"rwy\">" + rwy.Trim() + "</span>";
+			string[] rwyItems = new string[0];
+			{
+				var tmp = new List<string>();
+				foreach (string r in rwyList) if (r.Trim() != "") tmp.Add(r.Trim());
+				rwyItems = tmp.ToArray();
+			}
+			string rwyRows = "";
+			for (int i = 0; i + 1 < rwyItems.Length; i += 2)
+				rwyRows += "<tr>" +
+					"<td class=\"rwy\">" + rwyItems[i]     + "</td>" +
+					"<td class=\"rwy\">" + rwyItems[i + 1] + "</td>" +
+					"</tr>";
+			if (rwyItems.Length % 2 == 1)
+				rwyRows += "<tr><td class=\"rwy\">" + rwyItems[rwyItems.Length - 1] + "</td><td></td></tr>";
+
+			int pairCount = (rwyItems.Length + 1) / 2;
+			headerHeight = 60 + pairCount * 26;
+			Web_FilterHeader.Size = new Size(490, headerHeight);
+
 			string iataLine = (iata != "" && iata != AP) ? "<div class=\"sub\">IATA: " + iata + "</div>" : "";
 			Web_FilterHeader.DocumentText =
 				"<html><head><style>" +
-				"body{margin:0;padding:12px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden}" +
+				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden}" +
 				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
-				".sub{font-size:11px;color:#78909c;margin-top:1px}" +
-				".rwys{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}" +
-				".rwy{background:#37474f;color:#b0bec5;font-size:11px;padding:3px 8px;border-radius:3px;border-left:2px solid #546e7a}" +
+				".sub{font-size:11px;color:#78909c;margin-top:1px;margin-bottom:8px}" +
+				"table{border-collapse:separate;border-spacing:6px 4px}" +
+				".rwy{background:#37474f;color:#b0bec5;font-size:11px;padding:3px 12px;border-radius:3px;border-left:2px solid #546e7a}" +
 				"</style></head><body>" +
 				"<div class=\"icao\">" + AP + "</div>" +
 				iataLine +
-				"<div class=\"rwys\">" + rwyBadges + "</div>" +
+				"<table>" + rwyRows + "</table>" +
 				"</body></html>";
 
 			// Per-NOTAM RTBs with colored left border strip (Option B)
