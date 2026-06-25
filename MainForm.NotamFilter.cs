@@ -78,6 +78,114 @@ namespace ICAO_CSV
 			rtb.SelectionLength = 0;
 		}
 
+		// Builds an SVG airport diagram: each physical runway drawn as a strip,
+		// oriented by its QFU (designator x 10 deg) and scaled by its length.
+		private static string BuildRwySvg(System.Collections.Generic.List<string> rwyClean)
+		{
+			int W = 130, H = 110, cx = 65, cy = 55, maxHalf = 40;
+
+			// Parse physical runways from pairs (i, i+1)
+			System.Collections.Generic.List<int>    headings = new System.Collections.Generic.List<int>();
+			System.Collections.Generic.List<double> lengths  = new System.Collections.Generic.List<double>();
+			System.Collections.Generic.List<string> end1     = new System.Collections.Generic.List<string>();
+			System.Collections.Generic.List<string> end2     = new System.Collections.Generic.List<string>();
+
+			for (int i = 0; i < rwyClean.Count; i += 2)
+			{
+				string d1 = ParseDesignator(rwyClean[i]);
+				string d2 = (i + 1 < rwyClean.Count) ? ParseDesignator(rwyClean[i + 1]) : "";
+				int hdg = ParseHeading(d1);
+				if (hdg < 0) continue;
+				double len = ParseLength(rwyClean[i]);
+				headings.Add(hdg);
+				lengths.Add(len);
+				end1.Add(d1);
+				end2.Add(d2);
+			}
+
+			if (headings.Count == 0) return "";
+
+			double maxLen = 0;
+			foreach (double l in lengths) if (l > maxLen) maxLen = l;
+			if (maxLen <= 0) maxLen = 1;
+
+			System.Text.StringBuilder sb = new System.Text.StringBuilder();
+			sb.Append("<svg width=\"" + W + "\" height=\"" + H + "\" viewBox=\"0 0 " + W + " " + H + "\">");
+
+			for (int i = 0; i < headings.Count; i++)
+			{
+				double half = maxHalf * (lengths[i] > 0 ? lengths[i] / maxLen : 1.0);
+				if (half < 12) half = 12;
+				double rad = headings[i] * Math.PI / 180.0;
+				double dx = Math.Sin(rad) * half;
+				double dy = -Math.Cos(rad) * half;
+
+				double x1 = cx - dx, y1 = cy - dy;   // end1 (threshold of d1)
+				double x2 = cx + dx, y2 = cy + dy;   // end2 (threshold of d2)
+
+				sb.Append("<line x1=\"" + F(x1) + "\" y1=\"" + F(y1) + "\" x2=\"" + F(x2) + "\" y2=\"" + F(y2) +
+					"\" stroke=\"#546e7a\" stroke-width=\"7\" stroke-linecap=\"round\"/>");
+				sb.Append("<line x1=\"" + F(x1) + "\" y1=\"" + F(y1) + "\" x2=\"" + F(x2) + "\" y2=\"" + F(y2) +
+					"\" stroke=\"#90a4ae\" stroke-width=\"1\" stroke-dasharray=\"3 3\"/>");
+				sb.Append(RwyLabel(end1[i], x1, y1, cx, cy));
+				if (end2[i] != "") sb.Append(RwyLabel(end2[i], x2, y2, cx, cy));
+			}
+
+			sb.Append("</svg>");
+			return sb.ToString();
+		}
+
+		private static string RwyLabel(string text, double x, double y, double cx, double cy)
+		{
+			// Push label slightly outward from the field center
+			double ox = (x - cx) * 0.18, oy = (y - cy) * 0.18;
+			double lx = x + ox, ly = y + oy + 3;
+			return "<text x=\"" + F(lx) + "\" y=\"" + F(ly) +
+				"\" fill=\"#b0bec5\" font-size=\"9\" font-family=\"monospace\" text-anchor=\"middle\">" + text + "</text>";
+		}
+
+		private static string F(double v) { return v.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture); }
+
+		private static string ParseDesignator(string line)
+		{
+			int colon = line.IndexOf(':');
+			string d = colon > 0 ? line.Substring(0, colon) : line;
+			return d.Trim();
+		}
+
+		private static int ParseHeading(string designator)
+		{
+			string digits = "";
+			foreach (char c in designator)
+			{
+				if (c >= '0' && c <= '9') digits += c;
+				else break;
+			}
+			if (digits.Length == 0) return -1;
+			int n;
+			if (!Int32.TryParse(digits, out n)) return -1;
+			return (n * 10) % 360;
+		}
+
+		private static double ParseLength(string line)
+		{
+			// Find a number immediately followed by 'm' (e.g. 3054m)
+			for (int i = 0; i < line.Length; i++)
+			{
+				if ((line[i] == 'm' || line[i] == 'M') && i > 0 && line[i - 1] >= '0' && line[i - 1] <= '9')
+				{
+					int j = i - 1;
+					while (j >= 0 && line[j] >= '0' && line[j] <= '9') j--;
+					string num = line.Substring(j + 1, i - j - 1);
+					double val;
+					if (Double.TryParse(num, System.Globalization.NumberStyles.Integer,
+						System.Globalization.CultureInfo.InvariantCulture, out val))
+						return val;
+				}
+			}
+			return 0;
+		}
+
 		void Filter_Notams()
 		{
 			tabPage1.VerticalScroll.Value = 0;
@@ -114,7 +222,7 @@ namespace ICAO_CSV
 			System.Collections.Generic.List<string> rwyClean = new System.Collections.Generic.List<string>();
 			foreach (string rl in rwyLines) if (rl.Trim() != "") rwyClean.Add(rl.Trim());
 			int pairRows = (rwyClean.Count + 1) / 2;
-			headerHeight = 60 + pairRows * 22 + 12;
+			headerHeight = Math.Max(60 + pairRows * 22 + 12, 60 + 120);
 			Web_FilterHeader.Size = new Size(490, headerHeight);
 
 			string iataLine = (iata != "" && iata != AP) ? "<div class=\"sub\">IATA: " + iata + "</div>" : "";
@@ -124,13 +232,16 @@ namespace ICAO_CSV
 				string cell = rwyClean[i].Replace("&", "&amp;").Replace("<", "&lt;") + "<br>";
 				if (i % 2 == 0) leftCol += cell; else rightCol += cell;
 			}
+			string rwySvg = BuildRwySvg(rwyClean);
 			Web_FilterHeader.DocumentText =
 				"<html><head><style>" +
 				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden}" +
 				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
 				".sub{font-size:11px;color:#78909c;margin-top:1px;margin-bottom:8px}" +
 				".blk{float:left;font-size:11px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:5px 12px;margin-top:8px;margin-right:10px;line-height:1.9}" +
+				".diagram{float:right;margin-top:4px}" +
 				"</style></head><body>" +
+				"<div class=\"diagram\">" + rwySvg + "</div>" +
 				"<div class=\"icao\">" + AP + "</div>" +
 				iataLine +
 				"<div style=\"clear:both\"></div>" +
