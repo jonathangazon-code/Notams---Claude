@@ -110,24 +110,31 @@ namespace ICAO_CSV
 			int headerHeight = 0;
 
 			string iata = GetIATA(AP);
-			int lineCount = 1;
-			foreach (char c in RWYs) if (c == '\n') lineCount++;
-			headerHeight = 60 + lineCount * 20;
+			string[] rwyLines = RWYs.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+			System.Collections.Generic.List<string> rwyClean = new System.Collections.Generic.List<string>();
+			foreach (string rl in rwyLines) if (rl.Trim() != "") rwyClean.Add(rl.Trim());
+			int pairRows = (rwyClean.Count + 1) / 2;
+			headerHeight = 60 + pairRows * 22 + 12;
 			Web_FilterHeader.Size = new Size(490, headerHeight);
 
 			string iataLine = (iata != "" && iata != AP) ? "<div class=\"sub\">IATA: " + iata + "</div>" : "";
-			string rwyHtml = RWYs.Replace("&", "&amp;").Replace("<", "&lt;")
-				.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", "<br>");
+			string leftCol = "", rightCol = "";
+			for (int i = 0; i < rwyClean.Count; i++)
+			{
+				string cell = rwyClean[i].Replace("&", "&amp;").Replace("<", "&lt;") + "<br>";
+				if (i % 2 == 0) leftCol += cell; else rightCol += cell;
+			}
 			Web_FilterHeader.DocumentText =
 				"<html><head><style>" +
 				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden}" +
 				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
 				".sub{font-size:11px;color:#78909c;margin-top:1px;margin-bottom:8px}" +
-				".rwys{font-size:11px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:5px 10px;margin-top:8px;line-height:1.8}" +
+				".blk{display:inline-block;vertical-align:top;font-size:11px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:5px 12px;margin-top:8px;margin-right:10px;line-height:1.9}" +
 				"</style></head><body>" +
 				"<div class=\"icao\">" + AP + "</div>" +
 				iataLine +
-				"<div class=\"rwys\">" + rwyHtml + "</div>" +
+				"<div class=\"blk\">" + leftCol + "</div>" +
+				"<div class=\"blk\">" + rightCol + "</div>" +
 				"</body></html>";
 
 			// Per-NOTAM RTBs with colored left border strip (Option B)
