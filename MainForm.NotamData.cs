@@ -36,9 +36,7 @@ namespace ICAO_CSV
 			string stringToday       = todayStr.Substring(6,2)  + MonthAbbrev(todayStr.Substring(4,2))  + todayStr.Substring(2,2);
 			string stringThreeMonths = threeStr.Substring(6,2)  + MonthAbbrev(threeStr.Substring(4,2))  + threeStr.Substring(2,2);
 
-			RchTxt_FilterNotams.Text = stringToday + " " + stringThreeMonths;
-
-			string xmlNotams = "";
+string xmlNotams = "";
 			using (WebClient wc = new WebClient())
 				xmlNotams = wc.DownloadString("http://10.48.12.43:5455/BriefingService.svc/web/?METHOD=getAdHocNOTAM&AIRPORTS=" + APList + "&PERIODSTART=" + stringToday + "&PERIODEND=" + stringThreeMonths);
 
