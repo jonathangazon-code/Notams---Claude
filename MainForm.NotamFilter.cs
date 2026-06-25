@@ -246,7 +246,7 @@ namespace ICAO_CSV
 				"<div class=\"diagram\">" + rwySvg + "</div>" +
 				"<div class=\"icao\">" + AP + "</div>" +
 				iataLine +
-				"<div style=\"clear:both\"></div>" +
+				"<div style=\"clear:left\"></div>" +
 				"<div class=\"blk\">" + leftCol + "</div>" +
 				"<div class=\"blk\">" + rightCol + "</div>" +
 				"</body></html>";
