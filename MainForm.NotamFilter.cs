@@ -239,7 +239,7 @@ namespace ICAO_CSV
 			System.Collections.Generic.List<string> rwyClean = new System.Collections.Generic.List<string>();
 			foreach (string rl in rwyLines) if (rl.Trim() != "") rwyClean.Add(rl.Trim());
 			int pairRows = (rwyClean.Count + 1) / 2;
-			headerHeight = Math.Max(60 + pairRows * 22 + 12, 60 + 120);
+			headerHeight = Math.Max(72 + pairRows * 26 + 12, 72 + 130);
 			Web_FilterHeader.Size = new Size(490, headerHeight);
 
 			string iataLine = (iata != "" && iata != AP) ? "<div class=\"sub\">IATA: " + iata + "</div>" : "";
@@ -255,10 +255,10 @@ namespace ICAO_CSV
 				"<html xmlns:v=\"urn:schemas-microsoft-com:vml\"><head><style>" +
 				"v\\:*{behavior:url(#default#VML)}" +
 				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden;position:relative}" +
-				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
-				".newbadge{font-size:11px;font-weight:normal;letter-spacing:0;color:#ffca28;margin-left:10px}" +
-				".sub{font-size:11px;color:#78909c;margin-top:1px;margin-bottom:8px}" +
-				".blk{font-size:11px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:5px 12px;margin-top:8px;margin-right:10px;vertical-align:top}" +
+				".icao{font-size:22px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
+				".newbadge{font-size:13px;font-weight:normal;letter-spacing:0;color:#ffca28;margin-left:12px}" +
+				".sub{font-size:13px;color:#78909c;margin-top:2px;margin-bottom:10px}" +
+				".blk{font-size:13px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:6px 14px;margin-top:10px;margin-right:10px;vertical-align:top}" +
 				".rwyline{white-space:nowrap;line-height:1.9}" +
 				".diagram{position:absolute;top:8px;right:14px}" +
 				"</style></head><body>" +
@@ -332,7 +332,7 @@ namespace ICAO_CSV
 			int Top = 6;
 
 			Dictionary<int, Button>      keep_Buttons       = new Dictionary<int, Button>();
-			Dictionary<int, RichTextBox> RchTxt_notam_text  = new Dictionary<int, RichTextBox>();
+
 			Dictionary<int, CheckBox>    apt_CLSD_Chckbox   = new Dictionary<int, CheckBox>();
 			Dictionary<int, CheckBox>    apt_CATI_Chckbox   = new Dictionary<int, CheckBox>();
 			Dictionary<int, CheckBox>    apt_NILS_Chckbox   = new Dictionary<int, CheckBox>();
@@ -363,9 +363,7 @@ namespace ICAO_CSV
 				AddNotamLabel(tabPage1, courier, FormatDate(tillDate), Top,    850, 190, Color.DimGray, false, 10f);
 
 				int height = Math.Max(notam_text.Length / 50 * 20, 80);
-				RchTxt_notam_text[notam_ID] = MakeNotamRichText(courier, notam_text, Top+20, 510, height, Status == "K");
-				HighlightKeywords(RchTxt_notam_text[notam_ID]);
-				tabPage1.Controls.Add(RchTxt_notam_text[notam_ID]);
+				tabPage1.Controls.Add(MakeNotamWebBrowser(notam_text, Top+20, 510, height, Status == "K"));
 
 				keep_Buttons[notam_ID] = MakeKeepButton(courier, Status, new Point(1070, Top+20));
 				int nid = notam_ID;
@@ -436,7 +434,7 @@ namespace ICAO_CSV
 
 			int Top = 100;
 			Dictionary<int, Button>      keep_Buttons       = new Dictionary<int, Button>();
-			Dictionary<int, RichTextBox> RchTxt_notam_text  = new Dictionary<int, RichTextBox>();
+
 			Dictionary<int, CheckBox>    apt_CLSD_Chckbox   = new Dictionary<int, CheckBox>();
 			Dictionary<int, CheckBox>    apt_CATI_Chckbox   = new Dictionary<int, CheckBox>();
 			Dictionary<int, CheckBox>    apt_NILS_Chckbox   = new Dictionary<int, CheckBox>();
@@ -467,9 +465,7 @@ namespace ICAO_CSV
 				AddNotamLabel(tabPage2, courier, FormatDate(tillDate), Top, 550, 190, Color.DimGray, false, 10f);
 
 				int height = Math.Max(notam_text.Length / 50 * 20, 80);
-				RchTxt_notam_text[notam_ID] = MakeNotamRichText(courier, notam_text, Top+20, 210, height, Status == "K");
-				HighlightKeywords(RchTxt_notam_text[notam_ID]);
-				tabPage2.Controls.Add(RchTxt_notam_text[notam_ID]);
+				tabPage2.Controls.Add(MakeNotamWebBrowser(notam_text, Top+20, 210, height, Status == "K"));
 
 				keep_Buttons[notam_ID] = MakeKeepButton(courier, Status, new Point(770, Top+20));
 				int nid = notam_ID;
@@ -630,16 +626,40 @@ namespace ICAO_CSV
 			parent.Controls.Add(lbl);
 		}
 
-		private RichTextBox MakeNotamRichText(FontFamily font, string text, int top, int left, int height, bool kept)
+		private static string HighlightKeywordsHtml(string text)
 		{
-			return new RichTextBox
+			string s = text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+			foreach (string kw in _notamKeywords)
 			{
-				Font      = new Font(font, 10, FontStyle.Regular), Tag = "dispose",
-				Top       = top, Left = left, Size = new Size(550, height),
-				ForeColor = Color.Black,
-				BackColor = kept ? Color.FromArgb(220, 230, 255) : SystemColors.Window,
-				Text      = text, ReadOnly = true
+				int idx = 0;
+				while (true)
+				{
+					idx = s.IndexOf(kw, idx, StringComparison.OrdinalIgnoreCase);
+					if (idx < 0) break;
+					string orig = s.Substring(idx, kw.Length);
+					string rep  = "<b style=\"color:#b00000\">" + orig + "</b>";
+					s    = s.Substring(0, idx) + rep + s.Substring(idx + kw.Length);
+					idx += rep.Length;
+				}
+			}
+			return s.Replace("\n", "<br>");
+		}
+
+		private static WebBrowser MakeNotamWebBrowser(string text, int top, int left, int height, bool kept)
+		{
+			string bg = kept ? "#dce3ff" : "#f8f8f8";
+			WebBrowser wb = new WebBrowser
+			{
+				Tag = "dispose", Top = top, Left = left, Size = new Size(550, height),
+				ScrollBarsEnabled = false
 			};
+			wb.DocumentText =
+				"<html><head><style>" +
+				"body{margin:0;padding:4px 8px;background:" + bg + ";font-family:'Courier New',monospace;font-size:10px;overflow:hidden;line-height:1.55}" +
+				"</style></head><body>" +
+				HighlightKeywordsHtml(text) +
+				"</body></html>";
+			return wb;
 		}
 
 		private Button MakeKeepButton(FontFamily font, string status, Point location)
