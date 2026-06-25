@@ -8,6 +8,12 @@ namespace ICAO_CSV
 {
 	public partial class MainForm
 	{
+		// Filter-tab pending selections (persisted only on SUBMIT)
+		private Dictionary<int, CheckBox[]> _pendImpactChks = new Dictionary<int, CheckBox[]>(); // [A,C,N,D,F,M,R]
+		private Dictionary<int, CheckBox>   _pendSupChk     = new Dictionary<int, CheckBox>();
+		private Dictionary<int, TextBox>    _pendRemark     = new Dictionary<int, TextBox>();
+		private static readonly string[] _impactOrder = { "A", "C", "N", "D", "F", "M", "R" };
+
 		private static readonly string[] _notamKeywords = {
 			"CLSD", "U/S", "UNSERVICEABLE", "OUT OF SERVICE",
 			"ILS", "GP", "LOC", "RWY", "TWY", "APCH", "DEP",
@@ -200,10 +206,149 @@ namespace ICAO_CSV
 			return 0;
 		}
 
+		// One-time: add the independent SUP column to filteredNotams_table (idempotent)
+		public void EnsureSchema()
+		{
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+				conn.Open();
+				try
+				{
+					new OleDbCommand("ALTER TABLE filteredNotams_table ADD COLUMN Sup TEXT(3)", conn).ExecuteNonQuery();
+				}
+				catch { /* column already exists */ }
+				conn.Close();
+			}
+			catch { /* DB not ready; ignore */ }
+		}
+
+		// ── Auto-classification engine ───────────────────────────────────────
+		// Suggests impact checkboxes from NOTAM text + airport runway context.
+		// Suggestions are visual only (AUTO state); nothing is written until the
+		// dispatcher confirms by clicking the checkbox.
+		private struct ImpactSuggestion
+		{
+			public bool APClsd, CatI, NoILS, NotAltn, Fuel, Sup;
+		}
+
+		private struct RwyInfo
+		{
+			public string Desig;   // e.g. "27", "09L"
+			public int    CatMax;  // 0 = none, 1/2/3 = ILS CAT level
+		}
+
+		private static System.Collections.Generic.List<RwyInfo> ParseRunways(string rwyField)
+		{
+			System.Collections.Generic.List<RwyInfo> list = new System.Collections.Generic.List<RwyInfo>();
+			string[] lines = rwyField.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+			foreach (string raw in lines)
+			{
+				string line = raw.Trim();
+				if (line == "") continue;
+				RwyInfo r = new RwyInfo();
+				int colon = line.IndexOf(':');
+				r.Desig = (colon > 0 ? line.Substring(0, colon) : line).Trim();
+				r.CatMax = 0;
+				string up = line.ToUpper();
+				if (up.Contains("CAT 3") || up.Contains("CAT III")) r.CatMax = 3;
+				else if (up.Contains("CAT 2") || up.Contains("CAT II")) r.CatMax = 2;
+				else if (up.Contains("CAT 1") || up.Contains("CAT I"))  r.CatMax = 1;
+				list.Add(r);
+			}
+			return list;
+		}
+
+		private static bool RegexAny(string text, params string[] patterns)
+		{
+			foreach (string p in patterns)
+				if (System.Text.RegularExpressions.Regex.IsMatch(text, p,
+					System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return true;
+			return false;
+		}
+
+		// allKeptUpper = upper-cased texts of every Kept NOTAM at this airport (context)
+		private static ImpactSuggestion SuggestImpacts(string notamText,
+			System.Collections.Generic.List<RwyInfo> runways,
+			System.Collections.Generic.List<string> allKeptUpper)
+		{
+			ImpactSuggestion s = new ImpactSuggestion();
+			string U = notamText.ToUpper();
+
+			// SUP — independent
+			s.Sup = U.Contains("SUP");
+
+			// Fuel
+			s.Fuel = RegexAny(U, @"FUEL.*(NOT\s+AVBL|U/S|NIL|UNAVAIL)", @"NO\s+FUEL", @"FUEL\s+DISRUPTION");
+
+			// Not as alternate / delay
+			s.NotAltn = RegexAny(U, @"NOT\s+AVBL\s+AS\s+ALTN", @"NOT\s+AVAILABLE\s+AS\s+ALTERNATE",
+				@"NOT.*ALTN", @"DELAY\s+EXPECTED", @"EXPECT\s+DELAY");
+
+			// APT closed (text level)
+			bool apClsdText = RegexAny(U, @"\bAD\s+CLSD", @"\bARP\s+CLSD", @"AERODROME\s+CLOSED", @"AIRPORT\s+CLOSED");
+
+			// ILS U/S on this NOTAM
+			bool ilsAffected = RegexAny(U, @"ILS.*(U/S|UNSERVICEABLE|NOT\s+AVBL|WIP)");
+
+			// CAT downgrade on this NOTAM (CAT II/III lost)
+			bool catDowngrade = RegexAny(U, @"CAT\s*(II|III|2|3).*(DOWNGRADED|U/S|NOT\s+AVBL|UNSERVICEABLE)",
+				@"DOWNGRADED.*CAT\s*(I|1)\b");
+
+			// ── Contextual layer (best-effort) ──
+			// APT CLSD: text says so, OR every runway threshold has a CLSD mention among kept
+			bool allRwyClosed = runways.Count > 0;
+			foreach (RwyInfo r in runways)
+			{
+				bool thisClosed = false;
+				foreach (string k in allKeptUpper)
+					if (RegexAny(k, @"RWY\s*" + System.Text.RegularExpressions.Regex.Escape(r.Desig) + @"\b.*CLSD")) { thisClosed = true; break; }
+				if (!thisClosed) { allRwyClosed = false; break; }
+			}
+			s.APClsd = apClsdText || allRwyClosed;
+
+			// No ILS: this NOTAM kills an ILS AND no other runway keeps an ILS in service.
+			// A runway "keeps ILS" if it has CatMax>=1 and no kept NOTAM marks its ILS U/S.
+			if (ilsAffected)
+			{
+				bool otherIlsInService = false;
+				foreach (RwyInfo r in runways)
+				{
+					if (r.CatMax < 1) continue;
+					bool thisRwyIlsDown = false;
+					foreach (string k in allKeptUpper)
+						if (RegexAny(k, @"ILS.*RWY\s*" + System.Text.RegularExpressions.Regex.Escape(r.Desig) + @"\b.*(U/S|NOT\s+AVBL|UNSERVICEABLE)",
+									 @"RWY\s*" + System.Text.RegularExpressions.Regex.Escape(r.Desig) + @"\b.*ILS.*(U/S|NOT\s+AVBL)")) { thisRwyIlsDown = true; break; }
+					if (!thisRwyIlsDown) { otherIlsInService = true; break; }
+				}
+				s.NoILS = !otherIlsInService;
+			}
+
+			// CAT I: CAT II/III lost on this NOTAM AND no other runway still offers CAT 2/3
+			if (catDowngrade)
+			{
+				bool otherHighCat = false;
+				foreach (RwyInfo r in runways)
+				{
+					if (r.CatMax < 2) continue;
+					bool downgraded = false;
+					foreach (string k in allKeptUpper)
+						if (RegexAny(k, @"RWY\s*" + System.Text.RegularExpressions.Regex.Escape(r.Desig) + @"\b.*CAT\s*(II|III|2|3).*(DOWNGRADED|U/S|NOT\s+AVBL)")) { downgraded = true; break; }
+					if (!downgraded) { otherHighCat = true; break; }
+				}
+				s.CatI = !otherHighCat;
+			}
+
+			return s;
+		}
+
 		void Filter_Notams()
 		{
 			tabPage1.VerticalScroll.Value = 0;
 			ClearTaggedControls(tabPage1);
+			_pendImpactChks.Clear();
+			_pendSupChk.Clear();
+			_pendRemark.Clear();
 
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
@@ -303,6 +448,8 @@ namespace ICAO_CSV
 				"</body></html>";
 
 			// Per-NOTAM RTBs with colored left border strip (Option B)
+			System.Collections.Generic.List<RwyInfo> runways = ParseRunways(RWYs);
+			System.Collections.Generic.List<string>  keptUpper = new System.Collections.Generic.List<string>();
 			int keptTop = Web_FilterHeader.Bottom + 8;
 			conn.Open();
 			OleDbCommand cmdKept = new OleDbCommand(
@@ -318,6 +465,7 @@ namespace ICAO_CSV
 				string Impact   = !keptReader.IsDBNull(13) ? keptReader.GetString(13) : "";
 				string Remark   = !keptReader.IsDBNull(14) ? keptReader.GetString(14) : "";
 				text = text.Replace("(char)39", "'");
+				keptUpper.Add(text.ToUpper());
 
 				Color ic = ImpactColor(Impact);
 				string ilabel = ImpactLabel(Impact);
@@ -363,17 +511,6 @@ namespace ICAO_CSV
 
 			Dictionary<int, Button>      keep_Buttons       = new Dictionary<int, Button>();
 
-			Dictionary<int, CheckBox>    apt_CLSD_Chckbox   = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_CATI_Chckbox   = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_NILS_Chckbox   = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_NOALTN_Chckbox = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_FUEL_Chckbox   = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_MISC_Chckbox   = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_AIPSUP_Chckbox = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_RWYCLSD_Chckbox= new Dictionary<int, CheckBox>();
-			Dictionary<int, TextBox>     remark_Txtbox      = new Dictionary<int, TextBox>();
-			Dictionary<int, Button>      remark_Buttons     = new Dictionary<int, Button>();
-
 			while (dBreader.Read())
 			{
 				int    notam_ID   = !dBreader.IsDBNull(0)  ? dBreader.GetInt32(0)   : 0;
@@ -403,20 +540,16 @@ namespace ICAO_CSV
 
 				if (Status == "K")
 				{
-					AddImpactCheckboxes(tabPage1, notam_ID, Impact, Top, 1070, 1150, 1240, 1330,
-						apt_CLSD_Chckbox, apt_CATI_Chckbox, apt_NILS_Chckbox,
-						apt_NOALTN_Chckbox, apt_FUEL_Chckbox, apt_MISC_Chckbox,
-						apt_AIPSUP_Chckbox, apt_RWYCLSD_Chckbox);
+					bool stored = HasImpact(Impact);
+					bool supStored = !dBreader.IsDBNull(dBreader.GetOrdinal("Sup")) &&
+						dBreader.GetString(dBreader.GetOrdinal("Sup")) == "Yes";
 
-					if (HasImpact(Impact))
-					{
-						remark_Txtbox[notam_ID]  = new TextBox { Tag="dispose", Top=Top+94, Left=1070, Size=new Size(250,24), Text=Remark };
-						remark_Buttons[notam_ID] = new Button  { Tag="dispose", Top=Top+92, Left=1320, Size=new Size(40,24),  Text="OK" };
-						int ri = notam_ID;
-						remark_Buttons[notam_ID].Click += (s, e) => Remark_Notam(ri, remark_Txtbox[ri].Text);
-						tabPage1.Controls.Add(remark_Txtbox[notam_ID]);
-						tabPage1.Controls.Add(remark_Buttons[notam_ID]);
-					}
+					// Auto-suggestion only when nothing is stored yet
+					ImpactSuggestion sug = SuggestImpacts(notam_text, runways, keptUpper);
+					string sugCode = SuggestedSingleCode(sug);
+
+					AddFilterCheckboxes(notam_ID, Impact, stored, sugCode,
+						supStored, sug.Sup, notam_text, Remark, Top, 1070, 1150, 1240, 1330);
 				}
 
 				Top = Top + height + 30;
@@ -622,6 +755,26 @@ namespace ICAO_CSV
 			string AP = Lbl_location.Text;
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
+
+			// Persist the final checkbox/remark state of each kept NOTAM
+			foreach (int id in _pendImpactChks.Keys)
+			{
+				CheckBox[] chks = _pendImpactChks[id];
+				string code = "";
+				for (int i = 0; i < chks.Length; i++)
+					if (chks[i].Checked) { code = _impactOrder[i]; break; }
+				string sup    = (_pendSupChk.ContainsKey(id) && _pendSupChk[id].Checked) ? "Yes" : "";
+				string remark = _pendRemark.ContainsKey(id) ? _pendRemark[id].Text : "";
+
+				OleDbCommand u = new OleDbCommand(
+					"UPDATE filteredNotams_table SET Impact=?, Sup=?, Remark=? WHERE ID=?", conn);
+				u.Parameters.AddWithValue("?", code);
+				u.Parameters.AddWithValue("?", sup);
+				u.Parameters.AddWithValue("?", remark);
+				u.Parameters.AddWithValue("?", id);
+				u.ExecuteNonQuery();
+			}
+
 			OleDbCommand cmd = new OleDbCommand(
 				"UPDATE filteredNotams_table SET Checked='Y' WHERE (location=?) AND (Checked='N')", conn);
 			cmd.Parameters.AddWithValue("?", AP);
@@ -629,6 +782,95 @@ namespace ICAO_CSV
 			conn.Close();
 			Filter_Notams();
 		}
+
+		// Collapse a multi-flag suggestion to a single Impact code by severity priority
+		private static string SuggestedSingleCode(ImpactSuggestion s)
+		{
+			if (s.APClsd)  return "A";
+			if (s.NoILS)   return "N";
+			if (s.CatI)    return "C";
+			if (s.NotAltn) return "D";
+			if (s.Fuel)    return "F";
+			return "";
+		}
+
+		// Filter-tab impact checkboxes: visual-only until SUBMIT. AUTO state = suggested
+		// but not yet stored (yellow). Impact group is radio (single choice). SUP independent.
+		private void AddFilterCheckboxes(int notam_ID, string storedImpact, bool stored, string sugCode,
+			bool supStored, bool supSug, string notamText, string storedRemark, int Top, int col1, int col2, int col3, int col4)
+		{
+			string[] labels = { "APT CLSD", "APT CATI", "No ILS", "Not ALTN", "Fuel", "MISC", "RWY" };
+			int[]    cols   = { col1, col2, col3, col1, col2, col3, col4 };
+			int[]    tops   = { Top+44, Top+44, Top+44, Top+68, Top+68, Top+68, Top+68 };
+
+			// Remark textbox (always present for kept NOTAMs)
+			string remarkInit;
+			if (stored) remarkInit = storedRemark;
+			else if (sugCode != "") remarkInit = notamText.Replace("\r\n", "\n").Split('\n')[0].Trim();
+			else remarkInit = "";
+			TextBox remark = new TextBox { Tag="dispose", Top=Top+94, Left=col1, Size=new Size(250,24), Text=remarkInit };
+			_pendRemark[notam_ID] = remark;
+			tabPage1.Controls.Add(remark);
+
+			CheckBox[] chks = new CheckBox[7];
+			for (int i = 0; i < 7; i++)
+			{
+				string code = _impactOrder[i];
+				bool isAuto  = !stored && sugCode == code;
+				bool isOn    = stored ? (storedImpact == code) : isAuto;
+
+				CheckBox chk = new CheckBox
+				{
+					Tag = "dispose", Top = tops[i], Left = cols[i], Text = labels[i],
+					Size = new Size(80, 25), Checked = isOn
+				};
+				if (isAuto)
+				{
+					chk.BackColor = Color.FromArgb(255, 248, 225); // AUTO yellow
+					chk.ForeColor = Color.FromArgb(122, 92, 0);
+				}
+				chks[i] = chk;
+				int idx = i, nid = notam_ID;
+				chk.CheckedChanged += (s, ev) => FilterImpactToggled(nid, idx, notamText);
+				tabPage1.Controls.Add(chk);
+			}
+			_pendImpactChks[notam_ID] = chks;
+
+			// SUP — independent
+			bool supOn = supStored || (!stored && supSug);
+			CheckBox sup = new CheckBox
+			{
+				Tag = "dispose", Top = Top+44, Left = col4, Text = "SUP",
+				Size = new Size(80, 25), Checked = supOn
+			};
+			if (!supStored && supSug)
+			{
+				sup.BackColor = Color.FromArgb(232, 245, 233); // independent green AUTO
+				sup.ForeColor = Color.FromArgb(27, 94, 32);
+			}
+			_pendSupChk[notam_ID] = sup;
+			tabPage1.Controls.Add(sup);
+		}
+
+		// Radio behaviour within the impact group + remark auto-fill
+		private void FilterImpactToggled(int notam_ID, int idx, string notamText)
+		{
+			if (!_pendImpactChks.ContainsKey(notam_ID)) return;
+			CheckBox[] chks = _pendImpactChks[notam_ID];
+			if (chks[idx].Checked)
+			{
+				for (int i = 0; i < chks.Length; i++)
+					if (i != idx && chks[i].Checked) chks[i].Checked = false;
+
+				// Pre-fill remark with first line of NOTAM text if empty
+				if (_pendRemark.ContainsKey(notam_ID) && _pendRemark[notam_ID].Text.Trim() == "")
+				{
+					string first = notamText.Replace("\r\n", "\n").Split('\n')[0].Trim();
+					_pendRemark[notam_ID].Text = first;
+				}
+			}
+		}
+
 
 		void Btn_ICAOClick(object sender, EventArgs e)                        { ICAO_Notams(); }
 		void ChckBox_SeeIgnoredCheckedChanged(object sender, EventArgs e)     { ICAO_Notams(); }
