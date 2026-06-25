@@ -259,10 +259,16 @@ namespace ICAO_CSV
 			this.Btn_submitNotams.Location = new System.Drawing.Point(811, 1159);
 			this.Btn_submitNotams.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
 			this.Btn_submitNotams.Name = "Btn_submitNotams";
-			this.Btn_submitNotams.Size = new System.Drawing.Size(133, 28);
+			this.Btn_submitNotams.Size = new System.Drawing.Size(160, 30);
 			this.Btn_submitNotams.TabIndex = 19;
-			this.Btn_submitNotams.Text = "Submit !";
-			this.Btn_submitNotams.UseVisualStyleBackColor = true;
+			this.Btn_submitNotams.Text = "SUBMIT ▶";
+			this.Btn_submitNotams.Font = new System.Drawing.Font("Courier New", 10F, System.Drawing.FontStyle.Bold);
+			this.Btn_submitNotams.BackColor = System.Drawing.Color.FromArgb(38, 50, 56);
+			this.Btn_submitNotams.ForeColor = System.Drawing.Color.FromArgb(236, 239, 241);
+			this.Btn_submitNotams.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+			this.Btn_submitNotams.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(84, 110, 122);
+			this.Btn_submitNotams.FlatAppearance.BorderSize = 1;
+			this.Btn_submitNotams.UseVisualStyleBackColor = false;
 			this.Btn_submitNotams.Click += new System.EventHandler(this.Btn_submitNotamsClick);
 			// 
 			// tabControl1
