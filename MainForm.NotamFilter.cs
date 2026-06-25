@@ -12,6 +12,8 @@ namespace ICAO_CSV
 		private Dictionary<int, CheckBox[]> _pendImpactChks = new Dictionary<int, CheckBox[]>(); // [A,C,N,D,F,M,R]
 		private Dictionary<int, CheckBox>   _pendSupChk     = new Dictionary<int, CheckBox>();
 		private Dictionary<int, TextBox>    _pendRemark     = new Dictionary<int, TextBox>();
+		private Dictionary<int, TextBox>    _pendSupRemark  = new Dictionary<int, TextBox>();
+		private System.Collections.Generic.HashSet<int> _autoKeepSkip = new System.Collections.Generic.HashSet<int>();
 		private static readonly string[] _impactOrder = { "A", "C", "N", "D", "F", "M", "R" };
 
 		private static readonly string[] _notamKeywords = {
@@ -213,10 +215,9 @@ namespace ICAO_CSV
 			{
 				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 				conn.Open();
-				try
-				{
-					new OleDbCommand("ALTER TABLE filteredNotams_table ADD COLUMN Sup TEXT(3)", conn).ExecuteNonQuery();
-				}
+				try { new OleDbCommand("ALTER TABLE filteredNotams_table ADD COLUMN Sup TEXT(3)", conn).ExecuteNonQuery(); }
+				catch { /* column already exists */ }
+				try { new OleDbCommand("ALTER TABLE filteredNotams_table ADD COLUMN SupRef TEXT(50)", conn).ExecuteNonQuery(); }
 				catch { /* column already exists */ }
 				conn.Close();
 			}
@@ -362,6 +363,7 @@ namespace ICAO_CSV
 			_pendImpactChks.Clear();
 			_pendSupChk.Clear();
 			_pendRemark.Clear();
+			_pendSupRemark.Clear();
 
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
@@ -511,6 +513,31 @@ namespace ICAO_CSV
 			}
 			conn.Close();
 
+			// Auto-Keep: promote not-yet-kept NOTAMs to Status='K' when the engine
+			// detects a potential impact or SUP (unless the dispatcher ignored them).
+			conn.Open();
+			OleDbCommand cmdScan = new OleDbCommand(
+				"SELECT ID, text FROM filteredNotams_table WHERE (Checked='N') AND (Status='' OR Status IS NULL) AND (location=?)", conn);
+			cmdScan.Parameters.AddWithValue("?", AP);
+			OleDbDataReader scanR = cmdScan.ExecuteReader();
+			System.Collections.Generic.List<int> toKeep = new System.Collections.Generic.List<int>();
+			while (scanR.Read())
+			{
+				int sid = !scanR.IsDBNull(0) ? scanR.GetInt32(0) : 0;
+				if (_autoKeepSkip.Contains(sid)) continue;
+				string stxt = !scanR.IsDBNull(1) ? scanR.GetString(1).Replace("(char)39", "'") : "";
+				ImpactSuggestion sg = SuggestImpacts(stxt, runways, keptUpper);
+				if (SuggestedSingleCode(sg) != "" || sg.Sup) toKeep.Add(sid);
+			}
+			scanR.Close();
+			foreach (int kid in toKeep)
+			{
+				OleDbCommand uk = new OleDbCommand("UPDATE filteredNotams_table SET Status='K' WHERE ID=?", conn);
+				uk.Parameters.AddWithValue("?", kid);
+				uk.ExecuteNonQuery();
+			}
+			conn.Close();
+
 			// New unchecked NOTAMs
 			FontFamily courier = new FontFamily("Courier New");
 			conn.Open();
@@ -554,15 +581,17 @@ namespace ICAO_CSV
 				if (Status == "K")
 				{
 					bool stored = HasImpact(Impact);
-					bool supStored = !dBreader.IsDBNull(dBreader.GetOrdinal("Sup")) &&
-						dBreader.GetString(dBreader.GetOrdinal("Sup")) == "Yes";
+					int supOrd = dBreader.GetOrdinal("Sup");
+					int supRefOrd = dBreader.GetOrdinal("SupRef");
+					bool supStored = !dBreader.IsDBNull(supOrd) && dBreader.GetString(supOrd) == "Yes";
+					string storedSupRef = !dBreader.IsDBNull(supRefOrd) ? dBreader.GetString(supRefOrd) : "";
 
 					// Auto-suggestion only when nothing is stored yet
 					ImpactSuggestion sug = SuggestImpacts(notam_text, runways, keptUpper);
 					string sugCode = SuggestedSingleCode(sug);
 
 					AddFilterCheckboxes(notam_ID, Impact, stored, sugCode,
-						supStored, sug.Sup, notam_text, Remark, Top, 1070, 1150, 1240, 1330);
+						supStored, sug.Sup, notam_text, Remark, storedSupRef, Top, 1070, 1150, 1240, 1330);
 				}
 
 				Top = Top + height + 30;
@@ -710,6 +739,7 @@ namespace ICAO_CSV
 
 		void Ignore_Notam(int notam_ID)
 		{
+			_autoKeepSkip.Add(notam_ID);   // don't auto-re-keep a NOTAM the dispatcher ignored
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbCommand cmd = new OleDbCommand("UPDATE filteredNotams_table SET Status='' WHERE ID=?", conn);
@@ -778,12 +808,14 @@ namespace ICAO_CSV
 					if (chks[i].Checked) { code = _impactOrder[i]; break; }
 				string sup    = (_pendSupChk.ContainsKey(id) && _pendSupChk[id].Checked) ? "Yes" : "";
 				string remark = _pendRemark.ContainsKey(id) ? _pendRemark[id].Text : "";
+				string supRef = _pendSupRemark.ContainsKey(id) ? _pendSupRemark[id].Text : "";
 
 				OleDbCommand u = new OleDbCommand(
-					"UPDATE filteredNotams_table SET Impact=?, Sup=?, Remark=? WHERE ID=?", conn);
+					"UPDATE filteredNotams_table SET Impact=?, Sup=?, Remark=?, SupRef=? WHERE ID=?", conn);
 				u.Parameters.AddWithValue("?", code);
 				u.Parameters.AddWithValue("?", sup);
 				u.Parameters.AddWithValue("?", remark);
+				u.Parameters.AddWithValue("?", supRef);
 				u.Parameters.AddWithValue("?", id);
 				u.ExecuteNonQuery();
 			}
@@ -810,19 +842,18 @@ namespace ICAO_CSV
 		// Filter-tab impact checkboxes: visual-only until SUBMIT. AUTO state = suggested
 		// but not yet stored (yellow). Impact group is radio (single choice). SUP independent.
 		private void AddFilterCheckboxes(int notam_ID, string storedImpact, bool stored, string sugCode,
-			bool supStored, bool supSug, string notamText, string storedRemark, int Top, int col1, int col2, int col3, int col4)
+			bool supStored, bool supSug, string notamText, string storedRemark, string storedSupRef, int Top, int col1, int col2, int col3, int col4)
 		{
 			string[] labels = { "APT CLSD", "APT CATI", "No ILS", "Not ALTN", "Fuel", "MISC", "RWY" };
 			int[]    cols   = { col1, col2, col3, col1, col2, col3, col4 };
 			int[]    tops   = { Top+44, Top+44, Top+44, Top+68, Top+68, Top+68, Top+68 };
 
-			// Remark textbox (always present for kept NOTAMs).
-			// Priority: stored remark > impact first-line > SUP reference.
 			bool supAuto = !supStored && supSug;
+
+			// Impact remark textbox: stored remark > impact first-line > empty
 			string remarkInit;
 			if (stored) remarkInit = storedRemark;
 			else if (sugCode != "") remarkInit = notamText.Replace("\r\n", "\n").Split('\n')[0].Trim();
-			else if (supAuto) remarkInit = ExtractSupRef(notamText);
 			else remarkInit = "";
 			TextBox remark = new TextBox { Tag="dispose", Top=Top+94, Left=col1, Size=new Size(250,24), Text=remarkInit };
 			_pendRemark[notam_ID] = remark;
@@ -867,16 +898,25 @@ namespace ICAO_CSV
 			sup.CheckedChanged += (s, ev) => FilterSupToggled(snid, notamText);
 			_pendSupChk[notam_ID] = sup;
 			tabPage1.Controls.Add(sup);
+
+			// Independent SUP reference textbox (separate from the impact remark)
+			string supInit;
+			if (supStored) supInit = storedSupRef;
+			else if (supAuto) supInit = ExtractSupRef(notamText);
+			else supInit = "";
+			TextBox supRef = new TextBox { Tag="dispose", Top=Top+94, Left=col4, Size=new Size(220,24), Text=supInit };
+			_pendSupRemark[notam_ID] = supRef;
+			tabPage1.Controls.Add(supRef);
 		}
 
-		// SUP selection pre-fills the remark with the SUP reference if empty
+		// SUP selection pre-fills the independent SUP textbox with the SUP reference if empty
 		private void FilterSupToggled(int notam_ID, string notamText)
 		{
 			if (!_pendSupChk.ContainsKey(notam_ID) || !_pendSupChk[notam_ID].Checked) return;
-			if (_pendRemark.ContainsKey(notam_ID) && _pendRemark[notam_ID].Text.Trim() == "")
+			if (_pendSupRemark.ContainsKey(notam_ID) && _pendSupRemark[notam_ID].Text.Trim() == "")
 			{
 				string r = ExtractSupRef(notamText);
-				if (r != "") _pendRemark[notam_ID].Text = r;
+				if (r != "") _pendSupRemark[notam_ID].Text = r;
 			}
 		}
 
