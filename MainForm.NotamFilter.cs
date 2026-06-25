@@ -13,6 +13,7 @@ namespace ICAO_CSV
 		private Dictionary<int, CheckBox>   _pendSupChk     = new Dictionary<int, CheckBox>();
 		private Dictionary<int, TextBox>    _pendRemark     = new Dictionary<int, TextBox>();
 		private Dictionary<int, TextBox>    _pendSupRemark  = new Dictionary<int, TextBox>();
+		private Dictionary<int, string>     _pendRemarkDefault = new Dictionary<int, string>();
 		private System.Collections.Generic.HashSet<int> _autoKeepSkip = new System.Collections.Generic.HashSet<int>();
 		private static readonly string[] _impactOrder = { "A", "C", "N", "D", "F", "M", "R" };
 
@@ -80,15 +81,49 @@ namespace ICAO_CSV
 				{
 					idx = txt.IndexOf(kw, idx, StringComparison.OrdinalIgnoreCase);
 					if (idx < 0) break;
-					rtb.SelectionStart  = idx;
-					rtb.SelectionLength = kw.Length;
-					rtb.SelectionFont   = boldFont;
-					rtb.SelectionColor  = kwColor;
+					if (IsWholeWord(txt, idx, kw.Length))
+					{
+						rtb.SelectionStart  = idx;
+						rtb.SelectionLength = kw.Length;
+						rtb.SelectionFont   = boldFont;
+						rtb.SelectionColor  = kwColor;
+					}
 					idx += kw.Length;
 				}
 			}
 			rtb.SelectionStart  = 0;
 			rtb.SelectionLength = 0;
+		}
+
+		private static bool IsWordChar(char c)
+		{
+			return char.IsLetterOrDigit(c);
+		}
+
+		// Default remark for an impact: the NOTAM's first line, but if that line is just
+		// "No" (scope field) use the validity period "start - end" instead.
+		private string NotamRemarkDefault(string text, string fromDate, string tillDate)
+		{
+			string[] lines = text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+			string first = "";
+			foreach (string raw in lines)
+			{
+				string line = raw.Trim();
+				if (line != "") { first = line; break; }
+			}
+			if (first == "" || first.Equals("No", StringComparison.OrdinalIgnoreCase))
+				return FormatDate(fromDate) + " - " + FormatDate(tillDate);
+			return first;
+		}
+
+		// True if [start, start+len) is bounded by non-alphanumeric chars (whole word).
+		// e.g. "LOC" inside "LOCAL" is rejected (followed by 'A').
+		private static bool IsWholeWord(string text, int start, int len)
+		{
+			bool okBefore = start == 0 || !IsWordChar(text[start - 1]);
+			int after = start + len;
+			bool okAfter = after >= text.Length || !IsWordChar(text[after]);
+			return okBefore && okAfter;
 		}
 
 		// Builds a VML airport diagram (WebBrowser control runs IE7 mode -> no inline SVG).
@@ -364,6 +399,7 @@ namespace ICAO_CSV
 			_pendSupChk.Clear();
 			_pendRemark.Clear();
 			_pendSupRemark.Clear();
+			_pendRemarkDefault.Clear();
 
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
@@ -590,8 +626,9 @@ namespace ICAO_CSV
 					ImpactSuggestion sug = SuggestImpacts(notam_text, runways, keptUpper);
 					string sugCode = SuggestedSingleCode(sug);
 
+					string remarkDefault = NotamRemarkDefault(notam_text, fromDate, tillDate);
 					AddFilterCheckboxes(notam_ID, Impact, stored, sugCode,
-						supStored, sug.Sup, notam_text, Remark, storedSupRef, Top, 1070, 1150, 1240, 1330);
+						supStored, sug.Sup, notam_text, remarkDefault, Remark, storedSupRef, Top, 1070, 1150, 1240, 1330);
 				}
 
 				Top = Top + height + 30;
@@ -843,8 +880,9 @@ namespace ICAO_CSV
 		// Filter-tab impact checkboxes: visual-only until SUBMIT. AUTO state = suggested
 		// but not yet stored (yellow). Impact group is radio (single choice). SUP independent.
 		private void AddFilterCheckboxes(int notam_ID, string storedImpact, bool stored, string sugCode,
-			bool supStored, bool supSug, string notamText, string storedRemark, string storedSupRef, int Top, int col1, int col2, int col3, int col4)
+			bool supStored, bool supSug, string notamText, string remarkDefault, string storedRemark, string storedSupRef, int Top, int col1, int col2, int col3, int col4)
 		{
+			_pendRemarkDefault[notam_ID] = remarkDefault;
 			string[] labels = { "APT CLSD", "APT CATI", "No ILS", "Not ALTN", "Fuel", "MISC", "RWY" };
 			int[]    cols   = { col1, col2, col3, col1, col2, col3, col4 };
 			int[]    tops   = { Top+44, Top+44, Top+44, Top+68, Top+68, Top+68, Top+68 };
@@ -863,7 +901,7 @@ namespace ICAO_CSV
 			// Impact remark textbox: stored remark > impact first-line > empty
 			string remarkInit;
 			if (stored) remarkInit = storedRemark;
-			else if (sugCode != "") remarkInit = notamText.Replace("\r\n", "\n").Split('\n')[0].Trim();
+			else if (sugCode != "") remarkInit = remarkDefault;
 			else remarkInit = "";
 			TextBox remark = new TextBox { Top=0, Left=0, Size=new Size(250,24), Text=remarkInit };
 			_pendRemark[notam_ID] = remark;
@@ -969,10 +1007,10 @@ namespace ICAO_CSV
 					if (i != idx && chks[i].Checked) chks[i].Checked = false;
 
 				// Pre-fill remark with first line of NOTAM text if empty
-				if (_pendRemark.ContainsKey(notam_ID) && _pendRemark[notam_ID].Text.Trim() == "")
+				if (_pendRemark.ContainsKey(notam_ID) && _pendRemark[notam_ID].Text.Trim() == "" &&
+				    _pendRemarkDefault.ContainsKey(notam_ID))
 				{
-					string first = notamText.Replace("\r\n", "\n").Split('\n')[0].Trim();
-					_pendRemark[notam_ID].Text = first;
+					_pendRemark[notam_ID].Text = _pendRemarkDefault[notam_ID];
 				}
 			}
 			LayoutRemarkBoxes(notam_ID);
@@ -1040,6 +1078,7 @@ namespace ICAO_CSV
 				{
 					idx = s.IndexOf(kw, idx, StringComparison.OrdinalIgnoreCase);
 					if (idx < 0) break;
+					if (!IsWholeWord(s, idx, kw.Length)) { idx += kw.Length; continue; }
 					string orig = s.Substring(idx, kw.Length);
 					string rep  = "<b style=\"color:#b00000\">" + orig + "</b>";
 					s    = s.Substring(0, idx) + rep + s.Substring(idx + kw.Length);
