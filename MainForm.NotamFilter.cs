@@ -517,7 +517,7 @@ namespace ICAO_CSV
 			// detects a potential impact or SUP (unless the dispatcher ignored them).
 			conn.Open();
 			OleDbCommand cmdScan = new OleDbCommand(
-				"SELECT ID, text FROM filteredNotams_table WHERE (Checked='N') AND (Status='' OR Status IS NULL) AND (location=?)", conn);
+				"SELECT ID, [all] FROM filteredNotams_table WHERE (Checked='N') AND (Status='' OR Status IS NULL) AND (location=?)", conn);
 			cmdScan.Parameters.AddWithValue("?", AP);
 			OleDbDataReader scanR = cmdScan.ExecuteReader();
 			System.Collections.Generic.List<int> toKeep = new System.Collections.Generic.List<int>();
