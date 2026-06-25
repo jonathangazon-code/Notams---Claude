@@ -259,6 +259,19 @@ namespace ICAO_CSV
 			return list;
 		}
 
+		// Extracts the AIP SUP reference, e.g. "SUP 056/2026", from NOTAM text
+		private static string ExtractSupRef(string text)
+		{
+			System.Text.RegularExpressions.Match m = System.Text.RegularExpressions.Regex.Match(
+				text, @"SUP\s*0*\d+\s*/\s*\d{2,4}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+			if (!m.Success) return "";
+			// Normalise to "SUP nnn/yyyy"
+			System.Text.RegularExpressions.Match n = System.Text.RegularExpressions.Regex.Match(
+				m.Value, @"(\d+)\s*/\s*(\d{2,4})");
+			if (!n.Success) return "SUP";
+			return "SUP " + n.Groups[1].Value + "/" + n.Groups[2].Value;
+		}
+
 		private static bool RegexAny(string text, params string[] patterns)
 		{
 			foreach (string p in patterns)
@@ -803,10 +816,13 @@ namespace ICAO_CSV
 			int[]    cols   = { col1, col2, col3, col1, col2, col3, col4 };
 			int[]    tops   = { Top+44, Top+44, Top+44, Top+68, Top+68, Top+68, Top+68 };
 
-			// Remark textbox (always present for kept NOTAMs)
+			// Remark textbox (always present for kept NOTAMs).
+			// Priority: stored remark > impact first-line > SUP reference.
+			bool supAuto = !supStored && supSug;
 			string remarkInit;
 			if (stored) remarkInit = storedRemark;
 			else if (sugCode != "") remarkInit = notamText.Replace("\r\n", "\n").Split('\n')[0].Trim();
+			else if (supAuto) remarkInit = ExtractSupRef(notamText);
 			else remarkInit = "";
 			TextBox remark = new TextBox { Tag="dispose", Top=Top+94, Left=col1, Size=new Size(250,24), Text=remarkInit };
 			_pendRemark[notam_ID] = remark;
@@ -836,20 +852,32 @@ namespace ICAO_CSV
 			}
 			_pendImpactChks[notam_ID] = chks;
 
-			// SUP — independent
-			bool supOn = supStored || (!stored && supSug);
+			// SUP — fully independent of the impact state
 			CheckBox sup = new CheckBox
 			{
 				Tag = "dispose", Top = Top+44, Left = col4, Text = "SUP",
-				Size = new Size(80, 25), Checked = supOn
+				Size = new Size(80, 25), Checked = supStored || supSug
 			};
-			if (!supStored && supSug)
+			if (supAuto)
 			{
 				sup.BackColor = Color.FromArgb(232, 245, 233); // independent green AUTO
 				sup.ForeColor = Color.FromArgb(27, 94, 32);
 			}
+			int snid = notam_ID;
+			sup.CheckedChanged += (s, ev) => FilterSupToggled(snid, notamText);
 			_pendSupChk[notam_ID] = sup;
 			tabPage1.Controls.Add(sup);
+		}
+
+		// SUP selection pre-fills the remark with the SUP reference if empty
+		private void FilterSupToggled(int notam_ID, string notamText)
+		{
+			if (!_pendSupChk.ContainsKey(notam_ID) || !_pendSupChk[notam_ID].Checked) return;
+			if (_pendRemark.ContainsKey(notam_ID) && _pendRemark[notam_ID].Text.Trim() == "")
+			{
+				string r = ExtractSupRef(notamText);
+				if (r != "") _pendRemark[notam_ID].Text = r;
+			}
 		}
 
 		// Radio behaviour within the impact group + remark auto-fill
