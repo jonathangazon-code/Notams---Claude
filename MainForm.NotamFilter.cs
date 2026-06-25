@@ -806,9 +806,10 @@ namespace ICAO_CSV
 				string code = "";
 				for (int i = 0; i < chks.Length; i++)
 					if (chks[i].Checked) { code = _impactOrder[i]; break; }
-				string sup    = (_pendSupChk.ContainsKey(id) && _pendSupChk[id].Checked) ? "Yes" : "";
-				string remark = _pendRemark.ContainsKey(id) ? _pendRemark[id].Text : "";
-				string supRef = _pendSupRemark.ContainsKey(id) ? _pendSupRemark[id].Text : "";
+				bool   supOn  = _pendSupChk.ContainsKey(id) && _pendSupChk[id].Checked;
+				string sup    = supOn ? "Yes" : "";
+				string remark = (code != "" && _pendRemark.ContainsKey(id)) ? _pendRemark[id].Text : "";
+				string supRef = (supOn && _pendSupRemark.ContainsKey(id)) ? _pendSupRemark[id].Text : "";
 
 				OleDbCommand u = new OleDbCommand(
 					"UPDATE filteredNotams_table SET Impact=?, Sup=?, Remark=?, SupRef=? WHERE ID=?", conn);
@@ -907,17 +908,44 @@ namespace ICAO_CSV
 			TextBox supRef = new TextBox { Tag="dispose", Top=Top+94, Left=col4, Size=new Size(220,24), Text=supInit };
 			_pendSupRemark[notam_ID] = supRef;
 			tabPage1.Controls.Add(supRef);
+
+			LayoutRemarkBoxes(notam_ID);   // initial visibility/width
+		}
+
+		// Show only the relevant textbox(es) and size them to fit the available width:
+		// one box -> full width; two boxes -> 2/3 impact remark, 1/3 SUP reference.
+		private void LayoutRemarkBoxes(int notam_ID)
+		{
+			if (!_pendRemark.ContainsKey(notam_ID) || !_pendSupRemark.ContainsKey(notam_ID)) return;
+			const int LEFT = 1070, AVAIL = 770, GAP = 8;
+			TextBox r  = _pendRemark[notam_ID];
+			TextBox sp = _pendSupRemark[notam_ID];
+
+			bool impactOn = false;
+			if (_pendImpactChks.ContainsKey(notam_ID))
+				foreach (CheckBox c in _pendImpactChks[notam_ID]) if (c.Checked) { impactOn = true; break; }
+			bool supOn = _pendSupChk.ContainsKey(notam_ID) && _pendSupChk[notam_ID].Checked;
+
+			if (impactOn && supOn)
+			{
+				r.Visible = true;  r.Left = LEFT;                       r.Width = AVAIL * 2 / 3;
+				sp.Visible = true; sp.Left = LEFT + AVAIL * 2 / 3 + GAP; sp.Width = AVAIL / 3 - GAP;
+			}
+			else if (impactOn) { r.Visible = true; r.Left = LEFT; r.Width = AVAIL; sp.Visible = false; }
+			else if (supOn)    { sp.Visible = true; sp.Left = LEFT; sp.Width = AVAIL; r.Visible = false; }
+			else               { r.Visible = false; sp.Visible = false; }
 		}
 
 		// SUP selection pre-fills the independent SUP textbox with the SUP reference if empty
 		private void FilterSupToggled(int notam_ID, string notamText)
 		{
-			if (!_pendSupChk.ContainsKey(notam_ID) || !_pendSupChk[notam_ID].Checked) return;
-			if (_pendSupRemark.ContainsKey(notam_ID) && _pendSupRemark[notam_ID].Text.Trim() == "")
+			if (_pendSupChk.ContainsKey(notam_ID) && _pendSupChk[notam_ID].Checked &&
+			    _pendSupRemark.ContainsKey(notam_ID) && _pendSupRemark[notam_ID].Text.Trim() == "")
 			{
 				string r = ExtractSupRef(notamText);
 				if (r != "") _pendSupRemark[notam_ID].Text = r;
 			}
+			LayoutRemarkBoxes(notam_ID);
 		}
 
 		// Radio behaviour within the impact group + remark auto-fill
@@ -937,6 +965,7 @@ namespace ICAO_CSV
 					_pendRemark[notam_ID].Text = first;
 				}
 			}
+			LayoutRemarkBoxes(notam_ID);
 		}
 
 
