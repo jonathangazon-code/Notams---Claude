@@ -16,23 +16,50 @@ namespace ICAO_CSV
 		private Dictionary<int, string>     _pendRemarkDefault = new Dictionary<int, string>();
 		private System.Collections.Generic.HashSet<int> _autoKeepSkip = new System.Collections.Generic.HashSet<int>();
 		private static readonly string[] _impactOrder = { "A", "C", "N", "D", "F", "M", "R" };
-		private static readonly Color _impactSelBg = Color.FromArgb(255, 248, 225);
-		private static readonly Color _impactSelFg = Color.FromArgb(122, 92, 0);
-		private static readonly Color _supSelBg    = Color.FromArgb(232, 245, 233);
-		private static readonly Color _supSelFg    = Color.FromArgb(27, 94, 32);
-
-		// Colour a checkbox when selected (impact = yellow, SUP = green); revert when not.
-		private static void StyleChk(CheckBox c, bool sup)
+		// Light tint of a colour (~82% toward white) for use as a readable background
+		private static Color Tint(Color k)
 		{
+			return Color.FromArgb(
+				k.R + (255 - k.R) * 82 / 100,
+				k.G + (255 - k.G) * 82 / 100,
+				k.B + (255 - k.B) * 82 / 100);
+		}
+
+		// A "chip" is a Panel holding a left accent strip + a borderless CheckBox.
+		// The checkbox's Tag stores its accent Panel so StyleChk can recolour it.
+		private CheckBox CreateChip(Control parent, string label, int left, int top, int width, bool chked, string code)
+		{
+			Panel chip = new Panel { Tag = "dispose", Left = left, Top = top, Width = width, Height = 22, BackColor = Color.White };
+			Panel accent = new Panel { Left = 0, Top = 0, Width = 3, Height = 22, BackColor = Color.Silver };
+			CheckBox cb = new CheckBox
+			{
+				Left = 7, Top = 2, Width = width - 9, Height = 18, Text = label,
+				Checked = chked, BackColor = Color.Transparent, Font = new Font("Segoe UI", 8f)
+			};
+			cb.Tag = accent;
+			chip.Controls.Add(accent);
+			chip.Controls.Add(cb);
+			parent.Controls.Add(chip);
+			StyleChk(cb, code);
+			return cb;
+		}
+
+		// Colour a chip by its impact colour when selected; revert to neutral when not.
+		private static void StyleChk(CheckBox c, string code)
+		{
+			Panel accent = c.Tag as Panel;
 			if (c.Checked)
 			{
-				c.BackColor = sup ? _supSelBg : _impactSelBg;
-				c.ForeColor = sup ? _supSelFg : _impactSelFg;
+				Color k = ImpactColor(code);
+				if (c.Parent != null) c.Parent.BackColor = Tint(k);
+				c.ForeColor = k;
+				if (accent != null) accent.BackColor = k;
 			}
 			else
 			{
-				c.BackColor = SystemColors.Control;
+				if (c.Parent != null) c.Parent.BackColor = Color.White;
 				c.ForeColor = SystemColors.ControlText;
+				if (accent != null) accent.BackColor = Color.Silver;
 			}
 		}
 
@@ -47,13 +74,14 @@ namespace ICAO_CSV
 		{
 			switch (impact)
 			{
-				case "A":  return Color.FromArgb(200, 40,  40);
-				case "R":  return Color.FromArgb(200, 90,   0);
-				case "C":  return Color.FromArgb(170, 100,  0);
-				case "N":  return Color.FromArgb(150, 80,   0);
-				case "D":  return Color.FromArgb(100,  0, 150);
-				case "F":  return Color.FromArgb(  0, 60, 180);
-				case "AS": return Color.FromArgb(  0, 120, 60);
+				case "A":  return Color.FromArgb(200, 40,  40);   // APT CLSD - red
+				case "C":  return Color.FromArgb( 80, 80,  80);   // CAT I - gray
+				case "N":  return Color.FromArgb(  0, 60, 180);   // No ILS - blue
+				case "D":  return Color.FromArgb(200, 90,   0);   // Not ALTN - orangered
+				case "F":  return Color.FromArgb(150, 80,   0);   // Fuel - amber
+				case "M":  return Color.FromArgb(100,  0, 150);   // MISC - purple
+				case "R":  return Color.FromArgb(170, 100,  0);   // RWY - darkorange
+				case "AS": return Color.FromArgb(  0, 120, 60);   // AIP SUP - green
 				default:   return Color.FromArgb( 80, 80,  80);
 			}
 		}
@@ -619,15 +647,40 @@ namespace ICAO_CSV
 				notam_text = notam_text.Replace("(char)39", "'");
 
 				Color keyColor = HasImpact(Impact) ? ImpactColor(Impact) : Color.MidnightBlue;
-
-				AddNotamLabel(tabPage1, courier, notam_key, Top, 510, 140, keyColor, true, 11f);
-				AddNotamLabel(tabPage1, courier, FormatDate(fromDate), Top,    655, 190, Color.DimGray, false, 10f);
-				AddNotamLabel(tabPage1, courier, FormatDate(tillDate), Top,    850, 190, Color.DimGray, false, 10f);
+				Color stripColor = HasImpact(Impact) ? ImpactColor(Impact) : Color.FromArgb(120, 130, 140);
 
 				int height = Math.Max(notam_text.Length / 50 * 20, 80);
-				tabPage1.Controls.Add(MakeNotamWebBrowser(notam_text, Top+20, 510, height, Status == "K"));
+				int ctrlH  = 124;
+				int cardH  = Math.Max(20 + height, ctrlH) + 10;
+				int cardAvail = tabPage1.ClientSize.Width - 505 - SystemInformation.VerticalScrollBarWidth - 12;
+				if (cardAvail < 700) cardAvail = 700;
 
-				keep_Buttons[notam_ID] = MakeKeepButton(courier, Status, new Point(1070, Top+20));
+				// Light control-box background (behind the controls, above the card)
+				if (Status == "K")
+				{
+					Panel ctrlBox = new Panel
+					{
+						Tag = "dispose", Left = 1064, Top = Top, Width = cardAvail - 559, Height = ctrlH,
+						BackColor = Color.FromArgb(247, 248, 250), BorderStyle = BorderStyle.FixedSingle
+					};
+					tabPage1.Controls.Add(ctrlBox);
+					ctrlBox.SendToBack();
+				}
+
+				// White card with impact-coloured left strip (sent to the very back)
+				Panel card  = new Panel { Tag = "dispose", Left = 505, Top = Top - 4, Width = cardAvail, Height = cardH, BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+				Panel cstrip = new Panel { Left = 0, Top = 0, Width = 4, Height = cardH - 2, BackColor = stripColor };
+				card.Controls.Add(cstrip);
+				tabPage1.Controls.Add(card);
+				card.SendToBack();
+
+				AddNotamLabel(tabPage1, courier, notam_key, Top+2, 516, 140, keyColor, true, 11f);
+				AddNotamLabel(tabPage1, courier, FormatDate(fromDate), Top+2, 655, 190, Color.DimGray, false, 10f);
+				AddNotamLabel(tabPage1, courier, FormatDate(tillDate), Top+2, 850, 190, Color.DimGray, false, 10f);
+
+				tabPage1.Controls.Add(MakeNotamWebBrowser(notam_text, Top+22, 510, height, Status == "K"));
+
+				keep_Buttons[notam_ID] = MakeKeepButton(courier, Status, new Point(1070, Top+6));
 				int nid = notam_ID;
 				if (Status == "")  keep_Buttons[notam_ID].Click += (s, e) => Keep_Notam(nid);
 				if (Status == "K") keep_Buttons[notam_ID].Click += (s, e) => Ignore_Notam(nid);
@@ -650,7 +703,7 @@ namespace ICAO_CSV
 						supStored, sug.Sup, notam_text, remarkDefault, Remark, storedSupRef, Top, 1070, 1150, 1240, 1330);
 				}
 
-				Top = Top + height + 30;
+				Top = Top + cardH + 8;
 				nbNotams++;
 			}
 			conn.Close();
@@ -932,31 +985,19 @@ namespace ICAO_CSV
 				string code = _impactOrder[i];
 				bool isAuto  = !stored && sugCode == code;
 				bool isOn    = stored ? (storedImpact == code) : isAuto;
-
-				CheckBox chk = new CheckBox
-				{
-					Tag = "dispose", Top = tops[i], Left = cols[i], Text = labels[i],
-					Size = new Size(80, 25), Checked = isOn
-				};
-				StyleChk(chk, false);
-				chks[i] = chk;
 				int idx = i, nid = notam_ID;
+
+				CheckBox chk = CreateChip(tabPage1, labels[i], cols[i], tops[i], 78, isOn, code);
 				chk.CheckedChanged += (s, ev) => FilterImpactToggled(nid, idx, notamText);
-				tabPage1.Controls.Add(chk);
+				chks[i] = chk;
 			}
 			_pendImpactChks[notam_ID] = chks;
 
 			// SUP — fully independent of the impact state
-			CheckBox sup = new CheckBox
-			{
-				Tag = "dispose", Top = Top+44, Left = col4, Text = "SUP",
-				Size = new Size(80, 25), Checked = supStored || supSug
-			};
-			StyleChk(sup, true);
+			CheckBox sup = CreateChip(tabPage1, "SUP", col4, Top+44, 78, supStored || supSug, "AS");
 			int snid = notam_ID;
 			sup.CheckedChanged += (s, ev) => FilterSupToggled(snid, notamText);
 			_pendSupChk[notam_ID] = sup;
-			tabPage1.Controls.Add(sup);
 
 			// Independent SUP reference textbox (separate from the impact remark)
 			string supInit;
@@ -1004,7 +1045,7 @@ namespace ICAO_CSV
 				string r = ExtractSupRef(notamText);
 				if (r != "") _pendSupRemark[notam_ID].Text = r;
 			}
-			if (_pendSupChk.ContainsKey(notam_ID)) StyleChk(_pendSupChk[notam_ID], true);
+			if (_pendSupChk.ContainsKey(notam_ID)) StyleChk(_pendSupChk[notam_ID], "AS");
 			LayoutRemarkBoxes(notam_ID);
 		}
 
@@ -1025,7 +1066,7 @@ namespace ICAO_CSV
 					_pendRemark[notam_ID].Text = _pendRemarkDefault[notam_ID];
 				}
 			}
-			for (int i = 0; i < chks.Length; i++) StyleChk(chks[i], false);
+			for (int i = 0; i < chks.Length; i++) StyleChk(chks[i], _impactOrder[i]);
 			LayoutRemarkBoxes(notam_ID);
 		}
 
@@ -1120,14 +1161,18 @@ namespace ICAO_CSV
 
 		private Button MakeKeepButton(FontFamily font, string status, Point location)
 		{
-			return new Button
+			Button b = new Button
 			{
 				Tag       = "dispose", Location = location,
-				Size      = status == "K" ? new Size(50,25) : new Size(40,25),
+				Size      = status == "K" ? new Size(58,24) : new Size(48,24),
 				Text      = status == "K" ? "Ignore" : "Keep",
-				BackColor = status == "K" ? Color.LightCoral : Color.CornflowerBlue,
-				Font      = new Font(font, 7)
+				ForeColor = Color.White,
+				BackColor = status == "K" ? Color.FromArgb(84,110,122) : Color.FromArgb(100,149,237),
+				Font      = new Font("Segoe UI", 8f),
+				FlatStyle = FlatStyle.Flat
 			};
+			b.FlatAppearance.BorderSize = 0;
+			return b;
 		}
 
 		private bool HasImpact(string impact)
