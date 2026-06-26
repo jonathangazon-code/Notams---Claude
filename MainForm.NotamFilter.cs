@@ -655,24 +655,23 @@ namespace ICAO_CSV
 				int cardAvail = tabPage1.ClientSize.Width - 505 - SystemInformation.VerticalScrollBarWidth - 12;
 				if (cardAvail < 700) cardAvail = 700;
 
-				// Light control-box background (behind the controls, above the card)
+				// Light control-box background (pushed behind the controls later)
+				Panel ctrlBox = null;
 				if (Status == "K")
 				{
-					Panel ctrlBox = new Panel
+					ctrlBox = new Panel
 					{
 						Tag = "dispose", Left = 1064, Top = Top, Width = cardAvail - 559, Height = ctrlH,
 						BackColor = Color.FromArgb(247, 248, 250), BorderStyle = BorderStyle.FixedSingle
 					};
 					tabPage1.Controls.Add(ctrlBox);
-					ctrlBox.SendToBack();
 				}
 
-				// White card with impact-coloured left strip (sent to the very back)
+				// White card with impact-coloured left strip (pushed to the very back later)
 				Panel card  = new Panel { Tag = "dispose", Left = 505, Top = Top - 4, Width = cardAvail, Height = cardH, BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
 				Panel cstrip = new Panel { Left = 0, Top = 0, Width = 4, Height = cardH - 2, BackColor = stripColor };
 				card.Controls.Add(cstrip);
 				tabPage1.Controls.Add(card);
-				card.SendToBack();
 
 				AddNotamLabel(tabPage1, courier, notam_key, Top+2, 516, 140, keyColor, true, 11f);
 				AddNotamLabel(tabPage1, courier, FormatDate(fromDate), Top+2, 655, 190, Color.DimGray, false, 10f);
@@ -702,6 +701,10 @@ namespace ICAO_CSV
 					AddFilterCheckboxes(notam_ID, Impact, stored, sugCode,
 						supStored, sug.Sup, notam_text, remarkDefault, Remark, storedSupRef, Top, 1070, 1150, 1240, 1330);
 				}
+
+				// Push the background panels behind all content added above
+				if (ctrlBox != null) ctrlBox.SendToBack();
+				card.SendToBack();
 
 				Top = Top + cardH + 8;
 				nbNotams++;
