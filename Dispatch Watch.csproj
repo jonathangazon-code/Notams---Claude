@@ -7,7 +7,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <OutputType>WinExe</OutputType>
     <RootNamespace>ICAO_CSV</RootNamespace>
-    <AssemblyName>ICAO-CSV</AssemblyName>
+    <AssemblyName>Dispatch Watch</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <ApplicationIcon>icon.ico</ApplicationIcon>

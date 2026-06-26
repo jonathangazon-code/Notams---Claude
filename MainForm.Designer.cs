@@ -881,7 +881,7 @@ namespace ICAO_CSV
 			this.Controls.Add(this.tabControl1);
 			this.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
 			this.Name = "MainForm";
-			this.Text = "ICAO-CSV";
+			this.Text = "Dispatch Watch";
 			this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
 			this.tabControl1.ResumeLayout(false);
 			this.tabPage1.ResumeLayout(false);
