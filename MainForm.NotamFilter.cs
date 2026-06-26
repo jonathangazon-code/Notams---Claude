@@ -656,12 +656,14 @@ namespace ICAO_CSV
 				if (cardAvail < 700) cardAvail = 700;
 
 				// Light control-box background (pushed behind the controls later)
+				int ctrlLeft = 1064;
+				int ctrlW    = cardAvail - (ctrlLeft - 505) - 4;   // ends just inside the card
 				Panel ctrlBox = null;
 				if (Status == "K")
 				{
 					ctrlBox = new Panel
 					{
-						Tag = "dispose", Left = 1064, Top = Top, Width = cardAvail - 559, Height = ctrlH,
+						Tag = "dispose", Left = ctrlLeft, Top = Top, Width = ctrlW, Height = ctrlH,
 						BackColor = Color.FromArgb(247, 248, 250), BorderStyle = BorderStyle.FixedSingle
 					};
 					tabPage1.Controls.Add(ctrlBox);
@@ -699,7 +701,7 @@ namespace ICAO_CSV
 
 					string remarkDefault = NotamRemarkDefault(notam_text, fromDate, tillDate);
 					AddFilterCheckboxes(notam_ID, Impact, stored, sugCode,
-						supStored, sug.Sup, notam_text, remarkDefault, Remark, storedSupRef, Top, 1070, 1150, 1240, 1330);
+						supStored, sug.Sup, notam_text, remarkDefault, Remark, storedSupRef, Top, ctrlLeft, ctrlW);
 				}
 
 				// Push the background panels behind all content added above
@@ -956,32 +958,25 @@ namespace ICAO_CSV
 		// Filter-tab impact checkboxes: visual-only until SUBMIT. AUTO state = suggested
 		// but not yet stored (yellow). Impact group is radio (single choice). SUP independent.
 		private void AddFilterCheckboxes(int notam_ID, string storedImpact, bool stored, string sugCode,
-			bool supStored, bool supSug, string notamText, string remarkDefault, string storedRemark, string storedSupRef, int Top, int col1, int col2, int col3, int col4)
+			bool supStored, bool supSug, string notamText, string remarkDefault, string storedRemark, string storedSupRef, int Top, int ctrlLeft, int ctrlW)
 		{
 			_pendRemarkDefault[notam_ID] = remarkDefault;
 			string[] labels = { "APT CLSD", "CAT I", "No ILS", "Not ALTN", "Fuel", "MISC", "RWY" };
 
-			// Four columns filling the control box width, wide chips that fit full labels.
-			// The control box right edge = card right = tabWidth - scrollbar - 12; keep an
-			// inner margin so the last column never touches/overflows the box border.
-			int boxRight = tabPage1.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 12;
-			int chipLeft = col1 + 4;
-			int colW     = (boxRight - chipLeft - 16) / 4;
-			if (colW < 90) colW = 90;
-			int chipW    = colW - 8;
-			int[] colX   = { chipLeft, chipLeft + colW, chipLeft + 2 * colW, chipLeft + 3 * colW };
+			// Lay the 4 columns strictly inside the control box [ctrlLeft, ctrlLeft+ctrlW].
+			int pad      = 10;
+			int areaLeft = ctrlLeft + pad;
+			int areaW    = ctrlW - 2 * pad;
+			int colW     = areaW / 4;
+			int chipW    = colW - 6;
+			int[] colX   = { areaLeft, areaLeft + colW, areaLeft + 2 * colW, areaLeft + 3 * colW };
 			int[] cols   = { colX[0], colX[1], colX[2], colX[0], colX[1], colX[2], colX[3] };
 			int[] tops   = { Top+44, Top+44, Top+44, Top+68, Top+68, Top+68, Top+68 };
 
 			bool supAuto = !supStored && supSug;
 
-			// Both textboxes live inside a fixed-position container panel; they are laid
-			// out with panel-relative coordinates so toggling visibility never drifts.
-			// Panel width = real available width in the tab (minus the vertical scrollbar)
-			// so the textboxes never trigger a horizontal scrollbar.
-			int avail = tabPage1.ClientSize.Width - col1 - SystemInformation.VerticalScrollBarWidth - 12;
-			if (avail < 300) avail = 300;
-			Panel remarkRow = new Panel { Tag="dispose", Top=Top+94, Left=col1, Width=avail, Height=26 };
+			// Both textboxes live inside a fixed-position container panel (within the box).
+			Panel remarkRow = new Panel { Tag="dispose", Top=Top+94, Left=areaLeft, Width=areaW, Height=26 };
 			tabPage1.Controls.Add(remarkRow);
 
 			// Impact remark textbox: stored remark > impact first-line > empty

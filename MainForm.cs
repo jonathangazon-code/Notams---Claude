@@ -22,8 +22,10 @@ namespace ICAO_CSV
 			LoadStationsCache();
 			tab_RWYs();
 			Airport_List();
-			Filter_Notams();
 			this.FormClosing += MainForm_FormClosing;
+			// Run the first Filter render once the window is shown (and maximized) so the
+			// layout uses the real tab width rather than the smaller design-time size.
+			this.Shown += delegate { Filter_Notams(); };
 		}
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
