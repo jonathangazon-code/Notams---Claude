@@ -961,12 +961,14 @@ namespace ICAO_CSV
 			_pendRemarkDefault[notam_ID] = remarkDefault;
 			string[] labels = { "APT CLSD", "CAT I", "No ILS", "Not ALTN", "Fuel", "MISC", "RWY" };
 
-			// Four columns filling the control box width, wide chips that fit full labels
+			// Four columns filling the control box width, wide chips that fit full labels.
+			// The control box right edge = card right = tabWidth - scrollbar - 12; keep an
+			// inner margin so the last column never touches/overflows the box border.
 			int boxRight = tabPage1.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 12;
-			int chipLeft = col1 + 2;
-			int colW     = (boxRight - chipLeft - 8) / 4;
+			int chipLeft = col1 + 4;
+			int colW     = (boxRight - chipLeft - 16) / 4;
 			if (colW < 90) colW = 90;
-			int chipW    = colW - 6;
+			int chipW    = colW - 8;
 			int[] colX   = { chipLeft, chipLeft + colW, chipLeft + 2 * colW, chipLeft + 3 * colW };
 			int[] cols   = { colX[0], colX[1], colX[2], colX[0], colX[1], colX[2], colX[3] };
 			int[] tops   = { Top+44, Top+44, Top+44, Top+68, Top+68, Top+68, Top+68 };
