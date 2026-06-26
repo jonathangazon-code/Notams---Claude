@@ -16,6 +16,25 @@ namespace ICAO_CSV
 		private Dictionary<int, string>     _pendRemarkDefault = new Dictionary<int, string>();
 		private System.Collections.Generic.HashSet<int> _autoKeepSkip = new System.Collections.Generic.HashSet<int>();
 		private static readonly string[] _impactOrder = { "A", "C", "N", "D", "F", "M", "R" };
+		private static readonly Color _impactSelBg = Color.FromArgb(255, 248, 225);
+		private static readonly Color _impactSelFg = Color.FromArgb(122, 92, 0);
+		private static readonly Color _supSelBg    = Color.FromArgb(232, 245, 233);
+		private static readonly Color _supSelFg    = Color.FromArgb(27, 94, 32);
+
+		// Colour a checkbox when selected (impact = yellow, SUP = green); revert when not.
+		private static void StyleChk(CheckBox c, bool sup)
+		{
+			if (c.Checked)
+			{
+				c.BackColor = sup ? _supSelBg : _impactSelBg;
+				c.ForeColor = sup ? _supSelFg : _impactSelFg;
+			}
+			else
+			{
+				c.BackColor = SystemColors.Control;
+				c.ForeColor = SystemColors.ControlText;
+			}
+		}
 
 		private static readonly string[] _notamKeywords = {
 			"CLSD", "U/S", "UNSERVICEABLE", "OUT OF SERVICE",
@@ -919,11 +938,7 @@ namespace ICAO_CSV
 					Tag = "dispose", Top = tops[i], Left = cols[i], Text = labels[i],
 					Size = new Size(80, 25), Checked = isOn
 				};
-				if (isAuto)
-				{
-					chk.BackColor = Color.FromArgb(255, 248, 225); // AUTO yellow
-					chk.ForeColor = Color.FromArgb(122, 92, 0);
-				}
+				StyleChk(chk, false);
 				chks[i] = chk;
 				int idx = i, nid = notam_ID;
 				chk.CheckedChanged += (s, ev) => FilterImpactToggled(nid, idx, notamText);
@@ -937,11 +952,7 @@ namespace ICAO_CSV
 				Tag = "dispose", Top = Top+44, Left = col4, Text = "SUP",
 				Size = new Size(80, 25), Checked = supStored || supSug
 			};
-			if (supAuto)
-			{
-				sup.BackColor = Color.FromArgb(232, 245, 233); // independent green AUTO
-				sup.ForeColor = Color.FromArgb(27, 94, 32);
-			}
+			StyleChk(sup, true);
 			int snid = notam_ID;
 			sup.CheckedChanged += (s, ev) => FilterSupToggled(snid, notamText);
 			_pendSupChk[notam_ID] = sup;
@@ -993,6 +1004,7 @@ namespace ICAO_CSV
 				string r = ExtractSupRef(notamText);
 				if (r != "") _pendSupRemark[notam_ID].Text = r;
 			}
+			if (_pendSupChk.ContainsKey(notam_ID)) StyleChk(_pendSupChk[notam_ID], true);
 			LayoutRemarkBoxes(notam_ID);
 		}
 
@@ -1013,6 +1025,7 @@ namespace ICAO_CSV
 					_pendRemark[notam_ID].Text = _pendRemarkDefault[notam_ID];
 				}
 			}
+			for (int i = 0; i < chks.Length; i++) StyleChk(chks[i], false);
 			LayoutRemarkBoxes(notam_ID);
 		}
 
