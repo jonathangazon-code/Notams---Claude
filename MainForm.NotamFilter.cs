@@ -63,12 +63,15 @@ namespace ICAO_CSV
 			}
 		}
 
-		private static readonly string[] _notamKeywords = {
+		// Default keyword seed (used to create/seed the Keywords table on first run).
+		private static readonly string[] _defaultKeywords = {
 			"CLSD", "U/S", "UNSERVICEABLE", "OUT OF SERVICE",
 			"ILS", "GP", "LOC", "RWY", "TWY", "APCH", "DEP",
 			"FUEL", "AVBL", "NOT AVBL", "NIL", "LTD",
 			"CAT I", "CAT II", "CAT III", "PERM", "H24", "DAILY", "SUP"
 		};
+		// Live list, loaded from the Keywords table at startup (see LoadKeywords()).
+		private static string[] _notamKeywords = _defaultKeywords;
 
 		private static Color ImpactColor(string impact)
 		{
