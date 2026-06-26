@@ -17,6 +17,12 @@ namespace ICAO_CSV
 		public MainForm()
 		{
 			InitializeComponent();
+			try
+			{
+				string ico = System.IO.Path.Combine(Application.StartupPath, "icon.ico");
+				if (System.IO.File.Exists(ico)) this.Icon = new System.Drawing.Icon(ico);
+			}
+			catch { /* icon optional */ }
 			StartApp();
 			EnsureSchema();
 			EnsureKeywordsTable();
