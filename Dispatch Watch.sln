@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 # SharpDevelop 5.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dispatch Watch", "Dispatch Watch.csproj", "{680DC9D0-1F56-4902-B1D7-4BD72F43ABEC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dispatch Watch", "Dispatch Watch\Dispatch Watch.csproj", "{680DC9D0-1F56-4902-B1D7-4BD72F43ABEC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
