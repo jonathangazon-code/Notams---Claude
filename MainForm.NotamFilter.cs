@@ -715,8 +715,9 @@ namespace ICAO_CSV
 			Lbl_notamsUnchecked.Text = "Notams Unchecked : " + nbNotams;
 
 			int barTop  = Top + 20;
-			int barLeft = 510;
-			int barW    = 860;
+			int barLeft = 505;
+			int barW    = tabPage1.ClientSize.Width - 505 - SystemInformation.VerticalScrollBarWidth - 12;
+			if (barW < 700) barW = 700;
 			int barH    = 38;
 
 			Panel statusBar = new Panel
@@ -958,9 +959,17 @@ namespace ICAO_CSV
 			bool supStored, bool supSug, string notamText, string remarkDefault, string storedRemark, string storedSupRef, int Top, int col1, int col2, int col3, int col4)
 		{
 			_pendRemarkDefault[notam_ID] = remarkDefault;
-			string[] labels = { "APT CLSD", "APT CATI", "No ILS", "Not ALTN", "Fuel", "MISC", "RWY" };
-			int[]    cols   = { col1, col2, col3, col1, col2, col3, col4 };
-			int[]    tops   = { Top+44, Top+44, Top+44, Top+68, Top+68, Top+68, Top+68 };
+			string[] labels = { "APT CLSD", "CAT I", "No ILS", "Not ALTN", "Fuel", "MISC", "RWY" };
+
+			// Four columns filling the control box width, wide chips that fit full labels
+			int boxRight = tabPage1.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 12;
+			int chipLeft = col1 + 2;
+			int colW     = (boxRight - chipLeft - 8) / 4;
+			if (colW < 90) colW = 90;
+			int chipW    = colW - 6;
+			int[] colX   = { chipLeft, chipLeft + colW, chipLeft + 2 * colW, chipLeft + 3 * colW };
+			int[] cols   = { colX[0], colX[1], colX[2], colX[0], colX[1], colX[2], colX[3] };
+			int[] tops   = { Top+44, Top+44, Top+44, Top+68, Top+68, Top+68, Top+68 };
 
 			bool supAuto = !supStored && supSug;
 
@@ -990,14 +999,14 @@ namespace ICAO_CSV
 				bool isOn    = stored ? (storedImpact == code) : isAuto;
 				int idx = i, nid = notam_ID;
 
-				CheckBox chk = CreateChip(tabPage1, labels[i], cols[i], tops[i], 78, isOn, code);
+				CheckBox chk = CreateChip(tabPage1, labels[i], cols[i], tops[i], chipW, isOn, code);
 				chk.CheckedChanged += (s, ev) => FilterImpactToggled(nid, idx, notamText);
 				chks[i] = chk;
 			}
 			_pendImpactChks[notam_ID] = chks;
 
 			// SUP — fully independent of the impact state
-			CheckBox sup = CreateChip(tabPage1, "SUP", col4, Top+44, 78, supStored || supSug, "AS");
+			CheckBox sup = CreateChip(tabPage1, "SUP", colX[3], Top+44, chipW, supStored || supSug, "AS");
 			int snid = notam_ID;
 			sup.CheckedChanged += (s, ev) => FilterSupToggled(snid, notamText);
 			_pendSupChk[notam_ID] = sup;
