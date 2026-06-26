@@ -38,6 +38,7 @@ There are no automated tests, no lint tools, and no CLI build commands — Sharp
 | `MainForm.AirportList.cs` | `Airport_List()`, add/edit/delete airport station entries |
 | `MainForm.Rwys.cs` | `tab_RWYs()`, `Update_RWYs()` — runway info per station |
 | `MainForm.Export.cs` | `ExportToPdf()` — calls `wkhtmltopdf.exe` to export HTML reports |
+| `MainForm.Keywords.cs` | `EnsureKeywordsTable()`, `LoadKeywords()`, Keywords tab (add/remove highlight keywords) |
 
 Any new partial file must be registered in `ICAO-CSV.csproj` with `<DependentUpon>MainForm.cs</DependentUpon>`.
 
@@ -59,21 +60,25 @@ Any new partial file must be registered in `ICAO-CSV.csproj` with `<DependentUpo
 
 ### Filter New Notams tab (`Filter_Notams`)
 
-- Runs **automatically at startup** (called from the `MainForm` constructor) — there is no "Analyze" button. It loads the first airport that still has unchecked NOTAMs (`Checked='N'`).
+- Runs **automatically once the form is shown** (`this.Shown += … Filter_Notams()`), **not** from the constructor — the `Shown` event fires after the window is maximized so the layout reads the real `tabPage1.ClientSize.Width` (the constructor size is the smaller design-time width). There is no "Analyze" button. It loads the first airport that still has unchecked NOTAMs (`Checked='N'`).
+- The form is **maximized, `AutoScroll=false`**; `tabControl1` is `Dock=Fill`. Only `tabPage1` scrolls (vertical). Card/control-box/status-bar widths are computed from `tabPage1.ClientSize.Width - scrollbar` so nothing triggers a horizontal scrollbar.
 - Layout per airport:
   - **`Web_FilterHeader`** (a `WebBrowser`) renders the dark "airport card": ICAO, IATA, `N new` badge, RWY blocks, and a **VML runway diagram** (oriented by QFU = designator × 10°, length proportional to distance, parallel runways offset perpendicular).
   - **Left column** — kept NOTAMs, each in a `Panel` (`Tag="dispose"`) holding a colored impact strip + a borderless `RichTextBox`.
-  - **Right column** — new/unchecked NOTAMs, each NOTAM body rendered in a **mini `WebBrowser`** (`MakeNotamWebBrowser`), plus impact checkboxes/Keep button (unchanged WinForms controls).
-  - A dark **status bar** + styled `Btn_submitNotams` ("SUBMIT ▶") sit at the bottom of the right column.
+  - **Right column** — each new/unchecked NOTAM is a **card**: a white `Panel` (`Tag="dispose"`) with a left strip in the impact colour, sent to the back *after* its content is added (z-order: `SendToBack()` only moves behind controls already present). On top sit the key/date labels, the mini `WebBrowser` body (`MakeNotamWebBrowser`), the flat Keep/Ignore button, and a light **control box** holding the impact chips + remark textboxes.
+  - A dark **status bar** + styled `Btn_submitNotams` ("SUBMIT ▶") sit at the bottom of the right column, right-aligned to the card width.
 - When **no unchecked NOTAMs remain**, `Filter_Notams` early-returns after rendering an "ALL NOTAMS CHECKED" card in `Web_FilterHeader` and hiding the Submit button.
 
 #### Auto-classification engine (Filter tab only)
 
 - `SuggestImpacts(text, runways, keptUpper)` returns an `ImpactSuggestion` (flags A/C/N/D/F + independent `Sup`) from regex on the NOTAM text plus airport context (`ParseRunways` of the OCC RWY field + the upper-cased texts of all Kept NOTAMs). The contextual rules (APT CLSD if all RWYs closed, CAT I if no other CAT 2/3, No ILS if no other ILS) are **best-effort regex** and meant to be tuned against real NOTAM samples.
-- `SuggestedSingleCode` collapses the suggestion to one Impact code by severity (A>N>C>D>F) because `Impact` stores a single code; **SUP is stored independently** in the dedicated `Sup` column (`Yes`/empty) added by `EnsureSchema()` (idempotent `ALTER TABLE`, run from the constructor).
-- **Checkboxes are visual-only until SUBMIT.** `AddFilterCheckboxes` pre-checks the suggested box in an "AUTO" colour (yellow for impact, green for SUP) when nothing is stored yet. The impact group behaves as radio buttons (`FilterImpactToggled`); SUP is independent. Selecting an impact pre-fills the remark with the NOTAM's first line if empty. Nothing is written to the DB on click — `Btn_submitNotamsClick` reads the final state of `_pendImpactChks` / `_pendSupChk` / `_pendRemark` and persists `Impact`, `Sup`, `Remark` before marking `Checked='Y'`.
-- The **ICAO lookup tab (tabPage2)** keeps the original immediate-write behaviour via `AddImpactCheckboxes` / `Impact_Notam` — the suggestion engine is not applied there.
-- **Keyword highlighting**: `_notamKeywords` are bolded/reddened. `HighlightKeywords(rtb, startChar)` (RichTextBox) skips the first two lines (NOTAM ref + dates); `HighlightKeywordsHtml(text)` does the HTML equivalent for the mini WebBrowsers.
+- `SuggestedSingleCode` collapses the suggestion to one Impact code by severity (A>N>C>D>F) because `Impact` stores a single code. **SUP is fully independent** — stored in the dedicated `Sup` column (`Yes`/empty), with its reference (e.g. `SUP 056/2026`, via `ExtractSupRef`) in a separate `SupRef` column. Both columns are added by `EnsureSchema()` (idempotent `ALTER TABLE`).
+- **Auto-Keep**: a pre-pass promotes not-yet-kept NOTAMs to `Status='K'` when `SuggestImpacts` finds any impact or SUP, so the chips render. `Ignore_Notam` adds the ID to the session `_autoKeepSkip` set so an ignored NOTAM is not auto-re-kept.
+- **Impact checkboxes are "chips"** (`CreateChip`): a `Panel` with a left accent strip + borderless `CheckBox` (the checkbox's `Tag` holds its accent panel). `StyleChk(cb, code)` tints the chip in the impact colour when checked (`ImpactColor` → `Tint`), grey accent when not. Columns/widths are laid out strictly inside the passed control-box geometry (`ctrlLeft`/`ctrlW`).
+- **Two independent remark textboxes** per NOTAM (`LayoutRemarkBoxes`): the impact remark and the SUP-reference box. Only the box(es) whose checkbox is selected are shown; one box → full width, two → 2⁄3 impact + 1⁄3 SUP. The impact remark default (`NotamRemarkDefault`) is the NOTAM's first line, or the validity period `start - end` when that line is just `No`.
+- **Visual-only until SUBMIT.** Nothing is written to the DB on click — `Btn_submitNotamsClick` reads the final state of `_pendImpactChks` / `_pendSupChk` / `_pendRemark` / `_pendSupRemark` and persists `Impact`, `Sup`, `Remark`, `SupRef` before marking `Checked='Y'`.
+- The **ICAO lookup tab (tabPage2)** keeps the original immediate-write behaviour via `AddImpactCheckboxes` / `Impact_Notam` — the suggestion engine, chips, and auto-keep are not applied there.
+- **Keyword highlighting**: `_notamKeywords` are bolded/reddened (whole-word match only). `HighlightKeywords(rtb, startChar)` (RichTextBox) skips the first two lines (NOTAM ref + dates); `HighlightKeywordsHtml(text)` does the HTML equivalent for the mini WebBrowsers. The list is loaded from the `Keywords` table (`ICAO_storedNotams.mdb`, seeded with `_defaultKeywords` by `EnsureKeywordsTable()`) and editable via the **Keywords tab** — `_notamKeywords` is a runtime list, not a hardcoded constant.
 
 ### WebBrowser control runs in IE7 mode
 

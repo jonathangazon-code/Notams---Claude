@@ -57,6 +57,12 @@ namespace ICAO_CSV
 		private System.Windows.Forms.TextBox TxtBox_APT_ICAO;
 		private System.Windows.Forms.Button Btn_printReport;
 		private System.Windows.Forms.Button Btn_exportReport;
+		private System.Windows.Forms.TabPage tabPage_Keywords;
+		private System.Windows.Forms.ListBox Lst_Keywords;
+		private System.Windows.Forms.TextBox TxtBox_keyword;
+		private System.Windows.Forms.Button Btn_addKeyword;
+		private System.Windows.Forms.Button Btn_removeKeyword;
+		private System.Windows.Forms.Label Lbl_keywordsTitle;
 		private System.Windows.Forms.TabPage AIP_SUP_report;
 		private System.Windows.Forms.Button Btn_Sup_printReport;
 		private System.Windows.Forms.Button Btn_Sup_exportReport;
@@ -130,6 +136,12 @@ namespace ICAO_CSV
 			this.RchTxt_updateRWYs = new System.Windows.Forms.RichTextBox();
 			this.Lbl_ICAO_RWYs = new System.Windows.Forms.Label();
 			this.Btn_updateRWys = new System.Windows.Forms.Button();
+			this.tabPage_Keywords = new System.Windows.Forms.TabPage();
+			this.Lst_Keywords = new System.Windows.Forms.ListBox();
+			this.TxtBox_keyword = new System.Windows.Forms.TextBox();
+			this.Btn_addKeyword = new System.Windows.Forms.Button();
+			this.Btn_removeKeyword = new System.Windows.Forms.Button();
+			this.Lbl_keywordsTitle = new System.Windows.Forms.Label();
 			this.APT_List = new System.Windows.Forms.TabPage();
 			this.Btn_CopyAPTList = new System.Windows.Forms.Button();
 			this.Btn_addAPT = new System.Windows.Forms.Button();
@@ -263,6 +275,7 @@ namespace ICAO_CSV
 			this.tabControl1.Controls.Add(this.tabPage4);
 			this.tabControl1.Controls.Add(this.tabPage5);
 			this.tabControl1.Controls.Add(this.APT_List);
+			this.tabControl1.Controls.Add(this.tabPage_Keywords);
 			this.tabControl1.Controls.Add(this.AIP_SUP_report);
 			this.tabControl1.Location = new System.Drawing.Point(12, 10);
 			this.tabControl1.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
@@ -271,9 +284,74 @@ namespace ICAO_CSV
 			this.tabControl1.Size = new System.Drawing.Size(1885, 1268);
 			this.tabControl1.TabIndex = 20;
 			this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
-			// 
+			//
+			// tabPage_Keywords
+			//
+			this.tabPage_Keywords.Controls.Add(this.Lbl_keywordsTitle);
+			this.tabPage_Keywords.Controls.Add(this.Lst_Keywords);
+			this.tabPage_Keywords.Controls.Add(this.TxtBox_keyword);
+			this.tabPage_Keywords.Controls.Add(this.Btn_addKeyword);
+			this.tabPage_Keywords.Controls.Add(this.Btn_removeKeyword);
+			this.tabPage_Keywords.Location = new System.Drawing.Point(4, 25);
+			this.tabPage_Keywords.Name = "tabPage_Keywords";
+			this.tabPage_Keywords.Size = new System.Drawing.Size(1877, 1239);
+			this.tabPage_Keywords.TabIndex = 7;
+			this.tabPage_Keywords.Text = "Keywords";
+			this.tabPage_Keywords.UseVisualStyleBackColor = true;
+			//
+			// Lbl_keywordsTitle
+			//
+			this.Lbl_keywordsTitle.AutoSize = true;
+			this.Lbl_keywordsTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Bold);
+			this.Lbl_keywordsTitle.Location = new System.Drawing.Point(20, 18);
+			this.Lbl_keywordsTitle.Name = "Lbl_keywordsTitle";
+			this.Lbl_keywordsTitle.Text = "NOTAM highlight keywords";
+			//
+			// TxtBox_keyword
+			//
+			this.TxtBox_keyword.Location = new System.Drawing.Point(22, 56);
+			this.TxtBox_keyword.Name = "TxtBox_keyword";
+			this.TxtBox_keyword.Size = new System.Drawing.Size(220, 23);
+			this.TxtBox_keyword.TabIndex = 0;
+			this.TxtBox_keyword.KeyDown += new System.Windows.Forms.KeyEventHandler(this.TxtBox_keywordKeyDown);
+			//
+			// Btn_addKeyword
+			//
+			this.Btn_addKeyword.Location = new System.Drawing.Point(250, 55);
+			this.Btn_addKeyword.Name = "Btn_addKeyword";
+			this.Btn_addKeyword.Size = new System.Drawing.Size(90, 26);
+			this.Btn_addKeyword.TabIndex = 1;
+			this.Btn_addKeyword.Text = "Add";
+			this.Btn_addKeyword.BackColor = System.Drawing.Color.SeaGreen;
+			this.Btn_addKeyword.ForeColor = System.Drawing.Color.White;
+			this.Btn_addKeyword.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+			this.Btn_addKeyword.UseVisualStyleBackColor = false;
+			this.Btn_addKeyword.Click += new System.EventHandler(this.Btn_addKeywordClick);
+			//
+			// Lst_Keywords
+			//
+			this.Lst_Keywords.FormattingEnabled = true;
+			this.Lst_Keywords.ItemHeight = 15;
+			this.Lst_Keywords.Location = new System.Drawing.Point(22, 92);
+			this.Lst_Keywords.Name = "Lst_Keywords";
+			this.Lst_Keywords.Size = new System.Drawing.Size(318, 364);
+			this.Lst_Keywords.TabIndex = 2;
+			//
+			// Btn_removeKeyword
+			//
+			this.Btn_removeKeyword.Location = new System.Drawing.Point(22, 466);
+			this.Btn_removeKeyword.Name = "Btn_removeKeyword";
+			this.Btn_removeKeyword.Size = new System.Drawing.Size(318, 28);
+			this.Btn_removeKeyword.TabIndex = 3;
+			this.Btn_removeKeyword.Text = "Remove selected";
+			this.Btn_removeKeyword.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
+			this.Btn_removeKeyword.ForeColor = System.Drawing.Color.White;
+			this.Btn_removeKeyword.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+			this.Btn_removeKeyword.UseVisualStyleBackColor = false;
+			this.Btn_removeKeyword.Click += new System.EventHandler(this.Btn_removeKeywordClick);
+			//
 			// tabPage1
-			// 
+			//
 			this.tabPage1.AutoScroll = true;
 			this.tabPage1.Controls.Add(this.Web_FilterHeader);
 			this.tabPage1.Controls.Add(this.Lbl_location);
