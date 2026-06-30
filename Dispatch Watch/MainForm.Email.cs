@@ -114,11 +114,11 @@ namespace ICAO_CSV
 			if (MessageBox.Show("Send today's reports to " + rcp.Count + " recipient(s)?",
 				"Send Reports", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
 
-			string ddmmyyyy = DateTime.Now.ToString("ddMMyyyy");
-			string subject  = "NOTAMs Report and AIP Sup List - " + ddmmyyyy;
-			string body     = "Dear all,\r\n" +
-				"please find attached the NOTAMs Report and AIP SUP List for today " + ddmmyyyy + " \r\n" +
-				"Kind regards,";
+			string titleDate = DateTime.Now.ToString("ddMMMyyyy", System.Globalization.CultureInfo.InvariantCulture).ToUpper(); // e.g. 09JUL2026
+			string subject   = "NOTAMs Report and AIP Sup List - " + titleDate;
+			string bodyHtml  = "Dear all,<br><br>" +
+				"Please find attached the NOTAMs Report and AIP SUP List for today " + titleDate + " <br><br>" +
+				"Kind regards,<br>";
 
 			try
 			{
@@ -133,7 +133,17 @@ namespace ICAO_CSV
 				Type mt = mail.GetType();
 				mt.InvokeMember("To",      BindingFlags.SetProperty, null, mail, new object[] { to });
 				mt.InvokeMember("Subject", BindingFlags.SetProperty, null, mail, new object[] { subject });
-				mt.InvokeMember("Body",    BindingFlags.SetProperty, null, mail, new object[] { body });
+
+				// Touching the inspector makes Outlook insert the account's default signature
+				// into HTMLBody; we then prepend our message above it.
+				string signature = "";
+				try
+				{
+					mt.InvokeMember("GetInspector", BindingFlags.GetProperty, null, mail, null);
+					signature = (string)mt.InvokeMember("HTMLBody", BindingFlags.GetProperty, null, mail, null);
+				}
+				catch { }
+				mt.InvokeMember("HTMLBody", BindingFlags.SetProperty, null, mail, new object[] { bodyHtml + signature });
 
 				object atts = mt.InvokeMember("Attachments", BindingFlags.GetProperty, null, mail, null);
 				Type at = atts.GetType();
