@@ -4,11 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A Windows Forms application (C# / .NET 4.0) used by ASL Aviation Group flight dispatchers to download, filter, classify, and report on ICAO NOTAMs. Built and maintained in **SharpDevelop portable** — Visual Studio is not available.
+**Dispatch Watch** — a Windows Forms application (C# / .NET 4.0) used by ASL Aviation Group flight dispatchers to download, filter, classify, and report on ICAO NOTAMs. Built and maintained in **SharpDevelop portable** — Visual Studio is not available.
+
+## Repo layout
+
+The solution file sits at the repo root; the project and all sources live in a `Dispatch Watch/` subfolder:
+
+```
+Dispatch Watch.sln            ← repo root (open this)
+Dispatch Watch/               ← project subfolder
+   Dispatch Watch.csproj
+   MainForm*.cs, Program.cs, icon.ico, …
+CLAUDE.md
+```
+
+The compiled output is `Dispatch Watch.exe` (`<AssemblyName>`); the window title and `<ApplicationIcon>` (`icon.ico`, a crossing-runways mark) are also "Dispatch Watch".
 
 ## Build & Run
 
-Open `ICAO-CSV.sln` in SharpDevelop. Build with **F8**, run with **F5**.
+Open `Dispatch Watch.sln` in SharpDevelop. Build with **F8**, run with **F5**.
 
 There are no automated tests, no lint tools, and no CLI build commands — SharpDevelop is the only build environment.
 
@@ -40,7 +54,7 @@ There are no automated tests, no lint tools, and no CLI build commands — Sharp
 | `MainForm.Export.cs` | `ExportToPdf()` — calls `wkhtmltopdf.exe` to export HTML reports |
 | `MainForm.Keywords.cs` | `EnsureKeywordsTable()`, `LoadKeywords()`, Keywords tab (add/remove highlight keywords) |
 
-Any new partial file must be registered in `ICAO-CSV.csproj` with `<DependentUpon>MainForm.cs</DependentUpon>`.
+Any new partial file must be registered in `Dispatch Watch.csproj` with `<DependentUpon>MainForm.cs</DependentUpon>`.
 
 ### Database Access Rules
 
