@@ -485,7 +485,7 @@ namespace ICAO_CSV
 			//
 			this.Lbl_ICAO.AutoSize = true;
 			this.Lbl_ICAO.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Bold);
-			this.Lbl_ICAO.Location = new System.Drawing.Point(510, 13);
+			this.Lbl_ICAO.Location = new System.Drawing.Point(505, 13);
 			this.Lbl_ICAO.Name = "Lbl_ICAO";
 			this.Lbl_ICAO.Text = "ICAO";
 			// 
@@ -533,7 +533,7 @@ namespace ICAO_CSV
 			// 
 			// Btn_ICAO
 			// 
-			this.Btn_ICAO.Location = new System.Drawing.Point(650, 8);
+			this.Btn_ICAO.Location = new System.Drawing.Point(675, 8);
 			this.Btn_ICAO.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
 			this.Btn_ICAO.Name = "Btn_ICAO";
 			this.Btn_ICAO.Size = new System.Drawing.Size(60, 30);
@@ -549,12 +549,12 @@ namespace ICAO_CSV
 			// 
 			this.TxtBox_ICAO.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.TxtBox_ICAO.CharacterCasing = System.Windows.Forms.CharacterCasing.Upper;
-			this.TxtBox_ICAO.Location = new System.Drawing.Point(550, 9);
+			this.TxtBox_ICAO.Location = new System.Drawing.Point(575, 9);
 			this.TxtBox_ICAO.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
 			this.TxtBox_ICAO.Name = "TxtBox_ICAO";
 			this.TxtBox_ICAO.Size = new System.Drawing.Size(94, 29);
 			this.TxtBox_ICAO.TabIndex = 31;
-			this.TxtBox_ICAO.Text = "ICAO";
+			this.TxtBox_ICAO.Text = "";
 			// 
 			// tabPage3
 			// 
