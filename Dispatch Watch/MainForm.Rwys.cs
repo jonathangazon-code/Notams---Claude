@@ -81,79 +81,87 @@ namespace ICAO_CSV
 			return m.Success ? (Int32.Parse(m.Value) * 10) % 360 : 0;
 		}
 
-		// Single pass over runways.csv keeping only the wanted ICAOs -> ICAO -> CSV rows.
-		private Dictionary<string, List<string[]>> ScanCsvFor(HashSet<string> wanted)
+		// ── In-memory CSV index (runways.csv loaded once) ────────────────────
+		// ICAO -> threshold list. Lets the diagram work for ANY ICAO (not just saved
+		// stations) and removes the repeated per-airport file scans.
+		private static Dictionary<string, List<RwyGeo>> _csvGeo;
+
+		public void EnsureCsvGeoLoaded()
 		{
-			Dictionary<string, List<string[]>> d = new Dictionary<string, List<string[]>>(StringComparer.OrdinalIgnoreCase);
-			string csv = Path.Combine(Application.StartupPath, "runways.csv");
-			if (!File.Exists(csv)) return d;
-			using (StreamReader sr = new StreamReader(csv))
+			if (_csvGeo != null) return;
+			_csvGeo = new Dictionary<string, List<RwyGeo>>(StringComparer.OrdinalIgnoreCase);
+			try
 			{
-				string line;
-				while ((line = sr.ReadLine()) != null)
+				string csv = Path.Combine(Application.StartupPath, "runways.csv");
+				if (!File.Exists(csv)) return;
+				using (StreamReader sr = new StreamReader(csv))
 				{
-					string[] f = CsvSplit(line);
-					if (f.Length < 19) continue;
-					string id = f[2].Trim().ToUpper();
-					if (id == "" || !wanted.Contains(id)) continue;
-					if (!d.ContainsKey(id)) d[id] = new List<string[]>();
-					d[id].Add(f);
+					bool first = true;
+					string line;
+					char[] comma = new char[] { ',' };
+					char[] quote = new char[] { '"' };
+					while ((line = sr.ReadLine()) != null)
+					{
+						if (first) { first = false; continue; }   // header
+						string[] f = line.Split(comma);           // runways.csv has no comma inside fields
+						if (f.Length < 19 || f[7].Trim(quote).Trim() == "1") continue;   // closed
+						string id = f[2].Trim(quote).Trim().ToUpper();
+						if (id == "") continue;
+						int distM = (int)Math.Round(ParseD(f[3].Trim(quote)) * 0.3048);
+						AddGeo(id, f[8].Trim(quote),  f[12].Trim(quote), f[9].Trim(quote),  f[10].Trim(quote), distM);
+						AddGeo(id, f[14].Trim(quote), f[18].Trim(quote), f[15].Trim(quote), f[16].Trim(quote), distM);
+					}
 				}
 			}
-			return d;
+			catch { }
 		}
 
-		// Insert runway threshold rows from CSV field-arrays. Returns next Ord.
-		private int ImportRows(OleDbConnection conn, string icao, List<string[]> rows, int ord)
+		private static void AddGeo(string icao, string qfu, string hdg, string lat, string lon, int distM)
 		{
-			if (rows == null) return ord;
-			foreach (string[] f in rows)
-			{
-				if (f.Length < 19 || f[7].Trim() == "1") continue;   // closed
-				int distM = (int)Math.Round(ParseD(f[3]) * 0.3048);
-				string le = f[8].Trim().ToUpper(), he = f[14].Trim().ToUpper();
-				if (IsRunwayIdent(le)) InsertRwy(conn, icao, le, "", distM, ParseD(f[12]) != 0 ? ParseD(f[12]) : DefaultHdg(le), ParseD(f[9]),  ParseD(f[10]), ord++);
-				if (IsRunwayIdent(he)) InsertRwy(conn, icao, he, "", distM, ParseD(f[18]) != 0 ? ParseD(f[18]) : DefaultHdg(he), ParseD(f[15]), ParseD(f[16]), ord++);
-			}
+			qfu = (qfu ?? "").Trim().ToUpper();
+			if (!IsRunwayIdent(qfu)) return;
+			RwyGeo g = new RwyGeo();
+			g.Qfu = qfu; g.DistM = distM;
+			g.Hdg = ParseD(hdg) != 0 ? ParseD(hdg) : DefaultHdg(qfu);
+			g.Lat = ParseD(lat); g.Lon = ParseD(lon);
+			if (!_csvGeo.ContainsKey(icao)) _csvGeo[icao] = new List<RwyGeo>();
+			_csvGeo[icao].Add(g);
+		}
+
+		// CSV threshold list for an ICAO (loads the index on first call).
+		private List<RwyGeo> CsvGeoFor(string icao)
+		{
+			EnsureCsvGeoLoaded();
+			icao = (icao ?? "").Trim().ToUpper();
+			return _csvGeo.ContainsKey(icao) ? _csvGeo[icao] : new List<RwyGeo>();
+		}
+
+		// Single-airport import into the Runways table (airport add / Re-import button).
+		public int ImportRunwaysFromCsv(string icao)
+		{
+			icao = (icao ?? "").Trim().ToUpper();
+			if (icao == "") return 0;
+			List<RwyGeo> geo = CsvGeoFor(icao);
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			conn.Open();
+			OleDbCommand del = new OleDbCommand("DELETE FROM Runways WHERE ICAO=?", conn);
+			del.Parameters.AddWithValue("?", icao); del.ExecuteNonQuery();
+			int ord = 0;
+			foreach (RwyGeo g in geo) InsertRwy(conn, icao, g.Qfu, "", g.DistM, g.Hdg, g.Lat, g.Lon, ord++);
+			conn.Close();
 			return ord;
 		}
 
-		// Fill Hdg / ThrLat / ThrLon of existing Runways rows from CSV field-arrays (by QFU).
-		private void EnrichRows(OleDbConnection conn, string icao, List<string[]> rows)
+		// Legacy memo migration (preserve manual CAT, enrich Hdg/threshold from the CSV index).
+		private void MigrateLegacyMemo(string icao, string memo)
 		{
-			if (rows == null) return;
-			Dictionary<string, double[]> byQfu = new Dictionary<string, double[]>();
-			foreach (string[] f in rows)
-			{
-				if (f.Length < 19) continue;
-				string le = f[8].Trim().ToUpper(), he = f[14].Trim().ToUpper();
-				if (le != "") byQfu[le] = new double[] { ParseD(f[12]), ParseD(f[9]),  ParseD(f[10]) };
-				if (he != "") byQfu[he] = new double[] { ParseD(f[18]), ParseD(f[15]), ParseD(f[16]) };
-			}
-			if (byQfu.Count == 0) return;
-			List<string> qfus = new List<string>();
-			OleDbCommand sel = new OleDbCommand("SELECT QFU FROM Runways WHERE ICAO=?", conn);
-			sel.Parameters.AddWithValue("?", icao);
-			OleDbDataReader r = sel.ExecuteReader();
-			while (r.Read()) if (!r.IsDBNull(0)) qfus.Add(r.GetString(0).Trim().ToUpper());
-			r.Close();
-			foreach (string qfu in qfus)
-			{
-				if (!byQfu.ContainsKey(qfu)) continue;
-				double[] d = byQfu[qfu];
-				OleDbCommand cmd = new OleDbCommand("UPDATE Runways SET Hdg=?, ThrLat=?, ThrLon=? WHERE ICAO=? AND QFU=?", conn);
-				cmd.Parameters.AddWithValue("?", d[0] != 0 ? d[0] : DefaultHdg(qfu));
-				cmd.Parameters.AddWithValue("?", d[1]);
-				cmd.Parameters.AddWithValue("?", d[2]);
-				cmd.Parameters.AddWithValue("?", icao);
-				cmd.Parameters.AddWithValue("?", qfu);
-				cmd.ExecuteNonQuery();
-			}
-		}
+			Dictionary<string, RwyGeo> byQfu = new Dictionary<string, RwyGeo>(StringComparer.OrdinalIgnoreCase);
+			foreach (RwyGeo g in CsvGeoFor(icao)) byQfu[g.Qfu] = g;
 
-		// Parse a legacy "QFU: CAT distM" memo into Runways rows (preserving the manual CAT).
-		private void InsertMemoRows(OleDbConnection conn, string icao, string memo)
-		{
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			conn.Open();
+			OleDbCommand del = new OleDbCommand("DELETE FROM Runways WHERE ICAO=?", conn);
+			del.Parameters.AddWithValue("?", icao); del.ExecuteNonQuery();
 			int ord = 0;
 			foreach (string raw in memo.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
 			{
@@ -165,72 +173,11 @@ namespace ICAO_CSV
 				int distM = 0; string cat = rest.Trim();
 				Match dm = Regex.Match(rest, @"(\d+)\s*m\b", RegexOptions.IgnoreCase);
 				if (dm.Success) { distM = Int32.Parse(dm.Groups[1].Value); cat = rest.Substring(0, dm.Index).Trim(); }
-				InsertRwy(conn, icao, qfu, cat, distM, DefaultHdg(qfu), 0, 0, ord++);
+				double hdg = DefaultHdg(qfu), lat = 0, lon = 0;
+				if (byQfu.ContainsKey(qfu)) { hdg = byQfu[qfu].Hdg; lat = byQfu[qfu].Lat; lon = byQfu[qfu].Lon; if (distM == 0) distM = byQfu[qfu].DistM; }
+				InsertRwy(conn, icao, qfu, cat, distM, hdg, lat, lon, ord++);
 			}
-		}
-
-		// Single-airport import (airport add / Re-import button).
-		public int ImportRunwaysFromCsv(string icao)
-		{
-			icao = (icao ?? "").Trim().ToUpper();
-			if (icao == "") return 0;
-			HashSet<string> w = new HashSet<string>(StringComparer.OrdinalIgnoreCase); w.Add(icao);
-			Dictionary<string, List<string[]>> csv = ScanCsvFor(w);
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
-			conn.Open();
-			OleDbCommand del = new OleDbCommand("DELETE FROM Runways WHERE ICAO=?", conn);
-			del.Parameters.AddWithValue("?", icao); del.ExecuteNonQuery();
-			int ord = ImportRows(conn, icao, csv.ContainsKey(icao) ? csv[icao] : null, 0);
 			conn.Close();
-			return ord;
-		}
-
-		// Single-airport legacy migration (RwyLoadGrid fallback).
-		private void MigrateLegacyMemo(string icao, string memo)
-		{
-			HashSet<string> w = new HashSet<string>(StringComparer.OrdinalIgnoreCase); w.Add(icao);
-			Dictionary<string, List<string[]>> csv = ScanCsvFor(w);
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
-			conn.Open();
-			OleDbCommand del = new OleDbCommand("DELETE FROM Runways WHERE ICAO=?", conn);
-			del.Parameters.AddWithValue("?", icao); del.ExecuteNonQuery();
-			InsertMemoRows(conn, icao, memo);
-			EnrichRows(conn, icao, csv.ContainsKey(icao) ? csv[icao] : null);
-			conn.Close();
-		}
-
-		// One-time bulk migration of every station (single CSV scan) — runs at startup
-		// while the Runways table is still empty, so the diagram works everywhere.
-		public void MigrateAllRunwaysIfNeeded()
-		{
-			try
-			{
-				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
-				conn.Open();
-				int total = Convert.ToInt32(new OleDbCommand("SELECT COUNT(*) FROM Runways", conn).ExecuteScalar());
-				if (total > 0) { conn.Close(); return; }
-
-				List<string[]> stations = new List<string[]>();
-				OleDbDataReader sr = new OleDbCommand("SELECT ICAO, RWYs FROM Stations_ICAO_IATA", conn).ExecuteReader();
-				while (sr.Read())
-					stations.Add(new string[] { sr.IsDBNull(0) ? "" : sr.GetString(0), sr.IsDBNull(1) ? "" : sr.GetString(1) });
-				sr.Close();
-
-				HashSet<string> wanted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-				foreach (string[] s in stations) if (s[0].Trim() != "") wanted.Add(s[0].Trim().ToUpper());
-				Dictionary<string, List<string[]>> csv = ScanCsvFor(wanted);   // single pass
-
-				foreach (string[] s in stations)
-				{
-					string icao = s[0].Trim().ToUpper();
-					if (icao == "") continue;
-					List<string[]> rows = csv.ContainsKey(icao) ? csv[icao] : null;
-					if (s[1].Trim() != "") { InsertMemoRows(conn, icao, s[1]); EnrichRows(conn, icao, rows); }
-					else                   { ImportRows(conn, icao, rows, 0); }
-				}
-				conn.Close();
-			}
-			catch { }
 		}
 
 		// Rebuild the legacy RWYs memo ("QFU: Cat DistMm") from the Runways table.
@@ -299,7 +246,8 @@ namespace ICAO_CSV
 			AddCol("Hdg", 70); AddCol("Thr Lat", 130); AddCol("Thr Lon", 130);
 			tabPage5.Controls.Add(_rwyDgv);
 
-			if (_rwyCmb.Items.Count > 0) { _rwyCmb.SelectedIndex = 0; RwyLoadGrid(_rwyCmb.Text); }
+			// Don't auto-load a runway grid at startup (avoids loading the CSV index during
+			// construction). The grid fills when the user picks an ICAO in the combo.
 		}
 
 		private void AddCol(string header, int width)
