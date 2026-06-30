@@ -258,8 +258,12 @@ namespace ICAO_CSV
 		// Geographic runway data (from the Runways table) for an accurate diagram.
 		private struct RwyGeo { public string Qfu; public double Hdg; public int DistM; public double Lat; public double Lon; }
 
+		private static System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<RwyGeo>> _geoCache =
+			new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<RwyGeo>>(StringComparer.OrdinalIgnoreCase);
+
 		private System.Collections.Generic.List<RwyGeo> LoadRwyGeo(string icao)
 		{
+			if (_geoCache.ContainsKey(icao)) return _geoCache[icao];
 			System.Collections.Generic.List<RwyGeo> list = new System.Collections.Generic.List<RwyGeo>();
 			try
 			{
@@ -281,6 +285,7 @@ namespace ICAO_CSV
 				r.Close(); conn.Close();
 			}
 			catch { }
+			_geoCache[icao] = list;
 			return list;
 		}
 

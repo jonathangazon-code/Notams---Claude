@@ -75,62 +75,85 @@ namespace ICAO_CSV
 			ins.ExecuteNonQuery();
 		}
 
-		// Replace the Runways rows of an airport with data scanned from runways.csv
-		// (Cat left blank — not present in the open data). Returns rows imported.
-		public int ImportRunwaysFromCsv(string icao)
-		{
-			icao = (icao ?? "").Trim().ToUpper();
-			if (icao == "") return 0;
-			string csv = Path.Combine(Application.StartupPath, "runways.csv");
-			if (!File.Exists(csv)) return 0;
-
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
-			conn.Open();
-			OleDbCommand del = new OleDbCommand("DELETE FROM Runways WHERE ICAO=?", conn);
-			del.Parameters.AddWithValue("?", icao);
-			del.ExecuteNonQuery();
-
-			int ord = 0;
-			string needle = "\"" + icao + "\"";
-			using (StreamReader sr = new StreamReader(csv))
-			{
-				string line;
-				while ((line = sr.ReadLine()) != null)
-				{
-					if (line.IndexOf(needle, StringComparison.OrdinalIgnoreCase) < 0) continue;
-					string[] f = CsvSplit(line);
-					if (f.Length < 19) continue;
-					if (!string.Equals(f[2].Trim(), icao, StringComparison.OrdinalIgnoreCase)) continue;
-					if (f[7].Trim() == "1") continue;   // closed runway
-
-					int distM = (int)Math.Round(ParseD(f[3]) * 0.3048);
-					string leId = f[8].Trim().ToUpper();
-					string heId = f[14].Trim().ToUpper();
-					if (IsRunwayIdent(leId))
-						InsertRwy(conn, icao, leId, "", distM, ParseD(f[12]) != 0 ? ParseD(f[12]) : DefaultHdg(leId), ParseD(f[9]), ParseD(f[10]), ord++);
-					if (IsRunwayIdent(heId))
-						InsertRwy(conn, icao, heId, "", distM, ParseD(f[18]) != 0 ? ParseD(f[18]) : DefaultHdg(heId), ParseD(f[15]), ParseD(f[16]), ord++);
-				}
-			}
-			conn.Close();
-			return ord;
-		}
-
 		private static double DefaultHdg(string qfu)
 		{
 			Match m = Regex.Match(qfu, @"\d{1,2}");
 			return m.Success ? (Int32.Parse(m.Value) * 10) % 360 : 0;
 		}
 
-		// Migrate a legacy "QFU: CAT distM" memo into the Runways table (preserving the
-		// manual CAT), then enrich Hdg / threshold from CSV by QFU.
-		private void MigrateLegacyMemo(string icao, string memo)
+		// Single pass over runways.csv keeping only the wanted ICAOs -> ICAO -> CSV rows.
+		private Dictionary<string, List<string[]>> ScanCsvFor(HashSet<string> wanted)
 		{
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
-			conn.Open();
-			OleDbCommand del = new OleDbCommand("DELETE FROM Runways WHERE ICAO=?", conn);
-			del.Parameters.AddWithValue("?", icao);
-			del.ExecuteNonQuery();
+			Dictionary<string, List<string[]>> d = new Dictionary<string, List<string[]>>(StringComparer.OrdinalIgnoreCase);
+			string csv = Path.Combine(Application.StartupPath, "runways.csv");
+			if (!File.Exists(csv)) return d;
+			using (StreamReader sr = new StreamReader(csv))
+			{
+				string line;
+				while ((line = sr.ReadLine()) != null)
+				{
+					string[] f = CsvSplit(line);
+					if (f.Length < 19) continue;
+					string id = f[2].Trim().ToUpper();
+					if (id == "" || !wanted.Contains(id)) continue;
+					if (!d.ContainsKey(id)) d[id] = new List<string[]>();
+					d[id].Add(f);
+				}
+			}
+			return d;
+		}
+
+		// Insert runway threshold rows from CSV field-arrays. Returns next Ord.
+		private int ImportRows(OleDbConnection conn, string icao, List<string[]> rows, int ord)
+		{
+			if (rows == null) return ord;
+			foreach (string[] f in rows)
+			{
+				if (f.Length < 19 || f[7].Trim() == "1") continue;   // closed
+				int distM = (int)Math.Round(ParseD(f[3]) * 0.3048);
+				string le = f[8].Trim().ToUpper(), he = f[14].Trim().ToUpper();
+				if (IsRunwayIdent(le)) InsertRwy(conn, icao, le, "", distM, ParseD(f[12]) != 0 ? ParseD(f[12]) : DefaultHdg(le), ParseD(f[9]),  ParseD(f[10]), ord++);
+				if (IsRunwayIdent(he)) InsertRwy(conn, icao, he, "", distM, ParseD(f[18]) != 0 ? ParseD(f[18]) : DefaultHdg(he), ParseD(f[15]), ParseD(f[16]), ord++);
+			}
+			return ord;
+		}
+
+		// Fill Hdg / ThrLat / ThrLon of existing Runways rows from CSV field-arrays (by QFU).
+		private void EnrichRows(OleDbConnection conn, string icao, List<string[]> rows)
+		{
+			if (rows == null) return;
+			Dictionary<string, double[]> byQfu = new Dictionary<string, double[]>();
+			foreach (string[] f in rows)
+			{
+				if (f.Length < 19) continue;
+				string le = f[8].Trim().ToUpper(), he = f[14].Trim().ToUpper();
+				if (le != "") byQfu[le] = new double[] { ParseD(f[12]), ParseD(f[9]),  ParseD(f[10]) };
+				if (he != "") byQfu[he] = new double[] { ParseD(f[18]), ParseD(f[15]), ParseD(f[16]) };
+			}
+			if (byQfu.Count == 0) return;
+			List<string> qfus = new List<string>();
+			OleDbCommand sel = new OleDbCommand("SELECT QFU FROM Runways WHERE ICAO=?", conn);
+			sel.Parameters.AddWithValue("?", icao);
+			OleDbDataReader r = sel.ExecuteReader();
+			while (r.Read()) if (!r.IsDBNull(0)) qfus.Add(r.GetString(0).Trim().ToUpper());
+			r.Close();
+			foreach (string qfu in qfus)
+			{
+				if (!byQfu.ContainsKey(qfu)) continue;
+				double[] d = byQfu[qfu];
+				OleDbCommand cmd = new OleDbCommand("UPDATE Runways SET Hdg=?, ThrLat=?, ThrLon=? WHERE ICAO=? AND QFU=?", conn);
+				cmd.Parameters.AddWithValue("?", d[0] != 0 ? d[0] : DefaultHdg(qfu));
+				cmd.Parameters.AddWithValue("?", d[1]);
+				cmd.Parameters.AddWithValue("?", d[2]);
+				cmd.Parameters.AddWithValue("?", icao);
+				cmd.Parameters.AddWithValue("?", qfu);
+				cmd.ExecuteNonQuery();
+			}
+		}
+
+		// Parse a legacy "QFU: CAT distM" memo into Runways rows (preserving the manual CAT).
+		private void InsertMemoRows(OleDbConnection conn, string icao, string memo)
+		{
 			int ord = 0;
 			foreach (string raw in memo.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
 			{
@@ -144,59 +167,76 @@ namespace ICAO_CSV
 				if (dm.Success) { distM = Int32.Parse(dm.Groups[1].Value); cat = rest.Substring(0, dm.Index).Trim(); }
 				InsertRwy(conn, icao, qfu, cat, distM, DefaultHdg(qfu), 0, 0, ord++);
 			}
-			conn.Close();
-			EnrichFromCsv(icao);   // fill Hdg / ThrLat / ThrLon from the CSV by QFU
 		}
 
-		// Fill Hdg / ThrLat / ThrLon (and DistM if missing) of existing Runways rows from the CSV.
-		private void EnrichFromCsv(string icao)
+		// Single-airport import (airport add / Re-import button).
+		public int ImportRunwaysFromCsv(string icao)
 		{
-			string csv = Path.Combine(Application.StartupPath, "runways.csv");
-			if (!File.Exists(csv)) return;
-			Dictionary<string, double[]> byQfu = new Dictionary<string, double[]>();  // qfu -> {hdg, lat, lon, distM}
-			string needle = "\"" + icao + "\"";
-			using (StreamReader sr = new StreamReader(csv))
-			{
-				string line;
-				while ((line = sr.ReadLine()) != null)
-				{
-					if (line.IndexOf(needle, StringComparison.OrdinalIgnoreCase) < 0) continue;
-					string[] f = CsvSplit(line);
-					if (f.Length < 19 || !string.Equals(f[2].Trim(), icao, StringComparison.OrdinalIgnoreCase)) continue;
-					int distM = (int)Math.Round(ParseD(f[3]) * 0.3048);
-					string le = f[8].Trim().ToUpper(), he = f[14].Trim().ToUpper();
-					if (le != "") byQfu[le] = new double[] { ParseD(f[12]), ParseD(f[9]),  ParseD(f[10]), distM };
-					if (he != "") byQfu[he] = new double[] { ParseD(f[18]), ParseD(f[15]), ParseD(f[16]), distM };
-				}
-			}
-			if (byQfu.Count == 0) return;
+			icao = (icao ?? "").Trim().ToUpper();
+			if (icao == "") return 0;
+			HashSet<string> w = new HashSet<string>(StringComparer.OrdinalIgnoreCase); w.Add(icao);
+			Dictionary<string, List<string[]>> csv = ScanCsvFor(w);
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
 			conn.Open();
-			OleDbDataReader r = new OleDbCommand("SELECT QFU, DistM FROM Runways WHERE ICAO='" + icao.Replace("'", "''") + "'", conn).ExecuteReader();
-			List<string[]> upd = new List<string[]>();
-			while (r.Read())
-			{
-				string qfu = r.GetString(0).Trim().ToUpper();
-				if (byQfu.ContainsKey(qfu)) upd.Add(new string[] { qfu });
-			}
-			r.Close();
-			foreach (string[] u in upd)
-			{
-				double[] d = byQfu[u[0]];
-				OleDbCommand cmd = new OleDbCommand("UPDATE Runways SET Hdg=?, ThrLat=?, ThrLon=? WHERE ICAO=? AND QFU=?", conn);
-				cmd.Parameters.AddWithValue("?", d[0] != 0 ? d[0] : DefaultHdg(u[0]));
-				cmd.Parameters.AddWithValue("?", d[1]);
-				cmd.Parameters.AddWithValue("?", d[2]);
-				cmd.Parameters.AddWithValue("?", icao);
-				cmd.Parameters.AddWithValue("?", u[0]);
-				cmd.ExecuteNonQuery();
-			}
+			OleDbCommand del = new OleDbCommand("DELETE FROM Runways WHERE ICAO=?", conn);
+			del.Parameters.AddWithValue("?", icao); del.ExecuteNonQuery();
+			int ord = ImportRows(conn, icao, csv.ContainsKey(icao) ? csv[icao] : null, 0);
 			conn.Close();
+			return ord;
+		}
+
+		// Single-airport legacy migration (RwyLoadGrid fallback).
+		private void MigrateLegacyMemo(string icao, string memo)
+		{
+			HashSet<string> w = new HashSet<string>(StringComparer.OrdinalIgnoreCase); w.Add(icao);
+			Dictionary<string, List<string[]>> csv = ScanCsvFor(w);
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			conn.Open();
+			OleDbCommand del = new OleDbCommand("DELETE FROM Runways WHERE ICAO=?", conn);
+			del.Parameters.AddWithValue("?", icao); del.ExecuteNonQuery();
+			InsertMemoRows(conn, icao, memo);
+			EnrichRows(conn, icao, csv.ContainsKey(icao) ? csv[icao] : null);
+			conn.Close();
+		}
+
+		// One-time bulk migration of every station (single CSV scan) — runs at startup
+		// while the Runways table is still empty, so the diagram works everywhere.
+		public void MigrateAllRunwaysIfNeeded()
+		{
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+				conn.Open();
+				int total = Convert.ToInt32(new OleDbCommand("SELECT COUNT(*) FROM Runways", conn).ExecuteScalar());
+				if (total > 0) { conn.Close(); return; }
+
+				List<string[]> stations = new List<string[]>();
+				OleDbDataReader sr = new OleDbCommand("SELECT ICAO, RWYs FROM Stations_ICAO_IATA", conn).ExecuteReader();
+				while (sr.Read())
+					stations.Add(new string[] { sr.IsDBNull(0) ? "" : sr.GetString(0), sr.IsDBNull(1) ? "" : sr.GetString(1) });
+				sr.Close();
+
+				HashSet<string> wanted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				foreach (string[] s in stations) if (s[0].Trim() != "") wanted.Add(s[0].Trim().ToUpper());
+				Dictionary<string, List<string[]>> csv = ScanCsvFor(wanted);   // single pass
+
+				foreach (string[] s in stations)
+				{
+					string icao = s[0].Trim().ToUpper();
+					if (icao == "") continue;
+					List<string[]> rows = csv.ContainsKey(icao) ? csv[icao] : null;
+					if (s[1].Trim() != "") { InsertMemoRows(conn, icao, s[1]); EnrichRows(conn, icao, rows); }
+					else                   { ImportRows(conn, icao, rows, 0); }
+				}
+				conn.Close();
+			}
+			catch { }
 		}
 
 		// Rebuild the legacy RWYs memo ("QFU: Cat DistMm") from the Runways table.
 		public void RegenerateRwyMemo(string icao)
 		{
+			_geoCache.Remove(icao);   // runways changed -> drop cached diagram geometry
 			System.Text.StringBuilder sb = new System.Text.StringBuilder();
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
 			conn.Open();
