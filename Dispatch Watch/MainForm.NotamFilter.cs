@@ -309,6 +309,11 @@ namespace ICAO_CSV
 				catch { /* column already exists */ }
 				try { new OleDbCommand("ALTER TABLE filteredNotams_table ADD COLUMN SupRef TEXT(50)", conn).ExecuteNonQuery(); }
 				catch { /* column already exists */ }
+
+				// Migrate legacy SUP (Impact='AS', reference stored in Remark) to the new model
+				// (Sup='Yes', reference in SupRef). Idempotent: leaves no Impact='AS' rows.
+				try { new OleDbCommand("UPDATE filteredNotams_table SET SupRef=Remark WHERE Impact='AS' AND (SupRef IS NULL OR SupRef='') AND Remark<>''", conn).ExecuteNonQuery(); } catch { }
+				try { new OleDbCommand("UPDATE filteredNotams_table SET Sup='Yes', Impact='', Remark='' WHERE Impact='AS'", conn).ExecuteNonQuery(); } catch { }
 				conn.Close();
 			}
 			catch { /* DB not ready; ignore */ }
@@ -942,7 +947,8 @@ namespace ICAO_CSV
 			sup.CheckedChanged += (s, e) => StationSupSet(sid, txt, sb.Checked);
 
 			// Remark textfields shown when impact / SUP is set (immediate save on leave).
-			bool impactOn = HasImpact(Impact);
+			// "AS" is the legacy SUP-as-impact code — it is SUP, not an impact remark.
+			bool impactOn = HasImpact(Impact) && Impact != "AS";
 			if (impactOn || supStored)
 			{
 				int rowLeft = areaLeft, rowTop = Top + 94, rowW = areaW, gap = 8;

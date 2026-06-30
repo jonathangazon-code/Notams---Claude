@@ -90,13 +90,17 @@ namespace ICAO_CSV
 
 					if (!(tillDateInt > todayInt && fromDateInt < endWindowInt)) continue;
 
-					string Impact  = !dBreader.IsDBNull(13) ? dBreader.GetString(13) : "";
-					if (Impact != "AS") continue;
+					int supOrd = dBreader.GetOrdinal("Sup");
+					string Sup = !dBreader.IsDBNull(supOrd) ? dBreader.GetString(supOrd) : "";
+					if (Sup != "Yes") continue;
 
 					int    int_APT_ID  = !dBreader.IsDBNull(0)  ? dBreader.GetInt32(0)   : 0;
 					string ICAO        = !dBreader.IsDBNull(8)  ? dBreader.GetString(8)  : "";
 					string key         = !dBreader.IsDBNull(10) ? dBreader.GetString(10) : "";
+					int    supRefOrd   = dBreader.GetOrdinal("SupRef");
+					string SupRef      = !dBreader.IsDBNull(supRefOrd) ? dBreader.GetString(supRefOrd) : "";
 					string Remark      = !dBreader.IsDBNull(14) ? dBreader.GetString(14) : "";
+					string supText     = (SupRef != "") ? SupRef : Remark;
 					string loaded_avio = !dBreader.IsDBNull(15) ? dBreader.GetString(15) : "";
 					string location    = GetIATA(ICAO);
 					string fromTxt     = dateTransformation(fromDate);
@@ -111,7 +115,7 @@ namespace ICAO_CSV
 					string row = "<tr><th style=\"color:SaddleBrown;\">" + location + "</th>" +
 						"<th style=\"width:100px;font-family:Courier New;\">" + key + "</th>" +
 						"<th style=\"width:140px;font-family:Courier New;padding-right:10px;\">" + fromTxt + "-" + tillTxt + "</th>" +
-						chk_status + "<th style=\"font-weight:normal;\">" + Remark + "</th></tr>";
+						chk_status + "<th style=\"font-weight:normal;\">" + supText + "</th></tr>";
 
 					if (fromDateInt <= tomorrowInt)
 						twenty4H_AIP_Sup_list += "<tr><th bgcolor=\"Yellow\" " + row.Substring(4);
