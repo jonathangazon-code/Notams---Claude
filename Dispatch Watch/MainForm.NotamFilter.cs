@@ -366,7 +366,26 @@ namespace ICAO_CSV
 			return false;
 		}
 
-		// allKeptUpper = upper-cased texts of every Kept NOTAM at this airport (context)
+		// Thresholds closed by THIS NOTAM (e.g. "RWY 09/27 CLSD. RWY 08/26 CLSD" -> 09,27,08,26).
+		// Only meaningful when the NOTAM actually contains a closure.
+		private static System.Collections.Generic.List<string> ClosedThresholds(string U)
+		{
+			System.Collections.Generic.List<string> set = new System.Collections.Generic.List<string>();
+			if (!RegexAny(U, @"\bCLSD", @"\bCLOSED")) return set;
+			foreach (System.Text.RegularExpressions.Match m in
+				System.Text.RegularExpressions.Regex.Matches(U, @"(\d{1,2}[LCR]?)\s*/\s*(\d{1,2}[LCR]?)"))
+			{
+				if (!set.Contains(m.Groups[1].Value)) set.Add(m.Groups[1].Value);
+				if (!set.Contains(m.Groups[2].Value)) set.Add(m.Groups[2].Value);
+			}
+			foreach (System.Text.RegularExpressions.Match m in
+				System.Text.RegularExpressions.Regex.Matches(U, @"R(?:WY|UNWAY)\s*(\d{1,2}[LCR]?)\b(?!\s*/)"))
+				if (!set.Contains(m.Groups[1].Value)) set.Add(m.Groups[1].Value);
+			return set;
+		}
+
+		// Data-derived rules, validated against the dispatcher's historical classifications
+		// (see ICAO_storedNotams.mdb analysis). allKeptUpper kept for signature compatibility.
 		private static ImpactSuggestion SuggestImpacts(string notamText,
 			System.Collections.Generic.List<RwyInfo> runways,
 			System.Collections.Generic.List<string> allKeptUpper)
@@ -377,66 +396,36 @@ namespace ICAO_CSV
 			// SUP — independent
 			s.Sup = U.Contains("SUP");
 
-			// Fuel
-			s.Fuel = RegexAny(U, @"FUEL.*(NOT\s+AVBL|U/S|NIL|UNAVAIL)", @"NO\s+FUEL", @"FUEL\s+DISRUPTION");
+			// Fuel (3/3 on sample)
+			s.Fuel = RegexAny(U, @"FUEL.{0,20}(NOT\s+AVBL|U/S|NIL|UNAVAIL)", @"NO\s+FUEL", @"FUEL\s+DISRUPTION");
 
-			// Not as alternate / delay
-			s.NotAltn = RegexAny(U, @"NOT\s+AVBL\s+AS\s+ALTN", @"NOT\s+AVAILABLE\s+AS\s+ALTERNATE",
-				@"NOT.*ALTN", @"DELAY\s+EXPECTED", @"EXPECT\s+DELAY");
+			// Not as alternate / PPR / delay (7/7 on sample)
+			s.NotAltn = RegexAny(U, @"\bPPR\b", @"PRIOR\s+PERMISSION", @"CANNOT\s+BE\s+CHOSEN\s+AS",
+				@"NOT.{0,12}ALTERNATE", @"NOT\s+AVBL\s+AS\s+ALTN", @"\bDIVERSION", @"SUBJ.{0,10}DLA",
+				@"EXPECT\s+DELAY", @"DELAY\s+EXPECTED", @"\bO/R\s+ONLY", @"NOT\s+AVBL\s+FOR\s+LANDING");
 
-			// APT closed (text level)
+			// LVP exception => ILS available except in low-vis => CAT I, not "No ILS"
+			bool lvpExc = RegexAny(U, @"(EXC|EXCEPT)\s+LVP");
+
+			// No ILS (2/2): ILS unserviceable, unless it is only an LVP-only restriction
+			s.NoILS = !lvpExc && RegexAny(U, @"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE))");
+
+			// CAT I (3/6): CAT II/III lost, or downgrade to CAT I, or ILS U/S except LVP
+			s.CatI = RegexAny(U, @"CAT\s*(II|III|2|3)\b.{0,28}(NOT\s+(AUTH|AVBL|AVAILABLE)|U/S|UNSERVICEABLE|DOWNGRAD)",
+				@"DOWNGRAD.{0,15}CAT\s*(I|1)\b")
+				|| (lvpExc && RegexAny(U, @"ILS.{0,20}U/S"));
+
+			// APT CLSD (22/30, 4 FP): aerodrome closed, OR this NOTAM closes EVERY runway
 			bool apClsdText = RegexAny(U, @"\bAD\s+CLSD", @"\bARP\s+CLSD", @"AERODROME\s+CLOSED", @"AIRPORT\s+CLOSED");
-
-			// ILS U/S on this NOTAM
-			bool ilsAffected = RegexAny(U, @"ILS.*(U/S|UNSERVICEABLE|NOT\s+AVBL|WIP)");
-
-			// CAT downgrade on this NOTAM (CAT II/III lost)
-			bool catDowngrade = RegexAny(U, @"CAT\s*(II|III|2|3).*(DOWNGRADED|U/S|NOT\s+AVBL|UNSERVICEABLE)",
-				@"DOWNGRADED.*CAT\s*(I|1)\b");
-
-			// ── Contextual layer (best-effort) ──
-			// APT CLSD: text says so, OR every runway threshold has a CLSD mention among kept
-			bool allRwyClosed = runways.Count > 0;
-			foreach (RwyInfo r in runways)
+			bool allRwyClosed = false;
+			if (runways.Count > 0)
 			{
-				bool thisClosed = false;
-				foreach (string k in allKeptUpper)
-					if (RegexAny(k, @"RWY\s*" + System.Text.RegularExpressions.Regex.Escape(r.Desig) + @"\b.*CLSD")) { thisClosed = true; break; }
-				if (!thisClosed) { allRwyClosed = false; break; }
+				System.Collections.Generic.List<string> closed = ClosedThresholds(U);
+				allRwyClosed = true;
+				foreach (RwyInfo r in runways)
+					if (!closed.Contains(r.Desig.ToUpper())) { allRwyClosed = false; break; }
 			}
 			s.APClsd = apClsdText || allRwyClosed;
-
-			// No ILS: this NOTAM kills an ILS AND no other runway keeps an ILS in service.
-			// A runway "keeps ILS" if it has CatMax>=1 and no kept NOTAM marks its ILS U/S.
-			if (ilsAffected)
-			{
-				bool otherIlsInService = false;
-				foreach (RwyInfo r in runways)
-				{
-					if (r.CatMax < 1) continue;
-					bool thisRwyIlsDown = false;
-					foreach (string k in allKeptUpper)
-						if (RegexAny(k, @"ILS.*RWY\s*" + System.Text.RegularExpressions.Regex.Escape(r.Desig) + @"\b.*(U/S|NOT\s+AVBL|UNSERVICEABLE)",
-									 @"RWY\s*" + System.Text.RegularExpressions.Regex.Escape(r.Desig) + @"\b.*ILS.*(U/S|NOT\s+AVBL)")) { thisRwyIlsDown = true; break; }
-					if (!thisRwyIlsDown) { otherIlsInService = true; break; }
-				}
-				s.NoILS = !otherIlsInService;
-			}
-
-			// CAT I: CAT II/III lost on this NOTAM AND no other runway still offers CAT 2/3
-			if (catDowngrade)
-			{
-				bool otherHighCat = false;
-				foreach (RwyInfo r in runways)
-				{
-					if (r.CatMax < 2) continue;
-					bool downgraded = false;
-					foreach (string k in allKeptUpper)
-						if (RegexAny(k, @"RWY\s*" + System.Text.RegularExpressions.Regex.Escape(r.Desig) + @"\b.*CAT\s*(II|III|2|3).*(DOWNGRADED|U/S|NOT\s+AVBL)")) { downgraded = true; break; }
-					if (!downgraded) { otherHighCat = true; break; }
-				}
-				s.CatI = !otherHighCat;
-			}
 
 			return s;
 		}
