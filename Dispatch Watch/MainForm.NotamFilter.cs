@@ -14,6 +14,9 @@ namespace ICAO_CSV
 		private Dictionary<int, TextBox>    _pendRemark     = new Dictionary<int, TextBox>();
 		private Dictionary<int, TextBox>    _pendSupRemark  = new Dictionary<int, TextBox>();
 		private Dictionary<int, string>     _pendRemarkDefault = new Dictionary<int, string>();
+		// Station-view remark / SUP-ref textboxes (persisted by the SAVE button)
+		private Dictionary<int, TextBox>    _stRemark = new Dictionary<int, TextBox>();
+		private Dictionary<int, TextBox>    _stSupRef = new Dictionary<int, TextBox>();
 		private System.Collections.Generic.HashSet<int> _autoKeepSkip = new System.Collections.Generic.HashSet<int>();
 		// false = auto "Filter New NOTAMS" mode; true = manual ICAO station view (both on tabPage1)
 		private bool _stationMode = false;
@@ -755,6 +758,8 @@ namespace ICAO_CSV
 			_stationMode = true;
 			tabPage1.VerticalScroll.Value = 0;
 			ClearTaggedControls(tabPage1);
+			_stRemark.Clear();
+			_stSupRef.Clear();
 			Btn_submitNotams.Visible = false;   // no SUBMIT in station view
 
 			string AP = TxtBox_ICAO.Text.Trim().ToUpper();
@@ -899,9 +904,17 @@ namespace ICAO_CSV
 				FlatStyle = FlatStyle.Flat
 			};
 			saveBtn.FlatAppearance.BorderColor = Color.FromArgb(84, 110, 122);
-			saveBtn.Click += (s, e) => ICAO_Notams();
+			saveBtn.Click += (s, e) => StationSave();
 			tabPage1.Controls.Add(saveBtn);
 			saveBtn.BringToFront();
+		}
+
+		// Persist every visible remark / SUP-ref textfield, then re-render.
+		void StationSave()
+		{
+			foreach (int id in _stRemark.Keys) StationSaveRemark(id, false, _stRemark[id].Text);
+			foreach (int id in _stSupRef.Keys) StationSaveRemark(id, true,  _stSupRef[id].Text);
+			ICAO_Notams();
 		}
 
 		// Stations-tab impact chips — immediate write (no SUBMIT). Assigning an impact also
@@ -947,10 +960,11 @@ namespace ICAO_CSV
 			}
 		}
 
-		// One immediate-save textfield (impact remark or SUP reference) on the station view.
+		// A remark / SUP-ref textfield on the station view (persisted on Leave AND by SAVE).
 		private void AddStationRemark(Control parent, int notam_ID, bool isSup, int left, int top, int width, string text)
 		{
 			TextBox tb = new TextBox { Tag = "dispose", Left = left, Top = top, Width = width, Height = 24, Text = text };
+			if (isSup) _stSupRef[notam_ID] = tb; else _stRemark[notam_ID] = tb;
 			int id = notam_ID; bool sup = isSup; TextBox box = tb;
 			tb.Leave += (s, e) => StationSaveRemark(id, sup, box.Text);
 			parent.Controls.Add(tb);
@@ -978,13 +992,14 @@ namespace ICAO_CSV
 			OleDbCommand u;
 			if (on)
 			{
-				u = new OleDbCommand("UPDATE filteredNotams_table SET Impact=?, Status='K' WHERE ID=?", conn);
+				// New impact -> reset the impact remark so the new impact shows its own default
+				u = new OleDbCommand("UPDATE filteredNotams_table SET Impact=?, Remark='', Status='K' WHERE ID=?", conn);
 				u.Parameters.AddWithValue("?", code);
 				u.Parameters.AddWithValue("?", notam_ID);
 			}
 			else
 			{
-				u = new OleDbCommand("UPDATE filteredNotams_table SET Impact='' WHERE ID=?", conn);
+				u = new OleDbCommand("UPDATE filteredNotams_table SET Impact='', Remark='' WHERE ID=?", conn);
 				u.Parameters.AddWithValue("?", notam_ID);
 			}
 			u.ExecuteNonQuery();
