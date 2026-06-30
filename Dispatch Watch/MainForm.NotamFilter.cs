@@ -288,7 +288,9 @@ namespace ICAO_CSV
 			// No structured rows with coordinates -> fall back to the in-memory CSV index
 			// so the diagram works for ANY ICAO (e.g. KJFK), not just saved stations.
 			if (!HasGeo(list)) list = CsvGeoFor(icao);
-			_geoCache[icao] = list;
+			// Only cache a valid result — otherwise a lookup made before the CSV index was
+			// loaded would cache an empty list and the diagram would stay wrong.
+			if (HasGeo(list)) _geoCache[icao] = list;
 			return list;
 		}
 

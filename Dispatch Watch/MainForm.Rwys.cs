@@ -85,10 +85,11 @@ namespace ICAO_CSV
 		// ICAO -> threshold list. Lets the diagram work for ANY ICAO (not just saved
 		// stations) and removes the repeated per-airport file scans.
 		private static Dictionary<string, List<RwyGeo>> _csvGeo;
+		private static bool _csvLoaded = false;
 
 		public void EnsureCsvGeoLoaded()
 		{
-			if (_csvGeo != null) return;
+			if (_csvLoaded) return;
 			_csvGeo = new Dictionary<string, List<RwyGeo>>(StringComparer.OrdinalIgnoreCase);
 			try
 			{
@@ -112,8 +113,9 @@ namespace ICAO_CSV
 						AddGeo(id, f[14].Trim(quote), f[18].Trim(quote), f[15].Trim(quote), f[16].Trim(quote), distM);
 					}
 				}
+				_csvLoaded = true;   // mark loaded only after a full, successful pass
 			}
-			catch { }
+			catch { _csvLoaded = false; }
 		}
 
 		private static void AddGeo(string icao, string qfu, string hdg, string lat, string lon, int distM)
