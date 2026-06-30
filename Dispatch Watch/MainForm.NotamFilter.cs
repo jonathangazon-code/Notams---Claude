@@ -572,11 +572,11 @@ namespace ICAO_CSV
 			int newCount = Convert.ToInt32(cmdCnt.ExecuteScalar());
 			conn.Close();
 
-			// Header WebBrowser: shared dark airport card
+			// Header WebBrowser: shared dark airport card (below the top bar)
 			int headerHeight;
+			Web_FilterHeader.Location = new Point(7, 44);
 			Web_FilterHeader.DocumentText = BuildAirportCardHtml(AP, RWYs, newCount, out headerHeight);
 			Web_FilterHeader.Size = new Size(490, headerHeight);
-			Btn_filterNew.BringToFront(); TxtBox_ICAO.BringToFront(); Btn_ICAO.BringToFront();
 
 			// Per-NOTAM RTBs with colored left border strip (Option B)
 			System.Collections.Generic.List<RwyInfo> runways = ParseRunways(RWYs);
@@ -768,11 +768,11 @@ namespace ICAO_CSV
 				if (!OCCreader.IsDBNull(6)) RWYs = OCCreader.GetString(6);
 			connOCC.Close();
 
-			// Airport card into the shared header
+			// Airport card into the shared header (below the top bar)
 			int headerHeight;
+			Web_FilterHeader.Location = new Point(7, 44);
 			Web_FilterHeader.DocumentText = BuildAirportCardHtml(AP, RWYs, 0, out headerHeight);
 			Web_FilterHeader.Size = new Size(490, headerHeight);
-			Btn_filterNew.BringToFront(); TxtBox_ICAO.BringToFront(); Btn_ICAO.BringToFront();
 
 			FontFamily courier = new FontFamily("Courier New");
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
