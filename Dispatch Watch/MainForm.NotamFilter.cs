@@ -255,6 +255,103 @@ namespace ICAO_CSV
 
 		private static string F(double v) { return v.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture); }
 
+		// Geographic runway data (from the Runways table) for an accurate diagram.
+		private struct RwyGeo { public string Qfu; public double Hdg; public int DistM; public double Lat; public double Lon; }
+
+		private System.Collections.Generic.List<RwyGeo> LoadRwyGeo(string icao)
+		{
+			System.Collections.Generic.List<RwyGeo> list = new System.Collections.Generic.List<RwyGeo>();
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+				conn.Open();
+				OleDbCommand q = new OleDbCommand("SELECT QFU, Hdg, DistM, ThrLat, ThrLon FROM Runways WHERE ICAO=? ORDER BY Ord", conn);
+				q.Parameters.AddWithValue("?", icao);
+				OleDbDataReader r = q.ExecuteReader();
+				while (r.Read())
+				{
+					RwyGeo g = new RwyGeo();
+					g.Qfu   = !r.IsDBNull(0) ? r.GetString(0) : "";
+					g.Hdg   = !r.IsDBNull(1) ? Convert.ToDouble(r.GetValue(1)) : 0;
+					g.DistM = !r.IsDBNull(2) ? Convert.ToInt32(r.GetValue(2))  : 0;
+					g.Lat   = !r.IsDBNull(3) ? Convert.ToDouble(r.GetValue(3)) : 0;
+					g.Lon   = !r.IsDBNull(4) ? Convert.ToDouble(r.GetValue(4)) : 0;
+					list.Add(g);
+				}
+				r.Close(); conn.Close();
+			}
+			catch { }
+			return list;
+		}
+
+		// Usable only if every threshold has real coordinates.
+		private static bool HasGeo(System.Collections.Generic.List<RwyGeo> rs)
+		{
+			if (rs.Count == 0) return false;
+			foreach (RwyGeo r in rs) if (r.Lat == 0 && r.Lon == 0) return false;
+			return true;
+		}
+
+		// Airport diagram drawn from the real threshold lat/lon (true crossing angles and
+		// parallel spacing). Thresholds are paired by order (le, he, le2, he2, ...); an odd
+		// leftover end is projected from its heading + length.
+		private static string BuildRwySvgGeo(System.Collections.Generic.List<RwyGeo> rs)
+		{
+			int W = 130, H = 110, pad = 16;
+			int n = rs.Count;
+			double lat0 = 0, lon0 = 0;
+			for (int i = 0; i < n; i++) { lat0 += rs[i].Lat; lon0 += rs[i].Lon; }
+			lat0 /= n; lon0 /= n;
+			double cosLat = Math.Cos(lat0 * Math.PI / 180.0);
+
+			System.Collections.Generic.List<double[]> segs = new System.Collections.Generic.List<double[]>();
+			System.Collections.Generic.List<object[]> ends = new System.Collections.Generic.List<object[]>();
+			for (int i = 0; i < n; i += 2)
+			{
+				double ax = (rs[i].Lon - lon0) * cosLat, ay = -(rs[i].Lat - lat0);
+				double bx, by; string bq;
+				if (i + 1 < n) { bx = (rs[i + 1].Lon - lon0) * cosLat; by = -(rs[i + 1].Lat - lat0); bq = rs[i + 1].Qfu; }
+				else
+				{
+					double L = rs[i].DistM / 111320.0;
+					double rad = rs[i].Hdg * Math.PI / 180.0;
+					bx = ax + Math.Sin(rad) * L; by = ay - Math.Cos(rad) * L; bq = "";
+				}
+				segs.Add(new double[] { ax, ay, bx, by });
+				ends.Add(new object[] { rs[i].Qfu, ax, ay });
+				if (bq != "") ends.Add(new object[] { bq, bx, by });
+			}
+
+			double minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+			foreach (double[] s in segs)
+			{
+				minX = Math.Min(minX, Math.Min(s[0], s[2])); maxX = Math.Max(maxX, Math.Max(s[0], s[2]));
+				minY = Math.Min(minY, Math.Min(s[1], s[3])); maxY = Math.Max(maxY, Math.Max(s[1], s[3]));
+			}
+			double spanX = Math.Max(maxX - minX, 1e-6), spanY = Math.Max(maxY - minY, 1e-6);
+			double scale = Math.Min((W - 2.0 * pad) / spanX, (H - 2.0 * pad) / spanY);
+			double offX = (W - spanX * scale) / 2.0, offY = (H - spanY * scale) / 2.0;
+
+			System.Text.StringBuilder shapes = new System.Text.StringBuilder();
+			System.Text.StringBuilder labels = new System.Text.StringBuilder();
+			foreach (double[] s in segs)
+			{
+				double x1 = offX + (s[0] - minX) * scale, y1 = offY + (s[1] - minY) * scale;
+				double x2 = offX + (s[2] - minX) * scale, y2 = offY + (s[3] - minY) * scale;
+				shapes.Append("<v:line style=\"position:absolute\" from=\"" + F(x1) + "," + F(y1) +
+					"\" to=\"" + F(x2) + "," + F(y2) + "\" strokecolor=\"#607d8b\" strokeweight=\"7px\"><v:stroke endcap=\"round\"/></v:line>");
+				shapes.Append("<v:line style=\"position:absolute\" from=\"" + F(x1) + "," + F(y1) +
+					"\" to=\"" + F(x2) + "," + F(y2) + "\" strokecolor=\"#cfd8dc\" strokeweight=\"1px\"><v:stroke dashstyle=\"dash\"/></v:line>");
+			}
+			foreach (object[] e in ends)
+			{
+				double x = offX + ((double)e[1] - minX) * scale, y = offY + ((double)e[2] - minY) * scale;
+				labels.Append(RwyLabel((string)e[0], x, y, W / 2.0, H / 2.0));
+			}
+			return "<div style=\"position:relative;width:" + W + "px;height:" + H + "px\">" +
+				shapes.ToString() + labels.ToString() + "</div>";
+		}
+
 		private static string ParseDesignator(string line)
 		{
 			int colon = line.IndexOf(':');
@@ -456,7 +553,8 @@ namespace ICAO_CSV
 					rwyClean[i].Replace("&", "&amp;").Replace("<", "&lt;") + "</div>";
 				if (i % 2 == 0) leftCol += cell; else rightCol += cell;
 			}
-			string rwySvg = BuildRwySvg(rwyClean);
+			System.Collections.Generic.List<RwyGeo> geo = LoadRwyGeo(AP);
+			string rwySvg = HasGeo(geo) ? BuildRwySvgGeo(geo) : BuildRwySvg(rwyClean);
 			return
 				"<html xmlns:v=\"urn:schemas-microsoft-com:vml\"><head><style>" +
 				"v\\:*{behavior:url(#default#VML)}" +
