@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Data.OleDb;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace ICAO_CSV
 {
@@ -86,6 +88,57 @@ namespace ICAO_CSV
 			Recipients_Refresh();
 		}
 
+		// Returns the user's default Outlook signature as HTML (read from the signature files),
+		// or "" if none. Avoids GetInspector, which breaks programmatic .Send.
+		string ReadDefaultSignatureHtml()
+		{
+			try
+			{
+				string sigDir = Path.Combine(
+					Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Microsoft\Signatures");
+				if (!Directory.Exists(sigDir)) return "";
+
+				// Default "new message" signature name, stored under Outlook's MailSettings.
+				string name = "";
+				foreach (string ver in new string[] { "16.0", "15.0", "14.0" })
+				{
+					try
+					{
+						RegistryKey key = Registry.CurrentUser.OpenSubKey(
+							@"Software\Microsoft\Office\" + ver + @"\Common\MailSettings");
+						if (key != null)
+						{
+							object v = key.GetValue("NewSignature");
+							if (v is byte[]) name = Encoding.Unicode.GetString((byte[])v).TrimEnd('\0');
+							else if (v != null) name = v.ToString();
+							if (name != "") break;
+						}
+					}
+					catch { }
+				}
+
+				string file = "";
+				if (name != "")
+				{
+					string cand = Path.Combine(sigDir, name + ".htm");
+					if (File.Exists(cand)) file = cand;
+				}
+				if (file == "")
+				{
+					string[] htms = Directory.GetFiles(sigDir, "*.htm");
+					if (htms.Length > 0) file = htms[0];
+				}
+				if (file == "") return "";
+
+				string html = File.ReadAllText(file);
+				// Point relative image links to the absolute signature folder so they may resolve.
+				string imgDir = Path.GetFileNameWithoutExtension(file) + "_files";
+				html = html.Replace("\"" + imgDir + "/", "\"file:///" + Path.Combine(sigDir, imgDir).Replace("\\", "/") + "/");
+				return "<br>" + html;
+			}
+			catch { return ""; }
+		}
+
 		// Sends today's two PDF reports via Outlook (late-bound COM, direct send).
 		void Btn_sendReportsClick(object sender, EventArgs e)
 		{
@@ -120,6 +173,7 @@ namespace ICAO_CSV
 				"Please find attached the NOTAMs Report and AIP SUP List for today " + titleDate + " <br><br>" +
 				"Kind regards,<br>";
 
+			string step = "init";
 			try
 			{
 				Type outlookType = Type.GetTypeFromProgID("Outlook.Application");
@@ -128,38 +182,28 @@ namespace ICAO_CSV
 					MessageBox.Show("Outlook is not installed or registered on this machine.", "Send Reports", MessageBoxButtons.OK, MessageBoxIcon.Error);
 					return;
 				}
+				step = "CreateInstance";
 				object outlook = Activator.CreateInstance(outlookType);
+				step = "CreateItem";
 				object mail = outlookType.InvokeMember("CreateItem", BindingFlags.InvokeMethod, null, outlook, new object[] { 0 }); // 0 = olMailItem
 				Type mt = mail.GetType();
-				mt.InvokeMember("To",      BindingFlags.SetProperty, null, mail, new object[] { to });
+				step = "To";
+				mt.InvokeMember("To", BindingFlags.SetProperty, null, mail, new object[] { to });
+				step = "Subject";
 				mt.InvokeMember("Subject", BindingFlags.SetProperty, null, mail, new object[] { subject });
 
-				// Touching the inspector makes Outlook insert the account's default signature
-				// into HTMLBody; we then prepend our message above it. Fall back to plain text
-				// if the HTML/signature path fails for any reason.
-				bool htmlOk = false;
-				try
-				{
-					mt.InvokeMember("GetInspector", BindingFlags.GetProperty, null, mail, null);
-					string signature = (string)mt.InvokeMember("HTMLBody", BindingFlags.GetProperty, null, mail, null);
-					mt.InvokeMember("HTMLBody", BindingFlags.SetProperty, null, mail, new object[] { bodyHtml + signature });
-					htmlOk = true;
-				}
-				catch { }
-				if (!htmlOk)
-				{
-					string plain = "Dear all,\r\n\r\nPlease find attached the NOTAMs Report and AIP SUP List for today " +
-						titleDate + " \r\n\r\nKind regards,";
-					mt.InvokeMember("Body", BindingFlags.SetProperty, null, mail, new object[] { plain });
-				}
+				// Body + default signature read from the Outlook signature files (no GetInspector,
+				// which conflicts with .Send).
+				step = "Body";
+				mt.InvokeMember("HTMLBody", BindingFlags.SetProperty, null, mail, new object[] { bodyHtml + ReadDefaultSignatureHtml() });
 
+				step = "Attachments";
 				object atts = mt.InvokeMember("Attachments", BindingFlags.GetProperty, null, mail, null);
 				Type at = atts.GetType();
-				// Add(Source, Type=olByValue(1), Position, DisplayName) — explicit args avoid
-				// the late-binding "value does not fall within the expected range" error.
-				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { notamPdf, 1, 1, Path.GetFileName(notamPdf) });
-				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { supPdf,   1, 2, Path.GetFileName(supPdf) });
+				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { notamPdf });
+				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { supPdf });
 
+				step = "Send";
 				mt.InvokeMember("Send", BindingFlags.InvokeMethod, null, mail, null);
 
 				MessageBox.Show("Reports sent to " + rcp.Count + " recipient(s).", "Send Reports", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -167,7 +211,7 @@ namespace ICAO_CSV
 			catch (Exception ex)
 			{
 				string msg = (ex.InnerException != null) ? ex.InnerException.Message : ex.Message;
-				MessageBox.Show("Failed to send via Outlook:\n" + msg, "Send Reports", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				MessageBox.Show("Failed to send via Outlook (step: " + step + "):\n" + msg, "Send Reports", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 	}
