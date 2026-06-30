@@ -64,6 +64,13 @@ namespace ICAO_CSV
 		private System.Windows.Forms.Button Btn_addKeyword;
 		private System.Windows.Forms.Button Btn_removeKeyword;
 		private System.Windows.Forms.Label Lbl_keywordsTitle;
+		private System.Windows.Forms.TabPage tabPage_Email;
+		private System.Windows.Forms.ListBox Lst_Recipients;
+		private System.Windows.Forms.TextBox TxtBox_recipient;
+		private System.Windows.Forms.Button Btn_addRecipient;
+		private System.Windows.Forms.Button Btn_removeRecipient;
+		private System.Windows.Forms.Button Btn_sendReports;
+		private System.Windows.Forms.Label Lbl_emailTitle;
 		private System.Windows.Forms.TabPage AIP_SUP_report;
 		private System.Windows.Forms.Button Btn_Sup_printReport;
 		private System.Windows.Forms.Button Btn_Sup_exportReport;
@@ -144,6 +151,13 @@ namespace ICAO_CSV
 			this.Btn_addKeyword = new System.Windows.Forms.Button();
 			this.Btn_removeKeyword = new System.Windows.Forms.Button();
 			this.Lbl_keywordsTitle = new System.Windows.Forms.Label();
+			this.tabPage_Email = new System.Windows.Forms.TabPage();
+			this.Lst_Recipients = new System.Windows.Forms.ListBox();
+			this.TxtBox_recipient = new System.Windows.Forms.TextBox();
+			this.Btn_addRecipient = new System.Windows.Forms.Button();
+			this.Btn_removeRecipient = new System.Windows.Forms.Button();
+			this.Btn_sendReports = new System.Windows.Forms.Button();
+			this.Lbl_emailTitle = new System.Windows.Forms.Label();
 			this.APT_List = new System.Windows.Forms.TabPage();
 			this.Btn_CopyAPTList = new System.Windows.Forms.Button();
 			this.Btn_addAPT = new System.Windows.Forms.Button();
@@ -272,12 +286,13 @@ namespace ICAO_CSV
 			// tabControl1
 			// 
 			this.tabControl1.Controls.Add(this.tabPage1);
-			this.tabControl1.Controls.Add(this.tabPage3);
 			this.tabControl1.Controls.Add(this.tabPage4);
-			this.tabControl1.Controls.Add(this.tabPage5);
-			this.tabControl1.Controls.Add(this.APT_List);
-			this.tabControl1.Controls.Add(this.tabPage_Keywords);
 			this.tabControl1.Controls.Add(this.AIP_SUP_report);
+			this.tabControl1.Controls.Add(this.tabPage_Email);
+			this.tabControl1.Controls.Add(this.APT_List);
+			this.tabControl1.Controls.Add(this.tabPage5);
+			this.tabControl1.Controls.Add(this.tabPage_Keywords);
+			this.tabControl1.Controls.Add(this.tabPage3);
 			this.tabControl1.Location = new System.Drawing.Point(12, 10);
 			this.tabControl1.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
 			this.tabControl1.Name = "tabControl1";
@@ -285,6 +300,86 @@ namespace ICAO_CSV
 			this.tabControl1.Size = new System.Drawing.Size(1885, 1268);
 			this.tabControl1.TabIndex = 20;
 			this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
+			//
+			// tabPage_Email
+			//
+			this.tabPage_Email.Controls.Add(this.Lbl_emailTitle);
+			this.tabPage_Email.Controls.Add(this.TxtBox_recipient);
+			this.tabPage_Email.Controls.Add(this.Btn_addRecipient);
+			this.tabPage_Email.Controls.Add(this.Lst_Recipients);
+			this.tabPage_Email.Controls.Add(this.Btn_removeRecipient);
+			this.tabPage_Email.Controls.Add(this.Btn_sendReports);
+			this.tabPage_Email.Location = new System.Drawing.Point(4, 25);
+			this.tabPage_Email.Name = "tabPage_Email";
+			this.tabPage_Email.Size = new System.Drawing.Size(1877, 1239);
+			this.tabPage_Email.TabIndex = 8;
+			this.tabPage_Email.Text = "Email";
+			this.tabPage_Email.UseVisualStyleBackColor = true;
+			//
+			// Lbl_emailTitle
+			//
+			this.Lbl_emailTitle.AutoSize = true;
+			this.Lbl_emailTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Bold);
+			this.Lbl_emailTitle.Location = new System.Drawing.Point(20, 18);
+			this.Lbl_emailTitle.Name = "Lbl_emailTitle";
+			this.Lbl_emailTitle.Text = "Default recipients";
+			//
+			// TxtBox_recipient
+			//
+			this.TxtBox_recipient.Location = new System.Drawing.Point(22, 56);
+			this.TxtBox_recipient.Name = "TxtBox_recipient";
+			this.TxtBox_recipient.Size = new System.Drawing.Size(280, 23);
+			this.TxtBox_recipient.TabIndex = 0;
+			this.TxtBox_recipient.KeyDown += new System.Windows.Forms.KeyEventHandler(this.TxtBox_recipientKeyDown);
+			//
+			// Btn_addRecipient
+			//
+			this.Btn_addRecipient.Location = new System.Drawing.Point(310, 55);
+			this.Btn_addRecipient.Name = "Btn_addRecipient";
+			this.Btn_addRecipient.Size = new System.Drawing.Size(90, 26);
+			this.Btn_addRecipient.TabIndex = 1;
+			this.Btn_addRecipient.Text = "Add";
+			this.Btn_addRecipient.BackColor = System.Drawing.Color.SeaGreen;
+			this.Btn_addRecipient.ForeColor = System.Drawing.Color.White;
+			this.Btn_addRecipient.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+			this.Btn_addRecipient.UseVisualStyleBackColor = false;
+			this.Btn_addRecipient.Click += new System.EventHandler(this.Btn_addRecipientClick);
+			//
+			// Lst_Recipients
+			//
+			this.Lst_Recipients.FormattingEnabled = true;
+			this.Lst_Recipients.ItemHeight = 15;
+			this.Lst_Recipients.Location = new System.Drawing.Point(22, 92);
+			this.Lst_Recipients.Name = "Lst_Recipients";
+			this.Lst_Recipients.Size = new System.Drawing.Size(378, 304);
+			this.Lst_Recipients.TabIndex = 2;
+			//
+			// Btn_removeRecipient
+			//
+			this.Btn_removeRecipient.Location = new System.Drawing.Point(22, 406);
+			this.Btn_removeRecipient.Name = "Btn_removeRecipient";
+			this.Btn_removeRecipient.Size = new System.Drawing.Size(378, 28);
+			this.Btn_removeRecipient.TabIndex = 3;
+			this.Btn_removeRecipient.Text = "Remove selected";
+			this.Btn_removeRecipient.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
+			this.Btn_removeRecipient.ForeColor = System.Drawing.Color.White;
+			this.Btn_removeRecipient.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+			this.Btn_removeRecipient.UseVisualStyleBackColor = false;
+			this.Btn_removeRecipient.Click += new System.EventHandler(this.Btn_removeRecipientClick);
+			//
+			// Btn_sendReports
+			//
+			this.Btn_sendReports.Location = new System.Drawing.Point(22, 470);
+			this.Btn_sendReports.Name = "Btn_sendReports";
+			this.Btn_sendReports.Size = new System.Drawing.Size(220, 44);
+			this.Btn_sendReports.TabIndex = 4;
+			this.Btn_sendReports.Text = "✉  Send Reports";
+			this.Btn_sendReports.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Bold);
+			this.Btn_sendReports.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(21)))), ((int)(((byte)(101)))), ((int)(((byte)(192)))));
+			this.Btn_sendReports.ForeColor = System.Drawing.Color.White;
+			this.Btn_sendReports.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+			this.Btn_sendReports.UseVisualStyleBackColor = false;
+			this.Btn_sendReports.Click += new System.EventHandler(this.Btn_sendReportsClick);
 			//
 			// tabPage_Keywords
 			//
@@ -543,7 +638,7 @@ namespace ICAO_CSV
 			this.tabPage4.Name = "tabPage4";
 			this.tabPage4.Size = new System.Drawing.Size(1877, 1239);
 			this.tabPage4.TabIndex = 3;
-			this.tabPage4.Text = "Report";
+			this.tabPage4.Text = "NOTAM Report";
 			this.tabPage4.UseVisualStyleBackColor = true;
 			// 
 			// Btn_printReport

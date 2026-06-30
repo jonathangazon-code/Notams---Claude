@@ -53,6 +53,7 @@ There are no automated tests, no lint tools, and no CLI build commands — Sharp
 | `MainForm.Rwys.cs` | `tab_RWYs()`, `Update_RWYs()` — runway info per station |
 | `MainForm.Export.cs` | `ExportToPdf()` — calls `wkhtmltopdf.exe` to export HTML reports |
 | `MainForm.Keywords.cs` | `EnsureKeywordsTable()`, `LoadKeywords()`, Keywords tab (add/remove highlight keywords) |
+| `MainForm.Email.cs` | `EnsureEmailTable()`, recipients list, `Btn_sendReportsClick` (emails today's two PDFs via late-bound Outlook COM) |
 
 Any new partial file must be registered in `Dispatch Watch.csproj` with `<DependentUpon>MainForm.cs</DependentUpon>`.
 

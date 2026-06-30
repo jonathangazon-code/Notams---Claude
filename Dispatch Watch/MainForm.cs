@@ -26,11 +26,13 @@ namespace ICAO_CSV
 			StartApp();
 			EnsureSchema();
 			EnsureKeywordsTable();
+			EnsureEmailTable();
 			LoadKeywords();
 			LoadStationsCache();
 			tab_RWYs();
 			Airport_List();
 			Keywords_Refresh();
+			Recipients_Refresh();
 			this.FormClosing += MainForm_FormClosing;
 			// Run the first Filter render once the window is shown (and maximized) so the
 			// layout uses the real tab width rather than the smaller design-time size.
