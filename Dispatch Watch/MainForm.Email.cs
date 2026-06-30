@@ -187,10 +187,35 @@ namespace ICAO_CSV
 				step = "CreateItem";
 				object mail = outlookType.InvokeMember("CreateItem", BindingFlags.InvokeMethod, null, outlook, new object[] { 0 }); // 0 = olMailItem
 				Type mt = mail.GetType();
-				step = "To";
-				mt.InvokeMember("To", BindingFlags.SetProperty, null, mail, new object[] { to });
 				step = "Subject";
 				mt.InvokeMember("Subject", BindingFlags.SetProperty, null, mail, new object[] { subject });
+
+				// Recipients: add each, resolve, and report any that Outlook cannot recognise.
+				step = "Recipients";
+				object recips = mt.InvokeMember("Recipients", BindingFlags.GetProperty, null, mail, null);
+				Type rct = recips.GetType();
+				foreach (string addr in rcp)
+				{
+					object r = rct.InvokeMember("Add", BindingFlags.InvokeMethod, null, recips, new object[] { addr });
+					try { r.GetType().InvokeMember("Type", BindingFlags.SetProperty, null, r, new object[] { 1 }); } catch { } // 1 = olTo
+				}
+				bool allResolved = (bool)rct.InvokeMember("ResolveAll", BindingFlags.InvokeMethod, null, recips, null);
+				if (!allResolved)
+				{
+					List<string> bad = new List<string>();
+					int rcount = (int)rct.InvokeMember("Count", BindingFlags.GetProperty, null, recips, null);
+					for (int i = 1; i <= rcount; i++)
+					{
+						object r = rct.InvokeMember("Item", BindingFlags.GetProperty, null, recips, new object[] { i });
+						Type rrt = r.GetType();
+						bool res = (bool)rrt.InvokeMember("Resolved", BindingFlags.GetProperty, null, r, null);
+						if (!res) bad.Add((string)rrt.InvokeMember("Name", BindingFlags.GetProperty, null, r, null));
+					}
+					MessageBox.Show("Outlook could not recognise these address(es):\n\n" + string.Join("\n", bad.ToArray()) +
+						"\n\nFix or remove them in the recipients list, then try again.",
+						"Send Reports", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					return;
+				}
 
 				// Body + default signature read from the Outlook signature files (no GetInspector,
 				// which conflicts with .Send).
