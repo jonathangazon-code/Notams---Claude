@@ -533,6 +533,7 @@ namespace ICAO_CSV
 			// No unchecked NOTAMs left -> show the "all checked" state and stop
 			if (AP == "")
 			{
+				Web_FilterHeader.Location = new Point(7, 44);
 				Web_FilterHeader.Size = new Size(490, 100);
 				string ts = DateTime.Now.ToString("dd MMM yyyy HH:mm").ToUpper() + "z";
 				Web_FilterHeader.DocumentText =
