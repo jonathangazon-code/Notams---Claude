@@ -872,6 +872,36 @@ namespace ICAO_CSV
 				Top = Top + cardH + 8;
 			}
 			conn.Close();
+
+			// Dark status bar + SAVE button (visual parity with the Filter SUBMIT bar)
+			int barLeft = 505;
+			int barW    = cardAvail;
+			Panel statusBar = new Panel
+			{
+				Tag = "dispose", Top = Top + 20, Left = barLeft, Width = barW, Height = 38,
+				BackColor = Color.FromArgb(26, 26, 26)
+			};
+			Label statusLbl = new Label
+			{
+				Text = AP + "  ·  changes saved", ForeColor = Color.FromArgb(144, 164, 174),
+				Font = new Font("Courier New", 10), AutoSize = true, Top = 10, Left = 14
+			};
+			statusBar.Controls.Add(statusLbl);
+			tabPage1.Controls.Add(statusBar);
+			statusBar.SendToBack();
+
+			Button saveBtn = new Button
+			{
+				Tag = "dispose", Text = "SAVE ▶", Size = new Size(160, 30),
+				Top = Top + 24, Left = barLeft + barW - 160 - 14,
+				Font = new Font("Courier New", 10, FontStyle.Bold),
+				BackColor = Color.FromArgb(38, 50, 56), ForeColor = Color.FromArgb(236, 239, 241),
+				FlatStyle = FlatStyle.Flat
+			};
+			saveBtn.FlatAppearance.BorderColor = Color.FromArgb(84, 110, 122);
+			saveBtn.Click += (s, e) => ICAO_Notams();
+			tabPage1.Controls.Add(saveBtn);
+			saveBtn.BringToFront();
 		}
 
 		// Stations-tab impact chips — immediate write (no SUBMIT). Assigning an impact also
