@@ -24,6 +24,7 @@ namespace ICAO_CSV
 		private System.Windows.Forms.Button Btn_delOld;
 		private System.Windows.Forms.Label Lbl_notamsUnchecked;
 		private System.Windows.Forms.Button Btn_submitNotams;
+		private System.Windows.Forms.Button Btn_filterNew;
 		private System.Windows.Forms.TabControl tabControl1;
 		private System.Windows.Forms.TabPage tabPage1;
 		private System.Windows.Forms.TabPage tabPage2;
@@ -107,6 +108,7 @@ namespace ICAO_CSV
 			this.Btn_delOld = new System.Windows.Forms.Button();
 			this.Lbl_notamsUnchecked = new System.Windows.Forms.Label();
 			this.Btn_submitNotams = new System.Windows.Forms.Button();
+			this.Btn_filterNew = new System.Windows.Forms.Button();
 			this.tabControl1 = new System.Windows.Forms.TabControl();
 			this.tabPage1 = new System.Windows.Forms.TabPage();
 			this.Web_FilterHeader = new System.Windows.Forms.WebBrowser();
@@ -270,7 +272,6 @@ namespace ICAO_CSV
 			// tabControl1
 			// 
 			this.tabControl1.Controls.Add(this.tabPage1);
-			this.tabControl1.Controls.Add(this.tabPage2);
 			this.tabControl1.Controls.Add(this.tabPage3);
 			this.tabControl1.Controls.Add(this.tabPage4);
 			this.tabControl1.Controls.Add(this.tabPage5);
@@ -354,6 +355,9 @@ namespace ICAO_CSV
 			//
 			this.tabPage1.AutoScroll = true;
 			this.tabPage1.Controls.Add(this.Web_FilterHeader);
+			this.tabPage1.Controls.Add(this.Btn_filterNew);
+			this.tabPage1.Controls.Add(this.TxtBox_ICAO);
+			this.tabPage1.Controls.Add(this.Btn_ICAO);
 			this.tabPage1.Controls.Add(this.Lbl_location);
 			this.tabPage1.Controls.Add(this.Btn_submitNotams);
 			this.tabPage1.Controls.Add(this.Lbl_notamsUnchecked);
@@ -363,8 +367,21 @@ namespace ICAO_CSV
 			this.tabPage1.Padding = new System.Windows.Forms.Padding(3, 2, 3, 2);
 			this.tabPage1.Size = new System.Drawing.Size(1877, 1239);
 			this.tabPage1.TabIndex = 0;
-			this.tabPage1.Text = "Filter New Notams";
+			this.tabPage1.Text = "NOTAM Filter";
 			this.tabPage1.UseVisualStyleBackColor = true;
+			//
+			// Btn_filterNew
+			//
+			this.Btn_filterNew.Location = new System.Drawing.Point(510, 8);
+			this.Btn_filterNew.Name = "Btn_filterNew";
+			this.Btn_filterNew.Size = new System.Drawing.Size(190, 30);
+			this.Btn_filterNew.TabIndex = 30;
+			this.Btn_filterNew.Text = "Filter New NOTAMS";
+			this.Btn_filterNew.BackColor = System.Drawing.Color.SeaGreen;
+			this.Btn_filterNew.ForeColor = System.Drawing.Color.White;
+			this.Btn_filterNew.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+			this.Btn_filterNew.UseVisualStyleBackColor = false;
+			this.Btn_filterNew.Click += new System.EventHandler(this.Btn_filterNewClick);
 			// 
 			// Web_FilterHeader
 			//
@@ -379,8 +396,6 @@ namespace ICAO_CSV
 			this.tabPage2.AutoScroll = true;
 			this.tabPage2.Controls.Add(this.Web_ICAONotams);
 			this.tabPage2.Controls.Add(this.ChckBox_SeeIgnored);
-			this.tabPage2.Controls.Add(this.Btn_ICAO);
-			this.tabPage2.Controls.Add(this.TxtBox_ICAO);
 			this.tabPage2.Location = new System.Drawing.Point(4, 25);
 			this.tabPage2.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
 			this.tabPage2.Name = "tabPage2";
@@ -412,23 +427,27 @@ namespace ICAO_CSV
 			// 
 			// Btn_ICAO
 			// 
-			this.Btn_ICAO.Location = new System.Drawing.Point(691, 34);
+			this.Btn_ICAO.Location = new System.Drawing.Point(812, 8);
 			this.Btn_ICAO.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
 			this.Btn_ICAO.Name = "Btn_ICAO";
-			this.Btn_ICAO.Size = new System.Drawing.Size(60, 34);
-			this.Btn_ICAO.TabIndex = 1;
+			this.Btn_ICAO.Size = new System.Drawing.Size(60, 30);
+			this.Btn_ICAO.TabIndex = 32;
 			this.Btn_ICAO.Text = "OK";
-			this.Btn_ICAO.UseVisualStyleBackColor = true;
+			this.Btn_ICAO.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(84)))), ((int)(((byte)(110)))), ((int)(((byte)(122)))));
+			this.Btn_ICAO.ForeColor = System.Drawing.Color.White;
+			this.Btn_ICAO.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+			this.Btn_ICAO.UseVisualStyleBackColor = false;
 			this.Btn_ICAO.Click += new System.EventHandler(this.Btn_ICAOClick);
 			// 
 			// TxtBox_ICAO
 			// 
-			this.TxtBox_ICAO.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.TxtBox_ICAO.Location = new System.Drawing.Point(569, 34);
+			this.TxtBox_ICAO.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.TxtBox_ICAO.CharacterCasing = System.Windows.Forms.CharacterCasing.Upper;
+			this.TxtBox_ICAO.Location = new System.Drawing.Point(712, 9);
 			this.TxtBox_ICAO.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
 			this.TxtBox_ICAO.Name = "TxtBox_ICAO";
-			this.TxtBox_ICAO.Size = new System.Drawing.Size(97, 38);
-			this.TxtBox_ICAO.TabIndex = 0;
+			this.TxtBox_ICAO.Size = new System.Drawing.Size(94, 29);
+			this.TxtBox_ICAO.TabIndex = 31;
 			this.TxtBox_ICAO.Text = "ICAO";
 			// 
 			// tabPage3

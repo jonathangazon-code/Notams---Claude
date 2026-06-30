@@ -72,7 +72,15 @@ Any new partial file must be registered in `Dispatch Watch.csproj` with `<Depend
 4. **Filter_Notams** → dispatcher classifies each NOTAM (Keep/Ignore, Impact type, Remark)
 5. **Report** / **Sup_Report** → generates HTML → displayed in `WebBrowser` control → Print or PDF export
 
-### Filter New Notams tab (`Filter_Notams`)
+### NOTAM Filter tab — two modes on `tabPage1`
+
+The single **NOTAM Filter** tab (the old separate "Stations" tab was removed) has a top bar with two entry points, both rendering onto `tabPage1`:
+- **`Filter New NOTAMS` button** (`Btn_filterNew` → `Filter_Notams`) — the auto triage below (airport-by-airport while unchecked NOTAMs remain; pending model + SUBMIT).
+- **ICAO box + `OK`** (`TxtBox_ICAO` / `Btn_ICAO` → `ICAO_Notams`) — manual station view: Kept NOTAMs read-only on the left, **all** of the station's NOTAMs (kept + ignored + new) as interactive cards on the right with a Keep/Ignore button + immediate-write impact/SUP chips (`AddStationChips`). SUBMIT is hidden in this mode.
+
+`_stationMode` tracks which view is active; `RefreshCurrentView()` re-renders the right one after Keep/Ignore/impact edits (so the left Kept list updates live). Both views share `BuildAirportCardHtml` and `RenderKeptCard`. The right column starts at `Top=48` to clear the top bar.
+
+### Filter auto-triage (`Filter_Notams`)
 
 - Runs **automatically once the form is shown** (`this.Shown += … Filter_Notams()`), **not** from the constructor — the `Shown` event fires after the window is maximized so the layout reads the real `tabPage1.ClientSize.Width` (the constructor size is the smaller design-time width). There is no "Analyze" button. It loads the first airport that still has unchecked NOTAMs (`Checked='N'`).
 - The form is **maximized, `AutoScroll=false`**; `tabControl1` is `Dock=Fill`. Only `tabPage1` scrolls (vertical). Card/control-box/status-bar widths are computed from `tabPage1.ClientSize.Width - scrollbar` so nothing triggers a horizontal scrollbar.
@@ -91,7 +99,7 @@ Any new partial file must be registered in `Dispatch Watch.csproj` with `<Depend
 - **Impact checkboxes are "chips"** (`CreateChip`): a `Panel` with a left accent strip + borderless `CheckBox` (the checkbox's `Tag` holds its accent panel). `StyleChk(cb, code)` tints the chip in the impact colour when checked (`ImpactColor` → `Tint`), grey accent when not. Columns/widths are laid out strictly inside the passed control-box geometry (`ctrlLeft`/`ctrlW`).
 - **Two independent remark textboxes** per NOTAM (`LayoutRemarkBoxes`): the impact remark and the SUP-reference box. Only the box(es) whose checkbox is selected are shown; one box → full width, two → 2⁄3 impact + 1⁄3 SUP. The impact remark default (`NotamRemarkDefault`) is the NOTAM's first line, or the validity period `start - end` when that line is just `No`.
 - **Visual-only until SUBMIT.** Nothing is written to the DB on click — `Btn_submitNotamsClick` reads the final state of `_pendImpactChks` / `_pendSupChk` / `_pendRemark` / `_pendSupRemark` and persists `Impact`, `Sup`, `Remark`, `SupRef` before marking `Checked='Y'`.
-- The **Stations tab (tabPage2, `ICAO_Notams`)** reuses the same visual design as the Filter tab via the shared helpers `BuildAirportCardHtml` (dark airport card with VML diagram) and `RenderKeptCard` (read-only kept card). Layout: airport card top-left, **Kept NOTAMs read-only in the left column** (no Ignore button), **not-yet-kept NOTAMs as cards in the right column** with a Keep button + impact chips. Unlike the Filter tab, the chips here are **immediate-write** (`AddStationChips` → `StationImpactSet`, which also sets `Status='K'` when an impact is assigned) — no SUBMIT, no auto-suggestion engine. The ICAO search box/`See Ignored` checkbox sit above the right column (so the right column starts at `Top=125`).
+- The **station view (`ICAO_Notams`)** chips are **immediate-write** (`AddStationChips` → `StationImpactSet` for impacts, `StationSupSet` for the independent SUP chip — both set `Status='K'` when assigned; SUP also writes `SupRef` via `ExtractSupRef`) — no SUBMIT, no auto-suggestion engine. (`tabPage2`/`Web_ICAONotams`/`ChckBox_SeeIgnored` still exist in the Designer but are orphaned — the tab is no longer added to `tabControl1`.) The ICAO search box/`See Ignored` checkbox sit above the right column (so the right column starts at `Top=125`).
 - **Keyword highlighting**: `_notamKeywords` are bolded/reddened (whole-word match only). `HighlightKeywords(rtb, startChar)` (RichTextBox) skips the first two lines (NOTAM ref + dates); `HighlightKeywordsHtml(text)` does the HTML equivalent for the mini WebBrowsers. The list is loaded from the `Keywords` table (`ICAO_storedNotams.mdb`, seeded with `_defaultKeywords` by `EnsureKeywordsTable()`) and editable via the **Keywords tab** — `_notamKeywords` is a runtime list, not a hardcoded constant.
 
 ### WebBrowser control runs in IE7 mode

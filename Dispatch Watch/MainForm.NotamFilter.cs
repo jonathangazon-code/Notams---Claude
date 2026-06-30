@@ -15,6 +15,8 @@ namespace ICAO_CSV
 		private Dictionary<int, TextBox>    _pendSupRemark  = new Dictionary<int, TextBox>();
 		private Dictionary<int, string>     _pendRemarkDefault = new Dictionary<int, string>();
 		private System.Collections.Generic.HashSet<int> _autoKeepSkip = new System.Collections.Generic.HashSet<int>();
+		// false = auto "Filter New NOTAMS" mode; true = manual ICAO station view (both on tabPage1)
+		private bool _stationMode = false;
 		private static readonly string[] _impactOrder = { "A", "C", "N", "D", "F", "M", "R" };
 		// Light tint of a colour (~82% toward white) for use as a readable background
 		private static Color Tint(Color k)
@@ -509,6 +511,7 @@ namespace ICAO_CSV
 
 		void Filter_Notams()
 		{
+			_stationMode = false;
 			tabPage1.VerticalScroll.Value = 0;
 			ClearTaggedControls(tabPage1);
 			_pendImpactChks.Clear();
@@ -631,7 +634,7 @@ namespace ICAO_CSV
 			OleDbDataReader dBreader = cmdNew.ExecuteReader();
 
 			int nbNotams = 0;
-			int Top = 6;
+			int Top = 48;   // below the top bar (Filter New / ICAO search)
 
 			Dictionary<int, Button>      keep_Buttons       = new Dictionary<int, Button>();
 
@@ -747,8 +750,10 @@ namespace ICAO_CSV
 
 		void ICAO_Notams()
 		{
-			tabPage2.VerticalScroll.Value = 0;
-			ClearTaggedControls(tabPage2);
+			_stationMode = true;
+			tabPage1.VerticalScroll.Value = 0;
+			ClearTaggedControls(tabPage1);
+			Btn_submitNotams.Visible = false;   // no SUBMIT in station view
 
 			string AP = TxtBox_ICAO.Text.Trim().ToUpper();
 
@@ -762,18 +767,16 @@ namespace ICAO_CSV
 				if (!OCCreader.IsDBNull(6)) RWYs = OCCreader.GetString(6);
 			connOCC.Close();
 
-			// Airport card (same dark card as the Filter tab) into Web_ICAONotams
+			// Airport card into the shared header
 			int headerHeight;
-			Web_ICAONotams.ScrollBarsEnabled = false;
-			Web_ICAONotams.Location = new Point(7, 6);
-			Web_ICAONotams.DocumentText = BuildAirportCardHtml(AP, RWYs, 0, out headerHeight);
-			Web_ICAONotams.Size = new Size(490, headerHeight);
+			Web_FilterHeader.DocumentText = BuildAirportCardHtml(AP, RWYs, 0, out headerHeight);
+			Web_FilterHeader.Size = new Size(490, headerHeight);
 
 			FontFamily courier = new FontFamily("Courier New");
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 
-			// LEFT column — Kept NOTAMs, read-only cards below the airport card (no Ignore)
-			int keptTop = Web_ICAONotams.Bottom + 8;
+			// LEFT column — Kept NOTAMs, read-only cards below the airport card
+			int keptTop = Web_FilterHeader.Bottom + 8;
 			conn.Open();
 			OleDbCommand cmdKept = new OleDbCommand(
 				"SELECT * FROM filteredNotams_table WHERE (Status='K') AND (location=?)", conn);
@@ -788,19 +791,20 @@ namespace ICAO_CSV
 				string Impact   = !keptR.IsDBNull(13) ? keptR.GetString(13) : "";
 				string Remark   = !keptR.IsDBNull(14) ? keptR.GetString(14) : "";
 				text = text.Replace("(char)39", "'");
-				keptTop += RenderKeptCard(tabPage2, 7, keptTop, 490, fromDate, tillDate, text, notamKey, Impact, Remark) + 6;
+				keptTop += RenderKeptCard(tabPage1, 7, keptTop, 490, fromDate, tillDate, text, notamKey, Impact, Remark) + 6;
 			}
 			conn.Close();
 
-			// RIGHT column — not-yet-kept ("ignored") NOTAMs, each a card with Keep + impact chips
+			// RIGHT column — ALL NOTAMs of the station (kept + ignored + new), each a card
+			// with a Keep/Ignore button + impact chips (immediate write).
 			conn.Open();
-			OleDbCommand cmdNew = new OleDbCommand(
-				"SELECT * FROM filteredNotams_table WHERE (Status='' OR Status IS NULL) AND (location=?)", conn);
-			cmdNew.Parameters.AddWithValue("?", AP);
-			OleDbDataReader dBreader = cmdNew.ExecuteReader();
+			OleDbCommand cmdAll = new OleDbCommand(
+				"SELECT * FROM filteredNotams_table WHERE (location=?) ORDER BY Status DESC, key", conn);
+			cmdAll.Parameters.AddWithValue("?", AP);
+			OleDbDataReader dBreader = cmdAll.ExecuteReader();
 
-			int Top = 125;   // below the ICAO search box / "See Ignored" checkbox
-			int cardAvail = tabPage2.ClientSize.Width - 505 - SystemInformation.VerticalScrollBarWidth - 12;
+			int Top = 48;   // below the top bar
+			int cardAvail = tabPage1.ClientSize.Width - 505 - SystemInformation.VerticalScrollBarWidth - 12;
 			if (cardAvail < 700) cardAvail = 700;
 
 			while (dBreader.Read())
@@ -810,7 +814,10 @@ namespace ICAO_CSV
 				string tillDate   = !dBreader.IsDBNull(6)  ? dBreader.GetString(6)  : "";
 				string notam_text = !dBreader.IsDBNull(7)  ? dBreader.GetString(7)  : "";
 				string notam_key  = !dBreader.IsDBNull(10) ? dBreader.GetString(10) : "";
+				string Status     = !dBreader.IsDBNull(12) ? dBreader.GetString(12) : "";
 				string Impact     = !dBreader.IsDBNull(13) ? dBreader.GetString(13) : "";
+				int    supOrd     = dBreader.GetOrdinal("Sup");
+				bool   supStored  = !dBreader.IsDBNull(supOrd) && dBreader.GetString(supOrd) == "Yes";
 				notam_text = notam_text.Replace("(char)39", "'");
 
 				int height = Math.Max(notam_text.Length / 50 * 20, 80);
@@ -824,26 +831,27 @@ namespace ICAO_CSV
 					Tag = "dispose", Left = ctrlLeft, Top = Top, Width = ctrlW, Height = ctrlH,
 					BackColor = Color.FromArgb(247, 248, 250), BorderStyle = BorderStyle.FixedSingle
 				};
-				tabPage2.Controls.Add(ctrlBox);
+				tabPage1.Controls.Add(ctrlBox);
 
-				Color stripColor = HasImpact(Impact) ? ImpactColor(Impact) : Color.FromArgb(120, 130, 140);
+				Color stripColor = HasImpact(Impact) ? ImpactColor(Impact) : (Status == "K" ? Color.FromArgb(60, 110, 180) : Color.FromArgb(120, 130, 140));
 				Panel card  = new Panel { Tag = "dispose", Left = 505, Top = Top - 4, Width = cardAvail, Height = cardH, BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
 				Panel cstrip = new Panel { Left = 0, Top = 0, Width = 4, Height = cardH - 2, BackColor = stripColor };
 				card.Controls.Add(cstrip);
-				tabPage2.Controls.Add(card);
+				tabPage1.Controls.Add(card);
 
 				Color keyColor = HasImpact(Impact) ? ImpactColor(Impact) : Color.MidnightBlue;
-				AddNotamLabel(tabPage2, courier, notam_key, Top+2, 516, 140, keyColor, true, 11f);
-				AddNotamLabel(tabPage2, courier, FormatDate(fromDate), Top+2, 655, 190, Color.DimGray, false, 10f);
-				AddNotamLabel(tabPage2, courier, FormatDate(tillDate), Top+2, 850, 190, Color.DimGray, false, 10f);
-				tabPage2.Controls.Add(MakeNotamWebBrowser(notam_text, Top+22, 510, height, false));
+				AddNotamLabel(tabPage1, courier, notam_key, Top+2, 516, 140, keyColor, true, 11f);
+				AddNotamLabel(tabPage1, courier, FormatDate(fromDate), Top+2, 655, 190, Color.DimGray, false, 10f);
+				AddNotamLabel(tabPage1, courier, FormatDate(tillDate), Top+2, 850, 190, Color.DimGray, false, 10f);
+				tabPage1.Controls.Add(MakeNotamWebBrowser(notam_text, Top+22, 510, height, Status == "K"));
 
-				Button keepBtn = MakeKeepButton(courier, "", new Point(1070, Top+6));
+				Button keepBtn = MakeKeepButton(courier, Status, new Point(1070, Top+6));
 				int nid = notam_ID;
-				keepBtn.Click += (s, e) => Keep_Notam(nid);
-				tabPage2.Controls.Add(keepBtn);
+				if (Status == "K") keepBtn.Click += (s, e) => Ignore_Notam(nid);
+				else               keepBtn.Click += (s, e) => Keep_Notam(nid);
+				tabPage1.Controls.Add(keepBtn);
 
-				AddStationChips(tabPage2, notam_ID, Impact, Top, ctrlLeft, ctrlW);
+				AddStationChips(tabPage1, notam_ID, Impact, supStored, notam_text, Top, ctrlLeft, ctrlW);
 
 				ctrlBox.SendToBack();
 				card.SendToBack();
@@ -854,7 +862,7 @@ namespace ICAO_CSV
 
 		// Stations-tab impact chips — immediate write (no SUBMIT). Assigning an impact also
 		// keeps the NOTAM; clearing it leaves the impact blank.
-		private void AddStationChips(Control parent, int notam_ID, string Impact, int Top, int ctrlLeft, int ctrlW)
+		private void AddStationChips(Control parent, int notam_ID, string Impact, bool supStored, string notamText, int Top, int ctrlLeft, int ctrlW)
 		{
 			string[] labels = { "APT CLSD", "CAT I", "No ILS", "Not ALTN", "Fuel", "MISC", "RWY" };
 			int pad = 10, areaLeft = ctrlLeft + pad, areaW = ctrlW - 2 * pad;
@@ -869,6 +877,11 @@ namespace ICAO_CSV
 				int id = notam_ID; string c = code; CheckBox cb = chk;
 				chk.CheckedChanged += (s, e) => StationImpactSet(id, c, cb.Checked);
 			}
+
+			// SUP — independent, immediate write
+			CheckBox sup = CreateChip(parent, "SUP", colX[3], Top+44, chipW, supStored, "AS");
+			int sid = notam_ID; string txt = notamText; CheckBox sb = sup;
+			sup.CheckedChanged += (s, e) => StationSupSet(sid, txt, sb.Checked);
 		}
 
 		// Toggle an impact for a Stations-tab NOTAM and reload.
@@ -893,6 +906,28 @@ namespace ICAO_CSV
 			ICAO_Notams();
 		}
 
+		// Toggle SUP for a Stations-tab NOTAM (independent of impact) and reload.
+		void StationSupSet(int notam_ID, string notamText, bool on)
+		{
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+			conn.Open();
+			OleDbCommand u;
+			if (on)
+			{
+				u = new OleDbCommand("UPDATE filteredNotams_table SET Sup='Yes', SupRef=?, Status='K' WHERE ID=?", conn);
+				u.Parameters.AddWithValue("?", ExtractSupRef(notamText));
+				u.Parameters.AddWithValue("?", notam_ID);
+			}
+			else
+			{
+				u = new OleDbCommand("UPDATE filteredNotams_table SET Sup='', SupRef='' WHERE ID=?", conn);
+				u.Parameters.AddWithValue("?", notam_ID);
+			}
+			u.ExecuteNonQuery();
+			conn.Close();
+			ICAO_Notams();
+		}
+
 		void Keep_Notam(int notam_ID)
 		{
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
@@ -901,8 +936,7 @@ namespace ICAO_CSV
 			cmd.Parameters.AddWithValue("?", notam_ID);
 			cmd.ExecuteNonQuery();
 			conn.Close();
-			Filter_Notams();
-			ICAO_Notams();
+			RefreshCurrentView();
 		}
 
 		void Ignore_Notam(int notam_ID)
@@ -914,8 +948,7 @@ namespace ICAO_CSV
 			cmd.Parameters.AddWithValue("?", notam_ID);
 			cmd.ExecuteNonQuery();
 			conn.Close();
-			Filter_Notams();
-			ICAO_Notams();
+			RefreshCurrentView();
 		}
 
 		void Impact_Notam(int notam_ID, string I)
@@ -1134,7 +1167,15 @@ namespace ICAO_CSV
 
 
 		void Btn_ICAOClick(object sender, EventArgs e)                        { ICAO_Notams(); }
+		void Btn_filterNewClick(object sender, EventArgs e)                   { Filter_Notams(); }
 		void ChckBox_SeeIgnoredCheckedChanged(object sender, EventArgs e)     { ICAO_Notams(); }
+
+		// Re-render whichever mode is currently shown on tabPage1
+		void RefreshCurrentView()
+		{
+			if (_stationMode) ICAO_Notams();
+			else              Filter_Notams();
+		}
 
 		public void ShowAutoPopup(string message, int durationMs = 1200)
 		{
