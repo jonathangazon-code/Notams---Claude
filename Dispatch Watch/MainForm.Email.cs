@@ -155,8 +155,10 @@ namespace ICAO_CSV
 
 				object atts = mt.InvokeMember("Attachments", BindingFlags.GetProperty, null, mail, null);
 				Type at = atts.GetType();
-				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { notamPdf });
-				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { supPdf });
+				// Add(Source, Type=olByValue(1), Position, DisplayName) — explicit args avoid
+				// the late-binding "value does not fall within the expected range" error.
+				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { notamPdf, 1, 1, Path.GetFileName(notamPdf) });
+				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { supPdf,   1, 2, Path.GetFileName(supPdf) });
 
 				mt.InvokeMember("Send", BindingFlags.InvokeMethod, null, mail, null);
 
