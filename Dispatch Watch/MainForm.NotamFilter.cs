@@ -14,9 +14,6 @@ namespace ICAO_CSV
 		private Dictionary<int, TextBox>    _pendRemark     = new Dictionary<int, TextBox>();
 		private Dictionary<int, TextBox>    _pendSupRemark  = new Dictionary<int, TextBox>();
 		private Dictionary<int, string>     _pendRemarkDefault = new Dictionary<int, string>();
-		// Station-view remark / SUP-ref textboxes (persisted by the SAVE button)
-		private Dictionary<int, TextBox>    _stRemark = new Dictionary<int, TextBox>();
-		private Dictionary<int, TextBox>    _stSupRef = new Dictionary<int, TextBox>();
 		private System.Collections.Generic.HashSet<int> _autoKeepSkip = new System.Collections.Generic.HashSet<int>();
 		// false = auto "Filter New NOTAMS" mode; true = manual ICAO station view (both on tabPage1)
 		private bool _stationMode = false;
@@ -763,8 +760,6 @@ namespace ICAO_CSV
 			_stationMode = true;
 			tabPage1.VerticalScroll.Value = 0;
 			ClearTaggedControls(tabPage1);
-			_stRemark.Clear();
-			_stSupRef.Clear();
 			Btn_submitNotams.Visible = false;   // no SUBMIT in station view
 
 			string AP = TxtBox_ICAO.Text.Trim().ToUpper();
@@ -882,44 +877,7 @@ namespace ICAO_CSV
 				Top = Top + cardH + 8;
 			}
 			conn.Close();
-
-			// Dark status bar + SAVE button (visual parity with the Filter SUBMIT bar)
-			int barLeft = 505;
-			int barW    = cardAvail;
-			Panel statusBar = new Panel
-			{
-				Tag = "dispose", Top = Top + 20, Left = barLeft, Width = barW, Height = 38,
-				BackColor = Color.FromArgb(26, 26, 26)
-			};
-			Label statusLbl = new Label
-			{
-				Text = AP + "  ·  changes saved", ForeColor = Color.FromArgb(144, 164, 174),
-				Font = new Font("Courier New", 10), AutoSize = true, Top = 10, Left = 14
-			};
-			statusBar.Controls.Add(statusLbl);
-			tabPage1.Controls.Add(statusBar);
-			statusBar.SendToBack();
-
-			Button saveBtn = new Button
-			{
-				Tag = "dispose", Text = "SAVE ▶", Size = new Size(160, 30),
-				Top = Top + 24, Left = barLeft + barW - 160 - 14,
-				Font = new Font("Courier New", 10, FontStyle.Bold),
-				BackColor = Color.FromArgb(38, 50, 56), ForeColor = Color.FromArgb(236, 239, 241),
-				FlatStyle = FlatStyle.Flat
-			};
-			saveBtn.FlatAppearance.BorderColor = Color.FromArgb(84, 110, 122);
-			saveBtn.Click += (s, e) => StationSave();
-			tabPage1.Controls.Add(saveBtn);
-			saveBtn.BringToFront();
-		}
-
-		// Persist every visible remark / SUP-ref textfield, then re-render.
-		void StationSave()
-		{
-			foreach (int id in _stRemark.Keys) StationSaveRemark(id, false, _stRemark[id].Text);
-			foreach (int id in _stSupRef.Keys) StationSaveRemark(id, true,  _stSupRef[id].Text);
-			ICAO_Notams();
+			// Auto-save: impact/SUP chips write immediately, remark textfields on Leave.
 		}
 
 		// Stations-tab impact chips — immediate write (no SUBMIT). Assigning an impact also
@@ -970,7 +928,6 @@ namespace ICAO_CSV
 		private void AddStationRemark(Control parent, int notam_ID, bool isSup, int left, int top, int width, string text)
 		{
 			TextBox tb = new TextBox { Tag = "dispose", Left = left, Top = top, Width = width, Height = 24, Text = text };
-			if (isSup) _stSupRef[notam_ID] = tb; else _stRemark[notam_ID] = tb;
 			int id = notam_ID; bool sup = isSup; TextBox box = tb;
 			tb.Leave += (s, e) => StationSaveRemark(id, sup, box.Text);
 			parent.Controls.Add(tb);
