@@ -135,15 +135,23 @@ namespace ICAO_CSV
 				mt.InvokeMember("Subject", BindingFlags.SetProperty, null, mail, new object[] { subject });
 
 				// Touching the inspector makes Outlook insert the account's default signature
-				// into HTMLBody; we then prepend our message above it.
-				string signature = "";
+				// into HTMLBody; we then prepend our message above it. Fall back to plain text
+				// if the HTML/signature path fails for any reason.
+				bool htmlOk = false;
 				try
 				{
 					mt.InvokeMember("GetInspector", BindingFlags.GetProperty, null, mail, null);
-					signature = (string)mt.InvokeMember("HTMLBody", BindingFlags.GetProperty, null, mail, null);
+					string signature = (string)mt.InvokeMember("HTMLBody", BindingFlags.GetProperty, null, mail, null);
+					mt.InvokeMember("HTMLBody", BindingFlags.SetProperty, null, mail, new object[] { bodyHtml + signature });
+					htmlOk = true;
 				}
 				catch { }
-				mt.InvokeMember("HTMLBody", BindingFlags.SetProperty, null, mail, new object[] { bodyHtml + signature });
+				if (!htmlOk)
+				{
+					string plain = "Dear all,\r\n\r\nPlease find attached the NOTAMs Report and AIP SUP List for today " +
+						titleDate + " \r\n\r\nKind regards,";
+					mt.InvokeMember("Body", BindingFlags.SetProperty, null, mail, new object[] { plain });
+				}
 
 				object atts = mt.InvokeMember("Attachments", BindingFlags.GetProperty, null, mail, null);
 				Type at = atts.GetType();
@@ -156,7 +164,8 @@ namespace ICAO_CSV
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("Failed to send via Outlook:\n" + ex.Message, "Send Reports", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				string msg = (ex.InnerException != null) ? ex.InnerException.Message : ex.Message;
+				MessageBox.Show("Failed to send via Outlook:\n" + msg, "Send Reports", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 	}
