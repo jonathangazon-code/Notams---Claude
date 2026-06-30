@@ -50,7 +50,7 @@ There are no automated tests, no lint tools, and no CLI build commands — Sharp
 | `MainForm.Reports.cs` | `Report()` — HTML NOTAM report with impact rows per operator |
 | `MainForm.AipSup.cs` | `Sup_Report()` — AIP SUP HTML report (lists `Sup='Yes'` NOTAMs, shows `SupRef`), interactive HTML checkboxes |
 | `MainForm.AirportList.cs` | `Airport_List()`, add/edit/delete airport station entries |
-| `MainForm.Rwys.cs` | `tab_RWYs()`, `Update_RWYs()` — runway info per station |
+| `MainForm.Rwys.cs` | structured `Runways` table (OCC.mdb), CSV auto-import, legacy-memo migration, `tab_RWYs()` DataGridView editor |
 | `MainForm.Export.cs` | `ExportToPdf()` — calls `wkhtmltopdf.exe` to export HTML reports |
 | `MainForm.Keywords.cs` | `EnsureKeywordsTable()`, `LoadKeywords()`, Keywords tab (add/remove highlight keywords) |
 | `MainForm.Email.cs` | `EnsureEmailTable()`, recipients list, `Btn_sendReportsClick` (emails today's two PDFs via late-bound Outlook COM) |
@@ -103,6 +103,10 @@ The single **NOTAM Filter** tab (the old separate "Stations" tab was removed) ha
 - The **station view (`ICAO_Notams`)** is **fully auto-save, no SUBMIT/SAVE button**: impact/SUP chips write immediately (`AddStationChips` → `StationImpactSet` / `StationSupSet`, both set `Status='K'` when assigned; SUP also writes `SupRef`), and the remark / SUP-ref textfields save on `Leave` (`StationSaveRemark`). Changing an impact resets `Remark` so the new impact shows its own default. Impact chips are shown **only for Kept NOTAMs** (`if (kept)`); ignored/new ones show just a Keep button. `impactOn` excludes `"AS"`. (`tabPage2`/`Web_ICAONotams`/`ChckBox_SeeIgnored` still exist in the Designer but are orphaned — the tab is no longer added to `tabControl1`.)
 - **Top-bar layout** (`tabPage1`, all at y≈8): `Btn_filterNew` ("Filter New NOTAMS", green) left-aligned with the airport card (x=7); the airport card (`Web_FilterHeader`) sits **below** the bar at `(7,44)` so they never overlap. `Lbl_ICAO` + `TxtBox_ICAO` + `Btn_ICAO` ("OK", blue-grey) are left-aligned with the right NOTAM column (x≈510). The right column starts at `Top=48`.
 - **Keyword highlighting**: `_notamKeywords` are bolded/reddened (whole-word match only). `HighlightKeywords(rtb, startChar)` (RichTextBox) skips the first two lines (NOTAM ref + dates); `HighlightKeywordsHtml(text)` does the HTML equivalent for the mini WebBrowsers. The list is loaded from the `Keywords` table (`ICAO_storedNotams.mdb`, seeded with `_defaultKeywords` by `EnsureKeywordsTable()`) and editable via the **Keywords tab** — `_notamKeywords` is a runtime list, not a hardcoded constant.
+
+### Runways data model (RWYs tab)
+
+Per-runway data lives in a structured **`Runways`** table in `OCC.mdb` (`ICAO, QFU, Cat, DistM, Hdg, ThrLat, ThrLon, Ord`, created by `EnsureRunwaysTable()`). `Cat` (max approach type, e.g. `CAT 3`) is **manual** — the open-data CSVs do not include it; everything else is auto-filled from **`runways.csv`** (OurAirports data, copied next to the exe, scanned at runtime by ICAO). Adding an airport in APT List auto-imports its runways (`ImportRunwaysFromCsv` + `RegenerateRwyMemo`); existing airports migrate their legacy memo on first view (`MigrateLegacyMemo`, preserving the manual `Cat`, then `EnrichFromCsv`). The RWYs tab is a `DataGridView` editor (combo to pick the ICAO + Save / Re-import / Add RWY). **The legacy `Stations_ICAO_IATA.RWYs` memo is regenerated from the table** (`RegenerateRwyMemo`, lines `QFU: Cat DistMm`) so `ParseRunways` (ILS-downgrade context) and `BuildRwySvg` (diagram) keep reading the memo unchanged.
 
 ### WebBrowser control runs in IE7 mode
 

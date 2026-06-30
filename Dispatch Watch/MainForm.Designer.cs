@@ -765,9 +765,6 @@ namespace ICAO_CSV
 			// tabPage5
 			// 
 			this.tabPage5.AutoScroll = true;
-			this.tabPage5.Controls.Add(this.RchTxt_updateRWYs);
-			this.tabPage5.Controls.Add(this.Lbl_ICAO_RWYs);
-			this.tabPage5.Controls.Add(this.Btn_updateRWys);
 			this.tabPage5.Location = new System.Drawing.Point(4, 25);
 			this.tabPage5.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
 			this.tabPage5.Name = "tabPage5";
@@ -803,7 +800,6 @@ namespace ICAO_CSV
 			this.Btn_updateRWys.TabIndex = 0;
 			this.Btn_updateRWys.Text = "OK";
 			this.Btn_updateRWys.UseVisualStyleBackColor = true;
-			this.Btn_updateRWys.Click += new System.EventHandler(this.Btn_updateRWysClick);
 			// 
 			// APT_List
 			// 

@@ -27,6 +27,7 @@ namespace ICAO_CSV
 			EnsureSchema();
 			EnsureKeywordsTable();
 			EnsureEmailTable();
+			EnsureRunwaysTable();
 			LoadKeywords();
 			LoadStationsCache();
 			tab_RWYs();

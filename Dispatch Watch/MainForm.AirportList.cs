@@ -105,10 +105,12 @@ namespace ICAO_CSV
 			string fedex    = ChckBx_APT_FedEx.Checked     ? "Yes" : "No";
 			string charters = ChckBx_APT_Charters.Checked  ? "Yes" : "No";
 
+			bool isNew = (Btn_addAPT.Text != "Edit");
+
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
 			conn.Open();
 
-			if (Btn_addAPT.Text == "Edit")
+			if (!isNew)
 			{
 				Btn_addAPT.Text = "Add Airport !";
 				int intID = int.Parse(Btn_addAPT.Tag.ToString());
@@ -133,6 +135,15 @@ namespace ICAO_CSV
 			}
 
 			conn.Close();
+
+			// New airport -> pre-encode its runways from the CSV
+			if (isNew)
+			{
+				string ic = (icao ?? "").Trim().ToUpper();
+				ImportRunwaysFromCsv(ic);
+				RegenerateRwyMemo(ic);
+			}
+
 			LoadStationsCache();
 			Airport_List();
 		}
@@ -148,6 +159,8 @@ namespace ICAO_CSV
 			var buttons  = new List<Button>();
 			var panels   = new List<Panel>();
 			var browsers = new List<WebBrowser>();
+			var grids    = new List<DataGridView>();
+			var combos   = new List<ComboBox>();
 
 			foreach (Label       c in panel.Controls.OfType<Label>())       if (c.Tag != null && c.Tag.ToString() == "dispose") labels.Add(c);
 			foreach (TextBox     c in panel.Controls.OfType<TextBox>())     if (c.Tag != null && c.Tag.ToString() == "dispose") txtboxes.Add(c);
@@ -156,6 +169,8 @@ namespace ICAO_CSV
 			foreach (Button      c in panel.Controls.OfType<Button>())      if (c.Tag != null && c.Tag.ToString() == "dispose") buttons.Add(c);
 			foreach (Panel       c in panel.Controls.OfType<Panel>())       if (c.Tag != null && c.Tag.ToString() == "dispose") panels.Add(c);
 			foreach (WebBrowser  c in panel.Controls.OfType<WebBrowser>())  if (c.Tag != null && c.Tag.ToString() == "dispose") browsers.Add(c);
+			foreach (DataGridView c in panel.Controls.OfType<DataGridView>()) if (c.Tag != null && c.Tag.ToString() == "dispose") grids.Add(c);
+			foreach (ComboBox    c in panel.Controls.OfType<ComboBox>())    if (c.Tag != null && c.Tag.ToString() == "dispose") combos.Add(c);
 
 			foreach (var c in labels)   { panel.Controls.Remove(c); c.Dispose(); }
 			foreach (var c in txtboxes) { panel.Controls.Remove(c); c.Dispose(); }
@@ -164,6 +179,8 @@ namespace ICAO_CSV
 			foreach (var c in buttons)  { panel.Controls.Remove(c); c.Dispose(); }
 			foreach (var c in panels)   { panel.Controls.Remove(c); c.Dispose(); }
 			foreach (var c in browsers) { panel.Controls.Remove(c); c.Dispose(); }
+			foreach (var c in grids)    { panel.Controls.Remove(c); c.Dispose(); }
+			foreach (var c in combos)   { panel.Controls.Remove(c); c.Dispose(); }
 		}
 
 		private void AddDisposableLabel(System.Windows.Forms.Control parent, FontFamily family, string text, int top, int left, int width, System.Drawing.Color color)
