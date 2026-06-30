@@ -576,6 +576,7 @@ namespace ICAO_CSV
 			int headerHeight;
 			Web_FilterHeader.DocumentText = BuildAirportCardHtml(AP, RWYs, newCount, out headerHeight);
 			Web_FilterHeader.Size = new Size(490, headerHeight);
+			Btn_filterNew.BringToFront(); TxtBox_ICAO.BringToFront(); Btn_ICAO.BringToFront();
 
 			// Per-NOTAM RTBs with colored left border strip (Option B)
 			System.Collections.Generic.List<RwyInfo> runways = ParseRunways(RWYs);
@@ -771,6 +772,7 @@ namespace ICAO_CSV
 			int headerHeight;
 			Web_FilterHeader.DocumentText = BuildAirportCardHtml(AP, RWYs, 0, out headerHeight);
 			Web_FilterHeader.Size = new Size(490, headerHeight);
+			Btn_filterNew.BringToFront(); TxtBox_ICAO.BringToFront(); Btn_ICAO.BringToFront();
 
 			FontFamily courier = new FontFamily("Courier New");
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
@@ -816,24 +818,33 @@ namespace ICAO_CSV
 				string notam_key  = !dBreader.IsDBNull(10) ? dBreader.GetString(10) : "";
 				string Status     = !dBreader.IsDBNull(12) ? dBreader.GetString(12) : "";
 				string Impact     = !dBreader.IsDBNull(13) ? dBreader.GetString(13) : "";
+				string Remark     = !dBreader.IsDBNull(14) ? dBreader.GetString(14) : "";
 				int    supOrd     = dBreader.GetOrdinal("Sup");
+				int    supRefOrd  = dBreader.GetOrdinal("SupRef");
 				bool   supStored  = !dBreader.IsDBNull(supOrd) && dBreader.GetString(supOrd) == "Yes";
+				string storedSupRef = !dBreader.IsDBNull(supRefOrd) ? dBreader.GetString(supRefOrd) : "";
 				notam_text = notam_text.Replace("(char)39", "'");
 
+				bool kept = (Status == "K");
 				int height = Math.Max(notam_text.Length / 50 * 20, 80);
-				int ctrlH  = 100;
-				int cardH  = Math.Max(20 + height, ctrlH) + 10;
+				int ctrlH  = 130;
+				int cardH  = Math.Max(20 + height, kept ? ctrlH : 90) + 10;
 				int ctrlLeft = 1064;
 				int ctrlW    = cardAvail - (ctrlLeft - 505) - 4;
 
-				Panel ctrlBox = new Panel
+				// Control box + impact chips ONLY for Kept NOTAMs (not for ignored/new)
+				Panel ctrlBox = null;
+				if (kept)
 				{
-					Tag = "dispose", Left = ctrlLeft, Top = Top, Width = ctrlW, Height = ctrlH,
-					BackColor = Color.FromArgb(247, 248, 250), BorderStyle = BorderStyle.FixedSingle
-				};
-				tabPage1.Controls.Add(ctrlBox);
+					ctrlBox = new Panel
+					{
+						Tag = "dispose", Left = ctrlLeft, Top = Top, Width = ctrlW, Height = ctrlH,
+						BackColor = Color.FromArgb(247, 248, 250), BorderStyle = BorderStyle.FixedSingle
+					};
+					tabPage1.Controls.Add(ctrlBox);
+				}
 
-				Color stripColor = HasImpact(Impact) ? ImpactColor(Impact) : (Status == "K" ? Color.FromArgb(60, 110, 180) : Color.FromArgb(120, 130, 140));
+				Color stripColor = HasImpact(Impact) ? ImpactColor(Impact) : (kept ? Color.FromArgb(60, 110, 180) : Color.FromArgb(120, 130, 140));
 				Panel card  = new Panel { Tag = "dispose", Left = 505, Top = Top - 4, Width = cardAvail, Height = cardH, BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
 				Panel cstrip = new Panel { Left = 0, Top = 0, Width = 4, Height = cardH - 2, BackColor = stripColor };
 				card.Controls.Add(cstrip);
@@ -843,17 +854,19 @@ namespace ICAO_CSV
 				AddNotamLabel(tabPage1, courier, notam_key, Top+2, 516, 140, keyColor, true, 11f);
 				AddNotamLabel(tabPage1, courier, FormatDate(fromDate), Top+2, 655, 190, Color.DimGray, false, 10f);
 				AddNotamLabel(tabPage1, courier, FormatDate(tillDate), Top+2, 850, 190, Color.DimGray, false, 10f);
-				tabPage1.Controls.Add(MakeNotamWebBrowser(notam_text, Top+22, 510, height, Status == "K"));
+				tabPage1.Controls.Add(MakeNotamWebBrowser(notam_text, Top+22, 510, height, kept));
 
 				Button keepBtn = MakeKeepButton(courier, Status, new Point(1070, Top+6));
 				int nid = notam_ID;
-				if (Status == "K") keepBtn.Click += (s, e) => Ignore_Notam(nid);
-				else               keepBtn.Click += (s, e) => Keep_Notam(nid);
+				if (kept) keepBtn.Click += (s, e) => Ignore_Notam(nid);
+				else      keepBtn.Click += (s, e) => Keep_Notam(nid);
 				tabPage1.Controls.Add(keepBtn);
 
-				AddStationChips(tabPage1, notam_ID, Impact, supStored, notam_text, Top, ctrlLeft, ctrlW);
+				if (kept)
+					AddStationChips(tabPage1, notam_ID, Impact, supStored, notam_text,
+						NotamRemarkDefault(notam_text, fromDate, tillDate), Remark, storedSupRef, Top, ctrlLeft, ctrlW);
 
-				ctrlBox.SendToBack();
+				if (ctrlBox != null) ctrlBox.SendToBack();
 				card.SendToBack();
 				Top = Top + cardH + 8;
 			}
@@ -862,7 +875,8 @@ namespace ICAO_CSV
 
 		// Stations-tab impact chips — immediate write (no SUBMIT). Assigning an impact also
 		// keeps the NOTAM; clearing it leaves the impact blank.
-		private void AddStationChips(Control parent, int notam_ID, string Impact, bool supStored, string notamText, int Top, int ctrlLeft, int ctrlW)
+		private void AddStationChips(Control parent, int notam_ID, string Impact, bool supStored, string notamText,
+			string remarkDefault, string storedRemark, string storedSupRef, int Top, int ctrlLeft, int ctrlW)
 		{
 			string[] labels = { "APT CLSD", "CAT I", "No ILS", "Not ALTN", "Fuel", "MISC", "RWY" };
 			int pad = 10, areaLeft = ctrlLeft + pad, areaW = ctrlW - 2 * pad;
@@ -882,6 +896,47 @@ namespace ICAO_CSV
 			CheckBox sup = CreateChip(parent, "SUP", colX[3], Top+44, chipW, supStored, "AS");
 			int sid = notam_ID; string txt = notamText; CheckBox sb = sup;
 			sup.CheckedChanged += (s, e) => StationSupSet(sid, txt, sb.Checked);
+
+			// Remark textfields shown when impact / SUP is set (immediate save on leave).
+			bool impactOn = HasImpact(Impact);
+			if (impactOn || supStored)
+			{
+				int rowLeft = areaLeft, rowTop = Top + 94, rowW = areaW, gap = 8;
+				if (impactOn && supStored)
+				{
+					AddStationRemark(parent, notam_ID, false, rowLeft, rowTop, rowW * 2 / 3,
+						storedRemark != "" ? storedRemark : remarkDefault);
+					AddStationRemark(parent, notam_ID, true, rowLeft + rowW * 2 / 3 + gap, rowTop, rowW / 3 - gap, storedSupRef);
+				}
+				else if (impactOn)
+					AddStationRemark(parent, notam_ID, false, rowLeft, rowTop, rowW,
+						storedRemark != "" ? storedRemark : remarkDefault);
+				else
+					AddStationRemark(parent, notam_ID, true, rowLeft, rowTop, rowW, storedSupRef);
+			}
+		}
+
+		// One immediate-save textfield (impact remark or SUP reference) on the station view.
+		private void AddStationRemark(Control parent, int notam_ID, bool isSup, int left, int top, int width, string text)
+		{
+			TextBox tb = new TextBox { Tag = "dispose", Left = left, Top = top, Width = width, Height = 24, Text = text };
+			int id = notam_ID; bool sup = isSup; TextBox box = tb;
+			tb.Leave += (s, e) => StationSaveRemark(id, sup, box.Text);
+			parent.Controls.Add(tb);
+		}
+
+		// Save remark / SupRef without re-rendering (the field already shows the text).
+		void StationSaveRemark(int notam_ID, bool isSup, string text)
+		{
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+			conn.Open();
+			OleDbCommand u = new OleDbCommand(
+				isSup ? "UPDATE filteredNotams_table SET SupRef=? WHERE ID=?"
+				      : "UPDATE filteredNotams_table SET Remark=? WHERE ID=?", conn);
+			u.Parameters.AddWithValue("?", text);
+			u.Parameters.AddWithValue("?", notam_ID);
+			u.ExecuteNonQuery();
+			conn.Close();
 		}
 
 		// Toggle an impact for a Stations-tab NOTAM and reload.
