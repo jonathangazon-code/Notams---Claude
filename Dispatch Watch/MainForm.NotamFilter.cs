@@ -430,6 +430,83 @@ namespace ICAO_CSV
 			return s;
 		}
 
+		// Shared dark "airport card" HTML (ICAO + IATA + RWY blocks + VML diagram).
+		// Used by both the Filter tab header and the Stations tab header.
+		private string BuildAirportCardHtml(string AP, string RWYs, int newCount, out int headerHeight)
+		{
+			string iata = GetIATA(AP);
+			string[] rwyLines = RWYs.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+			System.Collections.Generic.List<string> rwyClean = new System.Collections.Generic.List<string>();
+			foreach (string rl in rwyLines) if (rl.Trim() != "") rwyClean.Add(rl.Trim());
+			int pairRows = (rwyClean.Count + 1) / 2;
+			headerHeight = Math.Max(72 + pairRows * 26 + 12, 72 + 130);
+
+			string iataLine = (iata != "" && iata != AP) ? "<div class=\"sub\">IATA: " + iata + "</div>" : "";
+			string leftCol = "", rightCol = "";
+			for (int i = 0; i < rwyClean.Count; i++)
+			{
+				string cell = "<div class=\"rwyline\">" +
+					rwyClean[i].Replace("&", "&amp;").Replace("<", "&lt;") + "</div>";
+				if (i % 2 == 0) leftCol += cell; else rightCol += cell;
+			}
+			string rwySvg = BuildRwySvg(rwyClean);
+			return
+				"<html xmlns:v=\"urn:schemas-microsoft-com:vml\"><head><style>" +
+				"v\\:*{behavior:url(#default#VML)}" +
+				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden;position:relative}" +
+				".icao{font-size:22px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
+				".newbadge{font-size:13px;font-weight:normal;letter-spacing:0;color:#ffca28;margin-left:12px}" +
+				".sub{font-size:13px;color:#78909c;margin-top:2px;margin-bottom:10px}" +
+				".blk{font-size:13px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:6px 14px;margin-top:10px;margin-right:10px;vertical-align:top}" +
+				".rwyline{white-space:nowrap;line-height:1.9}" +
+				".diagram{position:absolute;top:8px;right:14px}" +
+				"</style></head><body>" +
+				"<div class=\"diagram\">" + rwySvg + "</div>" +
+				"<div class=\"icao\">" + AP +
+				(newCount > 0 ? "<span class=\"newbadge\">" + newCount + " new</span>" : "") +
+				"</div>" +
+				iataLine +
+				"<table cellspacing=\"0\" cellpadding=\"0\"><tr>" +
+				"<td class=\"blk\">" + leftCol + "</td>" +
+				"<td class=\"blk\">" + rightCol + "</td>" +
+				"</tr></table>" +
+				"</body></html>";
+		}
+
+		// Shared read-only "kept NOTAM" card (colored impact strip + borderless RichTextBox).
+		// Returns the card height. Used by the left column of both Filter and Stations tabs.
+		private int RenderKeptCard(Control parent, int left, int top, int width,
+			string fromDate, string tillDate, string text, string notamKey, string Impact, string Remark)
+		{
+			Color ic = ImpactColor(Impact);
+			string ilabel = ImpactLabel(Impact);
+			RichTextBox rtb = new RichTextBox
+			{
+				Tag = "dispose", Left = 6, Top = 0, Width = width - 8, Height = 2000,
+				BorderStyle = BorderStyle.None, ReadOnly = true,
+				BackColor = SystemColors.Window, ScrollBars = RichTextBoxScrollBars.None
+			};
+			AppendRtb(rtb, notamKey, ic, true, 11f);
+			if (ilabel != "") AppendRtb(rtb, "  [" + ilabel + "]", ic, false, 9f);
+			AppendRtb(rtb, "\n", Color.Black, false);
+			AppendRtb(rtb, FormatDate(fromDate) + "  →  " + FormatDate(tillDate) + "\n", Color.DimGray, false, 9f);
+			int textStart = rtb.TextLength;
+			AppendRtb(rtb, text + "\n", Color.Black, false, 10f);
+			if (Remark != "") AppendRtb(rtb, "▶ " + Remark + "\n", ic, false, 9f);
+			HighlightKeywords(rtb, textStart);
+
+			int totalLines = rtb.GetLineFromCharIndex(rtb.TextLength) + 1;
+			int rtbHeight  = totalLines * 17 + 12;
+			rtb.Height = rtbHeight;
+
+			Panel container = new Panel { Tag = "dispose", Left = left, Top = top, Width = width, Height = rtbHeight };
+			Panel strip     = new Panel { Left = 0, Top = 0, Width = 4, Height = rtbHeight, BackColor = ic };
+			container.Controls.Add(strip);
+			container.Controls.Add(rtb);
+			parent.Controls.Add(container);
+			return rtbHeight;
+		}
+
 		void Filter_Notams()
 		{
 			tabPage1.VerticalScroll.Value = 0;
@@ -492,50 +569,10 @@ namespace ICAO_CSV
 			int newCount = Convert.ToInt32(cmdCnt.ExecuteScalar());
 			conn.Close();
 
-			// Header WebBrowser: Option D style (dark anthracite)
-			string[] rwyList = RWYs.Split('/');
-			int rwyCount = 0;
-			foreach (string r in rwyList) if (r.Trim() != "") rwyCount++;
-			int headerHeight = 0;
-
-			string iata = GetIATA(AP);
-			string[] rwyLines = RWYs.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
-			System.Collections.Generic.List<string> rwyClean = new System.Collections.Generic.List<string>();
-			foreach (string rl in rwyLines) if (rl.Trim() != "") rwyClean.Add(rl.Trim());
-			int pairRows = (rwyClean.Count + 1) / 2;
-			headerHeight = Math.Max(72 + pairRows * 26 + 12, 72 + 130);
+			// Header WebBrowser: shared dark airport card
+			int headerHeight;
+			Web_FilterHeader.DocumentText = BuildAirportCardHtml(AP, RWYs, newCount, out headerHeight);
 			Web_FilterHeader.Size = new Size(490, headerHeight);
-
-			string iataLine = (iata != "" && iata != AP) ? "<div class=\"sub\">IATA: " + iata + "</div>" : "";
-			string leftCol = "", rightCol = "";
-			for (int i = 0; i < rwyClean.Count; i++)
-			{
-				string cell = "<div class=\"rwyline\">" +
-					rwyClean[i].Replace("&", "&amp;").Replace("<", "&lt;") + "</div>";
-				if (i % 2 == 0) leftCol += cell; else rightCol += cell;
-			}
-			string rwySvg = BuildRwySvg(rwyClean);
-			Web_FilterHeader.DocumentText =
-				"<html xmlns:v=\"urn:schemas-microsoft-com:vml\"><head><style>" +
-				"v\\:*{behavior:url(#default#VML)}" +
-				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden;position:relative}" +
-				".icao{font-size:22px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
-				".newbadge{font-size:13px;font-weight:normal;letter-spacing:0;color:#ffca28;margin-left:12px}" +
-				".sub{font-size:13px;color:#78909c;margin-top:2px;margin-bottom:10px}" +
-				".blk{font-size:13px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:6px 14px;margin-top:10px;margin-right:10px;vertical-align:top}" +
-				".rwyline{white-space:nowrap;line-height:1.9}" +
-				".diagram{position:absolute;top:8px;right:14px}" +
-				"</style></head><body>" +
-				"<div class=\"diagram\">" + rwySvg + "</div>" +
-				"<div class=\"icao\">" + AP +
-				(newCount > 0 ? "<span class=\"newbadge\">" + newCount + " new</span>" : "") +
-				"</div>" +
-				iataLine +
-				"<table cellspacing=\"0\" cellpadding=\"0\"><tr>" +
-				"<td class=\"blk\">" + leftCol + "</td>" +
-				"<td class=\"blk\">" + rightCol + "</td>" +
-				"</tr></table>" +
-				"</body></html>";
 
 			// Per-NOTAM RTBs with colored left border strip (Option B)
 			System.Collections.Generic.List<RwyInfo> runways = ParseRunways(RWYs);
@@ -556,35 +593,7 @@ namespace ICAO_CSV
 				string Remark   = !keptReader.IsDBNull(14) ? keptReader.GetString(14) : "";
 				text = text.Replace("(char)39", "'");
 				keptUpper.Add(text.ToUpper());
-
-				Color ic = ImpactColor(Impact);
-				string ilabel = ImpactLabel(Impact);
-
-				RichTextBox rtb = new RichTextBox
-				{
-					Tag = "dispose", Left = 6, Top = 0, Width = 482, Height = 2000,
-					BorderStyle = BorderStyle.None, ReadOnly = true,
-					BackColor = SystemColors.Window, ScrollBars = RichTextBoxScrollBars.None
-				};
-				AppendRtb(rtb, notamKey, ic, true, 11f);
-				if (ilabel != "") AppendRtb(rtb, "  [" + ilabel + "]", ic, false, 9f);
-				AppendRtb(rtb, "\n", Color.Black, false);
-				AppendRtb(rtb, FormatDate(fromDate) + "  →  " + FormatDate(tillDate) + "\n", Color.DimGray, false, 9f);
-				int textStart = rtb.TextLength;
-				AppendRtb(rtb, text + "\n", Color.Black, false, 10f);
-				if (Remark != "") AppendRtb(rtb, "▶ " + Remark + "\n", ic, false, 9f);
-				HighlightKeywords(rtb, textStart);
-
-				int totalLines = rtb.GetLineFromCharIndex(rtb.TextLength) + 1;
-				int rtbHeight  = totalLines * 17 + 12;
-				rtb.Height = rtbHeight;
-
-				Panel container = new Panel { Tag = "dispose", Left = 7, Top = keptTop, Width = 490, Height = rtbHeight };
-				Panel strip     = new Panel { Left = 0, Top = 0, Width = 4, Height = rtbHeight, BackColor = ic };
-				container.Controls.Add(strip);
-				container.Controls.Add(rtb);
-				tabPage1.Controls.Add(container);
-				keptTop += rtbHeight + 6;
+				keptTop += RenderKeptCard(tabPage1, 7, keptTop, 490, fromDate, tillDate, text, notamKey, Impact, Remark) + 6;
 			}
 			conn.Close();
 
@@ -741,7 +750,7 @@ namespace ICAO_CSV
 			tabPage2.VerticalScroll.Value = 0;
 			ClearTaggedControls(tabPage2);
 
-			string AP = TxtBox_ICAO.Text;
+			string AP = TxtBox_ICAO.Text.Trim().ToUpper();
 
 			OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
 			connOCC.Open();
@@ -753,35 +762,46 @@ namespace ICAO_CSV
 				if (!OCCreader.IsDBNull(6)) RWYs = OCCreader.GetString(6);
 			connOCC.Close();
 
-			string stationHTML = "<html><body style=\"font-family:Courier New;font-size:12px;\">" +
-				"<b><u style=\"color:MidnightBlue;font-size:14px;\">" + AP + "</u></b><br/>" +
-				"<span style=\"color:DarkGreen;\">" + RWYs.Replace("/", "<br/>") + "</span>" +
-				"</body></html>";
-			Web_ICAONotams.DocumentText = stationHTML;
+			// Airport card (same dark card as the Filter tab) into Web_ICAONotams
+			int headerHeight;
+			Web_ICAONotams.ScrollBarsEnabled = false;
+			Web_ICAONotams.Location = new Point(7, 6);
+			Web_ICAONotams.DocumentText = BuildAirportCardHtml(AP, RWYs, 0, out headerHeight);
+			Web_ICAONotams.Size = new Size(490, headerHeight);
 
 			FontFamily courier = new FontFamily("Courier New");
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+
+			// LEFT column — Kept NOTAMs, read-only cards below the airport card (no Ignore)
+			int keptTop = Web_ICAONotams.Bottom + 8;
 			conn.Open();
-			string query2 = ChckBox_SeeIgnored.Checked
-				? "SELECT * FROM filteredNotams_table WHERE location=?"
-				: "SELECT * FROM filteredNotams_table WHERE (Status='K') AND (location=?)";
-			OleDbCommand cmd = new OleDbCommand(query2, conn);
-			cmd.Parameters.AddWithValue("?", AP);
-			OleDbDataReader dBreader = cmd.ExecuteReader();
+			OleDbCommand cmdKept = new OleDbCommand(
+				"SELECT * FROM filteredNotams_table WHERE (Status='K') AND (location=?)", conn);
+			cmdKept.Parameters.AddWithValue("?", AP);
+			OleDbDataReader keptR = cmdKept.ExecuteReader();
+			while (keptR.Read())
+			{
+				string fromDate = !keptR.IsDBNull(5)  ? keptR.GetString(5)  : "";
+				string tillDate = !keptR.IsDBNull(6)  ? keptR.GetString(6)  : "";
+				string text     = !keptR.IsDBNull(7)  ? keptR.GetString(7)  : "";
+				string notamKey = !keptR.IsDBNull(10) ? keptR.GetString(10) : "";
+				string Impact   = !keptR.IsDBNull(13) ? keptR.GetString(13) : "";
+				string Remark   = !keptR.IsDBNull(14) ? keptR.GetString(14) : "";
+				text = text.Replace("(char)39", "'");
+				keptTop += RenderKeptCard(tabPage2, 7, keptTop, 490, fromDate, tillDate, text, notamKey, Impact, Remark) + 6;
+			}
+			conn.Close();
 
-			int Top = 100;
-			Dictionary<int, Button>      keep_Buttons       = new Dictionary<int, Button>();
+			// RIGHT column — not-yet-kept ("ignored") NOTAMs, each a card with Keep + impact chips
+			conn.Open();
+			OleDbCommand cmdNew = new OleDbCommand(
+				"SELECT * FROM filteredNotams_table WHERE (Status='' OR Status IS NULL) AND (location=?)", conn);
+			cmdNew.Parameters.AddWithValue("?", AP);
+			OleDbDataReader dBreader = cmdNew.ExecuteReader();
 
-			Dictionary<int, CheckBox>    apt_CLSD_Chckbox   = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_CATI_Chckbox   = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_NILS_Chckbox   = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_NOALTN_Chckbox = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_FUEL_Chckbox   = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_MISC_Chckbox   = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_AIPSUP_Chckbox = new Dictionary<int, CheckBox>();
-			Dictionary<int, CheckBox>    apt_RWYCLSD_Chckbox= new Dictionary<int, CheckBox>();
-			Dictionary<int, TextBox>     remark_Txtbox      = new Dictionary<int, TextBox>();
-			Dictionary<int, Button>      remark_Buttons     = new Dictionary<int, Button>();
+			int Top = 125;   // below the ICAO search box / "See Ignored" checkbox
+			int cardAvail = tabPage2.ClientSize.Width - 505 - SystemInformation.VerticalScrollBarWidth - 12;
+			if (cardAvail < 700) cardAvail = 700;
 
 			while (dBreader.Read())
 			{
@@ -790,46 +810,87 @@ namespace ICAO_CSV
 				string tillDate   = !dBreader.IsDBNull(6)  ? dBreader.GetString(6)  : "";
 				string notam_text = !dBreader.IsDBNull(7)  ? dBreader.GetString(7)  : "";
 				string notam_key  = !dBreader.IsDBNull(10) ? dBreader.GetString(10) : "";
-				string Status     = !dBreader.IsDBNull(12) ? dBreader.GetString(12) : "";
 				string Impact     = !dBreader.IsDBNull(13) ? dBreader.GetString(13) : "";
-				string Remark     = !dBreader.IsDBNull(14) ? dBreader.GetString(14) : "";
 				notam_text = notam_text.Replace("(char)39", "'");
 
-				Color keyColor = HasImpact(Impact) ? ImpactColor(Impact) : Color.MidnightBlue;
-
-				AddNotamLabel(tabPage2, courier, notam_key, Top, 210, 140, keyColor, true, 11f);
-				AddNotamLabel(tabPage2, courier, FormatDate(fromDate), Top, 355, 190, Color.DimGray, false, 10f);
-				AddNotamLabel(tabPage2, courier, FormatDate(tillDate), Top, 550, 190, Color.DimGray, false, 10f);
-
 				int height = Math.Max(notam_text.Length / 50 * 20, 80);
-				tabPage2.Controls.Add(MakeNotamWebBrowser(notam_text, Top+20, 210, height, Status == "K"));
+				int ctrlH  = 100;
+				int cardH  = Math.Max(20 + height, ctrlH) + 10;
+				int ctrlLeft = 1064;
+				int ctrlW    = cardAvail - (ctrlLeft - 505) - 4;
 
-				keep_Buttons[notam_ID] = MakeKeepButton(courier, Status, new Point(770, Top+20));
-				int nid = notam_ID;
-				if (Status == "")  keep_Buttons[notam_ID].Click += (s, e) => Keep_Notam(nid);
-				if (Status == "K") keep_Buttons[notam_ID].Click += (s, e) => Ignore_Notam(nid);
-				tabPage2.Controls.Add(keep_Buttons[notam_ID]);
-
-				if (Status == "K")
+				Panel ctrlBox = new Panel
 				{
-					AddImpactCheckboxes(tabPage2, notam_ID, Impact, Top, 770, 850, 940, 1030,
-						apt_CLSD_Chckbox, apt_CATI_Chckbox, apt_NILS_Chckbox,
-						apt_NOALTN_Chckbox, apt_FUEL_Chckbox, apt_MISC_Chckbox,
-						apt_AIPSUP_Chckbox, apt_RWYCLSD_Chckbox);
+					Tag = "dispose", Left = ctrlLeft, Top = Top, Width = ctrlW, Height = ctrlH,
+					BackColor = Color.FromArgb(247, 248, 250), BorderStyle = BorderStyle.FixedSingle
+				};
+				tabPage2.Controls.Add(ctrlBox);
 
-					if (HasImpact(Impact))
-					{
-						remark_Txtbox[notam_ID]  = new TextBox { Tag="dispose", Top=Top+94, Left=770,  Size=new Size(250,24), Text=Remark };
-						remark_Buttons[notam_ID] = new Button  { Tag="dispose", Top=Top+92, Left=1020, Size=new Size(40,24),  Text="OK" };
-						int ri = notam_ID;
-						remark_Buttons[notam_ID].Click += (s, e) => Remark_Notam(ri, remark_Txtbox[ri].Text);
-						tabPage2.Controls.Add(remark_Txtbox[notam_ID]);
-						tabPage2.Controls.Add(remark_Buttons[notam_ID]);
-					}
-				}
-				Top = Top + height + 30;
+				Color stripColor = HasImpact(Impact) ? ImpactColor(Impact) : Color.FromArgb(120, 130, 140);
+				Panel card  = new Panel { Tag = "dispose", Left = 505, Top = Top - 4, Width = cardAvail, Height = cardH, BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+				Panel cstrip = new Panel { Left = 0, Top = 0, Width = 4, Height = cardH - 2, BackColor = stripColor };
+				card.Controls.Add(cstrip);
+				tabPage2.Controls.Add(card);
+
+				Color keyColor = HasImpact(Impact) ? ImpactColor(Impact) : Color.MidnightBlue;
+				AddNotamLabel(tabPage2, courier, notam_key, Top+2, 516, 140, keyColor, true, 11f);
+				AddNotamLabel(tabPage2, courier, FormatDate(fromDate), Top+2, 655, 190, Color.DimGray, false, 10f);
+				AddNotamLabel(tabPage2, courier, FormatDate(tillDate), Top+2, 850, 190, Color.DimGray, false, 10f);
+				tabPage2.Controls.Add(MakeNotamWebBrowser(notam_text, Top+22, 510, height, false));
+
+				Button keepBtn = MakeKeepButton(courier, "", new Point(1070, Top+6));
+				int nid = notam_ID;
+				keepBtn.Click += (s, e) => Keep_Notam(nid);
+				tabPage2.Controls.Add(keepBtn);
+
+				AddStationChips(tabPage2, notam_ID, Impact, Top, ctrlLeft, ctrlW);
+
+				ctrlBox.SendToBack();
+				card.SendToBack();
+				Top = Top + cardH + 8;
 			}
 			conn.Close();
+		}
+
+		// Stations-tab impact chips — immediate write (no SUBMIT). Assigning an impact also
+		// keeps the NOTAM; clearing it leaves the impact blank.
+		private void AddStationChips(Control parent, int notam_ID, string Impact, int Top, int ctrlLeft, int ctrlW)
+		{
+			string[] labels = { "APT CLSD", "CAT I", "No ILS", "Not ALTN", "Fuel", "MISC", "RWY" };
+			int pad = 10, areaLeft = ctrlLeft + pad, areaW = ctrlW - 2 * pad;
+			int colW = areaW / 4, chipW = colW - 6;
+			int[] colX = { areaLeft, areaLeft + colW, areaLeft + 2 * colW, areaLeft + 3 * colW };
+			int[] cols = { colX[0], colX[1], colX[2], colX[0], colX[1], colX[2], colX[3] };
+			int[] tops = { Top+44, Top+44, Top+44, Top+68, Top+68, Top+68, Top+68 };
+			for (int i = 0; i < 7; i++)
+			{
+				string code = _impactOrder[i];
+				CheckBox chk = CreateChip(parent, labels[i], cols[i], tops[i], chipW, Impact == code, code);
+				int id = notam_ID; string c = code; CheckBox cb = chk;
+				chk.CheckedChanged += (s, e) => StationImpactSet(id, c, cb.Checked);
+			}
+		}
+
+		// Toggle an impact for a Stations-tab NOTAM and reload.
+		void StationImpactSet(int notam_ID, string code, bool on)
+		{
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+			conn.Open();
+			OleDbCommand u;
+			if (on)
+			{
+				u = new OleDbCommand("UPDATE filteredNotams_table SET Impact=?, Status='K' WHERE ID=?", conn);
+				u.Parameters.AddWithValue("?", code);
+				u.Parameters.AddWithValue("?", notam_ID);
+			}
+			else
+			{
+				u = new OleDbCommand("UPDATE filteredNotams_table SET Impact='' WHERE ID=?", conn);
+				u.Parameters.AddWithValue("?", notam_ID);
+			}
+			u.ExecuteNonQuery();
+			conn.Close();
+			ICAO_Notams();
 		}
 
 		void Keep_Notam(int notam_ID)
