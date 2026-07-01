@@ -114,7 +114,6 @@ namespace ICAO_CSV
 		void Btn_newNotamsClick(object sender, EventArgs e)       { NewNotams(); }
 		void Btn_delOldClick(object sender, EventArgs e)          { DelOld(); }
 		void Btn_delWithdrawnedClick(object sender, EventArgs e)  { deleteWithdrawnedNotams(); }
-		void Btn_reportClick(object sender, EventArgs e)          { Report(); }
 		void Btn_printReportClick(object sender, EventArgs e)        { Web_report.Print(); }
 		void Btn_exportReportClick(object sender, EventArgs e)       { ExportToPdf(Web_report, "NOTAMS_report"); }
 		void Btn_AIP_Sup_reportClick(object sender, EventArgs e)     { Sup_Report(); }

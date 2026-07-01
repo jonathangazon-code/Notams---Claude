@@ -45,7 +45,6 @@ namespace ICAO_CSV
 		private System.Windows.Forms.Label Lbl_ICAO_RWYs;
 		private System.Windows.Forms.Button Btn_updateRWys;
 		private System.Windows.Forms.WebBrowser Web_FilterHeader;
-		private System.Windows.Forms.Button btn_report;
 		private System.Windows.Forms.RadioButton radBtn_24Hrs;
 		private System.Windows.Forms.RadioButton radBtn_noFilter;
 		private System.Windows.Forms.RadioButton radBtn_31days;
@@ -143,7 +142,6 @@ namespace ICAO_CSV
 			this.radBtn_7days = new System.Windows.Forms.RadioButton();
 			this.radBtn_24Hrs = new System.Windows.Forms.RadioButton();
 			this.radBtn_noFilter = new System.Windows.Forms.RadioButton();
-			this.btn_report = new System.Windows.Forms.Button();
 			this.Web_report = new System.Windows.Forms.WebBrowser();
 			this.webBrowser2 = new System.Windows.Forms.WebBrowser();
 			this.webBrowser1 = new System.Windows.Forms.WebBrowser();
@@ -306,6 +304,7 @@ namespace ICAO_CSV
 			this.tabControl1.Size = new System.Drawing.Size(1885, 1268);
 			this.tabControl1.TabIndex = 20;
 			this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.tabControl1.SelectedIndexChanged += new System.EventHandler(this.TabControl1SelectedIndexChanged);
 			//
 			// tabPage_Email
 			//
@@ -669,7 +668,6 @@ namespace ICAO_CSV
 			this.tabPage4.Controls.Add(this.radBtn_7days);
 			this.tabPage4.Controls.Add(this.radBtn_24Hrs);
 			this.tabPage4.Controls.Add(this.radBtn_noFilter);
-			this.tabPage4.Controls.Add(this.btn_report);
 			this.tabPage4.Controls.Add(this.Web_report);
 			this.tabPage4.Controls.Add(this.webBrowser2);
 			this.tabPage4.Controls.Add(this.webBrowser1);
@@ -710,58 +708,51 @@ namespace ICAO_CSV
 			this.Btn_exportReport.Click += new System.EventHandler(this.Btn_exportReportClick);
 			//
 			// radBtn_31days
-			// 
-			this.radBtn_31days.Location = new System.Drawing.Point(565, 4);
+			//
+			this.radBtn_31days.Location = new System.Drawing.Point(447, 4);
 			this.radBtn_31days.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
 			this.radBtn_31days.Name = "radBtn_31days";
 			this.radBtn_31days.Size = new System.Drawing.Size(139, 30);
-			this.radBtn_31days.TabIndex = 7;
+			this.radBtn_31days.TabIndex = 6;
 			this.radBtn_31days.Text = "31 days";
 			this.radBtn_31days.UseVisualStyleBackColor = true;
-			// 
+			this.radBtn_31days.CheckedChanged += new System.EventHandler(this.RadBtn_reportWindowCheckedChanged);
+			//
 			// radBtn_7days
-			// 
-			this.radBtn_7days.Location = new System.Drawing.Point(447, 4);
+			//
+			this.radBtn_7days.Location = new System.Drawing.Point(329, 4);
 			this.radBtn_7days.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
 			this.radBtn_7days.Name = "radBtn_7days";
 			this.radBtn_7days.Size = new System.Drawing.Size(139, 30);
-			this.radBtn_7days.TabIndex = 6;
+			this.radBtn_7days.TabIndex = 5;
 			this.radBtn_7days.Text = "7 days";
 			this.radBtn_7days.UseVisualStyleBackColor = true;
-			// 
+			this.radBtn_7days.CheckedChanged += new System.EventHandler(this.RadBtn_reportWindowCheckedChanged);
+			//
 			// radBtn_24Hrs
-			// 
-			this.radBtn_24Hrs.Location = new System.Drawing.Point(281, 4);
+			//
+			this.radBtn_24Hrs.Location = new System.Drawing.Point(163, 4);
 			this.radBtn_24Hrs.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
 			this.radBtn_24Hrs.Name = "radBtn_24Hrs";
 			this.radBtn_24Hrs.Size = new System.Drawing.Size(139, 30);
-			this.radBtn_24Hrs.TabIndex = 5;
+			this.radBtn_24Hrs.TabIndex = 4;
 			this.radBtn_24Hrs.Text = "Next 24Hrs";
 			this.radBtn_24Hrs.UseVisualStyleBackColor = true;
-			// 
+			this.radBtn_24Hrs.CheckedChanged += new System.EventHandler(this.RadBtn_reportWindowCheckedChanged);
+			//
 			// radBtn_noFilter
-			// 
+			//
 			this.radBtn_noFilter.Checked = true;
-			this.radBtn_noFilter.Location = new System.Drawing.Point(149, 4);
+			this.radBtn_noFilter.Location = new System.Drawing.Point(23, 4);
 			this.radBtn_noFilter.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
 			this.radBtn_noFilter.Name = "radBtn_noFilter";
 			this.radBtn_noFilter.Size = new System.Drawing.Size(95, 30);
-			this.radBtn_noFilter.TabIndex = 4;
+			this.radBtn_noFilter.TabIndex = 3;
 			this.radBtn_noFilter.TabStop = true;
 			this.radBtn_noFilter.Text = "No filter";
 			this.radBtn_noFilter.UseVisualStyleBackColor = true;
-			// 
-			// btn_report
-			// 
-			this.btn_report.Location = new System.Drawing.Point(23, 4);
-			this.btn_report.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
-			this.btn_report.Name = "btn_report";
-			this.btn_report.Size = new System.Drawing.Size(100, 28);
-			this.btn_report.TabIndex = 3;
-			this.btn_report.Text = "Report !";
-			this.btn_report.UseVisualStyleBackColor = true;
-			this.btn_report.Click += new System.EventHandler(this.Btn_reportClick);
-			// 
+			this.radBtn_noFilter.CheckedChanged += new System.EventHandler(this.RadBtn_reportWindowCheckedChanged);
+			//
 			// Web_report
 			// 
 			this.Web_report.Location = new System.Drawing.Point(0, 33);

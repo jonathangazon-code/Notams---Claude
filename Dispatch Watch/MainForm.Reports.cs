@@ -7,6 +7,18 @@ namespace ICAO_CSV
 {
 	public partial class MainForm
 	{
+		// The report auto-loads when the tab is selected, and re-runs whenever the
+		// dispatcher changes the time-window filter — there's no "Report !" button anymore.
+		void TabControl1SelectedIndexChanged(object sender, EventArgs e)
+		{
+			if (tabControl1.SelectedTab == tabPage4) Report();
+		}
+
+		void RadBtn_reportWindowCheckedChanged(object sender, EventArgs e)
+		{
+			if (((RadioButton)sender).Checked) Report();
+		}
+
 		public void Report()
 		{
 			// Impact rows per category per operator
