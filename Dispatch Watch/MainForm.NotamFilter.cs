@@ -756,24 +756,42 @@ namespace ICAO_CSV
 			// Per-NOTAM RTBs with colored left border strip (Option B)
 			System.Collections.Generic.List<RwyInfo> runways = ParseRunways(RWYs);
 
-			// Auto-Keep: promote not-yet-kept NOTAMs to Status='K' when the engine detects a
-			// potential impact or SUP (unless the dispatcher ignored them). This must run
-			// BEFORE the "kept" left-column query below, otherwise a NOTAM promoted on this
-			// very render is missed until the next full re-render (e.g. a manual Keep click).
+			// Auto-Keep / Auto-Un-Keep: promote not-yet-kept NOTAMs to Status='K' when the
+			// engine detects a potential impact/SUP/closure/ILS outage, and demote NOTAMs
+			// that were auto-Kept earlier but that the dispatcher never actually reviewed
+			// (blank Impact/Remark/Sup) if a classification-rule change means they no longer
+			// trigger any signal (e.g. a TWY/DVOR/DME NOTAM wrongly auto-Kept by an older,
+			// looser rule). A NOTAM the dispatcher DID review (set an impact/remark/SUP on)
+			// is never touched here, even if it no longer matches any rule. This must run
+			// BEFORE the "kept" left-column query below, otherwise a change made on this very
+			// render is missed until the next full re-render (e.g. a manual Keep click).
 			conn.Open();
 			OleDbCommand cmdScan = new OleDbCommand(
-				"SELECT ID, [all] FROM filteredNotams_table WHERE (Checked='N') AND (Status='' OR Status IS NULL) AND (location=?)", conn);
+				"SELECT ID, [all], Status, Impact, Remark, Sup FROM filteredNotams_table WHERE (Checked='N') AND (location=?)", conn);
 			cmdScan.Parameters.AddWithValue("?", AP);
 			OleDbDataReader scanR = cmdScan.ExecuteReader();
 			System.Collections.Generic.List<int> toKeep = new System.Collections.Generic.List<int>();
+			System.Collections.Generic.List<int> toUnKeep = new System.Collections.Generic.List<int>();
 			while (scanR.Read())
 			{
 				int sid = !scanR.IsDBNull(0) ? scanR.GetInt32(0) : 0;
-				if (_autoKeepSkip.Contains(sid)) continue;
+				string status = !scanR.IsDBNull(2) ? scanR.GetString(2) : "";
+				string impact = !scanR.IsDBNull(3) ? scanR.GetString(3) : "";
+				string remark = !scanR.IsDBNull(4) ? scanR.GetString(4) : "";
+				string sup    = !scanR.IsDBNull(5) ? scanR.GetString(5) : "";
+				bool reviewed = impact != "" || remark != "" || sup == "Yes";
+				bool kept     = status == "K";
+
+				if (kept && reviewed) continue;             // dispatcher's own work — leave alone
+				if (!kept && _autoKeepSkip.Contains(sid)) continue;   // dispatcher explicitly ignored it
+
 				string stxt = !scanR.IsDBNull(1) ? scanR.GetString(1).Replace("(char)39", "'") : "";
 				// keptUpper is unused by SuggestImpacts (rules are per-NOTAM) — safe to pass empty here.
 				ImpactSuggestion sg = SuggestImpacts(stxt, runways, new System.Collections.Generic.List<string>());
-				if (SuggestedSingleCode(sg) != "" || sg.Sup || sg.RwyClosure || sg.IlsOutage) toKeep.Add(sid);
+				bool signal = SuggestedSingleCode(sg) != "" || sg.Sup || sg.RwyClosure || sg.IlsOutage;
+
+				if (!kept && signal) toKeep.Add(sid);
+				else if (kept && !signal) toUnKeep.Add(sid);
 			}
 			scanR.Close();
 			foreach (int kid in toKeep)
@@ -781,6 +799,12 @@ namespace ICAO_CSV
 				OleDbCommand uk = new OleDbCommand("UPDATE filteredNotams_table SET Status='K' WHERE ID=?", conn);
 				uk.Parameters.AddWithValue("?", kid);
 				uk.ExecuteNonQuery();
+			}
+			foreach (int uid in toUnKeep)
+			{
+				OleDbCommand un = new OleDbCommand("UPDATE filteredNotams_table SET Status='' WHERE ID=?", conn);
+				un.Parameters.AddWithValue("?", uid);
+				un.ExecuteNonQuery();
 			}
 			conn.Close();
 
