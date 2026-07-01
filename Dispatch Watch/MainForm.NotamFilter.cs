@@ -15,6 +15,10 @@ namespace ICAO_CSV
 		private Dictionary<int, TextBox>    _pendSupRemark  = new Dictionary<int, TextBox>();
 		private Dictionary<int, string>     _pendRemarkDefault = new Dictionary<int, string>();
 		private System.Collections.Generic.HashSet<int> _autoKeepSkip = new System.Collections.Generic.HashSet<int>();
+		// NOTAM IDs the engine itself promoted to Status='K' (this session). Only these are
+		// ever candidates for auto-demotion — a manual Keep click (Keep_Notam) never adds to
+		// this set, so it can never be silently reverted by a later rule re-evaluation.
+		private System.Collections.Generic.HashSet<int> _autoKeptIds = new System.Collections.Generic.HashSet<int>();
 		// false = auto "Filter New NOTAMS" mode; true = manual ICAO station view (both on tabPage1)
 		private bool _stationMode = false;
 		private static readonly string[] _impactOrder = { "A", "C", "N", "D", "F", "M", "R" };
@@ -764,16 +768,17 @@ namespace ICAO_CSV
 
 			// Auto-Keep / Auto-Un-Keep: promote not-yet-kept NOTAMs to Status='K' when the
 			// engine detects a potential impact/SUP/closure/ILS outage, and demote NOTAMs
-			// that were auto-Kept earlier but that the dispatcher never actually reviewed
-			// (blank Impact/Remark/Sup) if a classification-rule change means they no longer
-			// trigger any signal (e.g. a TWY/DVOR/DME NOTAM wrongly auto-Kept by an older,
-			// looser rule). A NOTAM the dispatcher DID review (set an impact/remark/SUP on)
-			// is never touched here, even if it no longer matches any rule. This must run
-			// BEFORE the "kept" left-column query below, otherwise a change made on this very
-			// render is missed until the next full re-render (e.g. a manual Keep click).
+			// that the engine itself auto-Kept earlier (tracked in _autoKeptIds, this session
+			// only) if a classification-rule change means they no longer trigger any signal
+			// (e.g. a TWY/DVOR/DME NOTAM wrongly auto-Kept by an older, looser rule). Only
+			// engine-promoted NOTAMs are ever demoted — a manual Keep click (Keep_Notam) never
+			// adds to _autoKeptIds, so it can never be silently reverted here, even before the
+			// dispatcher has picked an impact for it. This must run BEFORE the "kept"
+			// left-column query below, otherwise a change made on this very render is missed
+			// until the next full re-render (e.g. a manual Keep click).
 			conn.Open();
 			OleDbCommand cmdScan = new OleDbCommand(
-				"SELECT ID, [all], Status, Impact, Remark, Sup FROM filteredNotams_table WHERE (Checked='N') AND (location=?)", conn);
+				"SELECT ID, [all], Status FROM filteredNotams_table WHERE (Checked='N') AND (location=?)", conn);
 			cmdScan.Parameters.AddWithValue("?", AP);
 			OleDbDataReader scanR = cmdScan.ExecuteReader();
 			System.Collections.Generic.List<int> toKeep = new System.Collections.Generic.List<int>();
@@ -782,13 +787,9 @@ namespace ICAO_CSV
 			{
 				int sid = !scanR.IsDBNull(0) ? scanR.GetInt32(0) : 0;
 				string status = !scanR.IsDBNull(2) ? scanR.GetString(2) : "";
-				string impact = !scanR.IsDBNull(3) ? scanR.GetString(3) : "";
-				string remark = !scanR.IsDBNull(4) ? scanR.GetString(4) : "";
-				string sup    = !scanR.IsDBNull(5) ? scanR.GetString(5) : "";
-				bool reviewed = impact != "" || remark != "" || sup == "Yes";
-				bool kept     = status == "K";
+				bool kept = status == "K";
 
-				if (kept && reviewed) continue;             // dispatcher's own work — leave alone
+				if (kept && !_autoKeptIds.Contains(sid)) continue;    // manual Keep — never touch
 				if (!kept && _autoKeepSkip.Contains(sid)) continue;   // dispatcher explicitly ignored it
 
 				string stxt = !scanR.IsDBNull(1) ? scanR.GetString(1).Replace("(char)39", "'") : "";
@@ -805,12 +806,14 @@ namespace ICAO_CSV
 				OleDbCommand uk = new OleDbCommand("UPDATE filteredNotams_table SET Status='K' WHERE ID=?", conn);
 				uk.Parameters.AddWithValue("?", kid);
 				uk.ExecuteNonQuery();
+				_autoKeptIds.Add(kid);
 			}
 			foreach (int uid in toUnKeep)
 			{
 				OleDbCommand un = new OleDbCommand("UPDATE filteredNotams_table SET Status='' WHERE ID=?", conn);
 				un.Parameters.AddWithValue("?", uid);
 				un.ExecuteNonQuery();
+				_autoKeptIds.Remove(uid);
 			}
 			conn.Close();
 
@@ -1224,6 +1227,7 @@ namespace ICAO_CSV
 		void Ignore_Notam(int notam_ID)
 		{
 			_autoKeepSkip.Add(notam_ID);   // don't auto-re-keep a NOTAM the dispatcher ignored
+			_autoKeptIds.Remove(notam_ID);
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbCommand cmd = new OleDbCommand("UPDATE filteredNotams_table SET Status='' WHERE ID=?", conn);
