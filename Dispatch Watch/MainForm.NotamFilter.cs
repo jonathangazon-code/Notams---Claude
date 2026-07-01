@@ -723,7 +723,36 @@ namespace ICAO_CSV
 
 			// Per-NOTAM RTBs with colored left border strip (Option B)
 			System.Collections.Generic.List<RwyInfo> runways = ParseRunways(RWYs);
-			System.Collections.Generic.List<string>  keptUpper = new System.Collections.Generic.List<string>();
+
+			// Auto-Keep: promote not-yet-kept NOTAMs to Status='K' when the engine detects a
+			// potential impact or SUP (unless the dispatcher ignored them). This must run
+			// BEFORE the "kept" left-column query below, otherwise a NOTAM promoted on this
+			// very render is missed until the next full re-render (e.g. a manual Keep click).
+			conn.Open();
+			OleDbCommand cmdScan = new OleDbCommand(
+				"SELECT ID, [all] FROM filteredNotams_table WHERE (Checked='N') AND (Status='' OR Status IS NULL) AND (location=?)", conn);
+			cmdScan.Parameters.AddWithValue("?", AP);
+			OleDbDataReader scanR = cmdScan.ExecuteReader();
+			System.Collections.Generic.List<int> toKeep = new System.Collections.Generic.List<int>();
+			while (scanR.Read())
+			{
+				int sid = !scanR.IsDBNull(0) ? scanR.GetInt32(0) : 0;
+				if (_autoKeepSkip.Contains(sid)) continue;
+				string stxt = !scanR.IsDBNull(1) ? scanR.GetString(1).Replace("(char)39", "'") : "";
+				// keptUpper is unused by SuggestImpacts (rules are per-NOTAM) — safe to pass empty here.
+				ImpactSuggestion sg = SuggestImpacts(stxt, runways, new System.Collections.Generic.List<string>());
+				if (SuggestedSingleCode(sg) != "" || sg.Sup) toKeep.Add(sid);
+			}
+			scanR.Close();
+			foreach (int kid in toKeep)
+			{
+				OleDbCommand uk = new OleDbCommand("UPDATE filteredNotams_table SET Status='K' WHERE ID=?", conn);
+				uk.Parameters.AddWithValue("?", kid);
+				uk.ExecuteNonQuery();
+			}
+			conn.Close();
+
+			System.Collections.Generic.List<string> keptUpper = new System.Collections.Generic.List<string>();
 			int keptTop = Web_FilterHeader.Bottom + 8;
 			conn.Open();
 			OleDbCommand cmdKept = new OleDbCommand(
@@ -741,31 +770,6 @@ namespace ICAO_CSV
 				text = text.Replace("(char)39", "'");
 				keptUpper.Add(text.ToUpper());
 				keptTop += RenderKeptCard(tabPage1, 7, keptTop, 490, fromDate, tillDate, text, notamKey, Impact, Remark) + 6;
-			}
-			conn.Close();
-
-			// Auto-Keep: promote not-yet-kept NOTAMs to Status='K' when the engine
-			// detects a potential impact or SUP (unless the dispatcher ignored them).
-			conn.Open();
-			OleDbCommand cmdScan = new OleDbCommand(
-				"SELECT ID, [all] FROM filteredNotams_table WHERE (Checked='N') AND (Status='' OR Status IS NULL) AND (location=?)", conn);
-			cmdScan.Parameters.AddWithValue("?", AP);
-			OleDbDataReader scanR = cmdScan.ExecuteReader();
-			System.Collections.Generic.List<int> toKeep = new System.Collections.Generic.List<int>();
-			while (scanR.Read())
-			{
-				int sid = !scanR.IsDBNull(0) ? scanR.GetInt32(0) : 0;
-				if (_autoKeepSkip.Contains(sid)) continue;
-				string stxt = !scanR.IsDBNull(1) ? scanR.GetString(1).Replace("(char)39", "'") : "";
-				ImpactSuggestion sg = SuggestImpacts(stxt, runways, keptUpper);
-				if (SuggestedSingleCode(sg) != "" || sg.Sup) toKeep.Add(sid);
-			}
-			scanR.Close();
-			foreach (int kid in toKeep)
-			{
-				OleDbCommand uk = new OleDbCommand("UPDATE filteredNotams_table SET Status='K' WHERE ID=?", conn);
-				uk.Parameters.AddWithValue("?", kid);
-				uk.ExecuteNonQuery();
 			}
 			conn.Close();
 
