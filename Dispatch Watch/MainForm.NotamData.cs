@@ -204,6 +204,19 @@ string xmlNotams = "";
 			else RchTxtCSV.Text = text;
 		}
 
+		// Records when the DB Update pipeline last completed successfully. Read back by
+		// RefreshLastDbUpdateLabel (MainForm.NotamFilter.cs) — deliberately separate from the
+		// .mdb file's own last-write time, which also changes on V: drive sync.
+		private void SaveLastDbUpdateTimestamp()
+		{
+			try
+			{
+				string tsPath = System.IO.Path.Combine(Application.StartupPath, "last_db_update.txt");
+				System.IO.File.WriteAllText(tsPath, DateTime.Now.ToString("o", System.Globalization.CultureInfo.InvariantCulture));
+			}
+			catch { /* non-critical: only the "last updated" label depends on this */ }
+		}
+
 		// onProgress reports (percent 0-100 within this phase, status message) so the caller
 		// can weight it into the overall DB-update progress bar. Left null for standalone use
 		// (e.g. the individual buttons on the DB Update tab).
@@ -423,6 +436,8 @@ string xmlNotams = "";
 					return;
 				}
 
+				SaveLastDbUpdateTimestamp();
+				RefreshLastDbUpdateLabel();
 				UpdateDbProgress(100, "Database successfully updated!");
 				if (onCompleted != null) onCompleted();
 				Timer closeTimer = new Timer { Interval = 900 };

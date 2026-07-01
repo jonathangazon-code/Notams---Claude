@@ -1372,22 +1372,24 @@ namespace ICAO_CSV
 		// leaving the NOTAM Filter tab. Runs the same download/dedupe/sync flow.
 		void Btn_dbUpdateQuickClick(object sender, EventArgs e)
 		{
-			RunDbUpdatePipeline(delegate
-			{
-				RefreshLastDbUpdateLabel();
-				RefreshCurrentView();
-			});
+			RunDbUpdatePipeline(delegate { RefreshCurrentView(); });
 		}
 
-		// Shows the local ICAO_storedNotams.mdb file's last-write timestamp next to the
-		// quick DB Update button, so the dispatcher can see at a glance how stale the data is.
+		// Shows when the "DB Update" pipeline (download + dedupe + sync) was last actually
+		// run to completion — not the local .mdb file's timestamp, which also changes on
+		// V: drive sync (StartApp/EndApp) and would misleadingly look "fresh" even if the
+		// dispatcher never clicked DB Update. The timestamp is written by
+		// SaveLastDbUpdateTimestamp() at the end of a successful RunDbUpdatePipeline.
 		void RefreshLastDbUpdateLabel()
 		{
 			try
 			{
-				string dbPath = System.IO.Path.Combine(Application.StartupPath, "ICAO_storedNotams.mdb");
-				Lbl_lastDbUpdate.Text = System.IO.File.Exists(dbPath)
-					? "MAJ: " + System.IO.File.GetLastWriteTime(dbPath).ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+				string tsPath = System.IO.Path.Combine(Application.StartupPath, "last_db_update.txt");
+				DateTime ts;
+				Lbl_lastDbUpdate.Text = System.IO.File.Exists(tsPath) &&
+					DateTime.TryParse(System.IO.File.ReadAllText(tsPath), System.Globalization.CultureInfo.InvariantCulture,
+						System.Globalization.DateTimeStyles.None, out ts)
+					? "MAJ: " + ts.ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)
 					: "MAJ: n/a";
 			}
 			catch { Lbl_lastDbUpdate.Text = "MAJ: n/a"; }
