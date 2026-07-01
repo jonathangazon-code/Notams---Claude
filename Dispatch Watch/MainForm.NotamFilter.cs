@@ -517,6 +517,18 @@ namespace ICAO_CSV
 
 		// Thresholds closed by THIS NOTAM (e.g. "RWY 09/27 CLSD. RWY 08/26 CLSD" -> 09,27,08,26).
 		// Only meaningful when the NOTAM actually contains a closure.
+		// Text window around a regex match, used to require CLSD/CLOSED to be near the
+		// specific runway mention rather than merely present anywhere in the NOTAM — a
+		// longer NOTAM can close a TAXIWAY and separately just mention a runway as a
+		// location reference (e.g. "TWY R1 BTN RWY16R/34L AND TWY G"), which must NOT be
+		// read as that runway being closed.
+		private static string ContextWindow(string U, int index, int length)
+		{
+			int start = Math.Max(0, index - 20);
+			int end = Math.Min(U.Length, index + length + 20);
+			return U.Substring(start, end - start);
+		}
+
 		private static System.Collections.Generic.List<string> ClosedThresholds(string U)
 		{
 			System.Collections.Generic.List<string> set = new System.Collections.Generic.List<string>();
@@ -524,16 +536,23 @@ namespace ICAO_CSV
 			// phrasing means the runway can't be used for flight ops even though "CLSD" is
 			// never actually written — treat it the same as an explicit closure.
 			bool taxiOnly = RegexAny(U, @"AVBL\s+ONLY\s+FOR\s+TAXI", @"NOT\s+AVBL\s+FOR\s+(TKOF|TAKE.?OFF|LDG|LANDING)");
-			if (!taxiOnly && !RegexAny(U, @"\bCLSD", @"\bCLOSED")) return set;
-			foreach (System.Text.RegularExpressions.Match m in
-				System.Text.RegularExpressions.Regex.Matches(U, @"(\d{1,2}[LCR]?)\s*/\s*(\d{1,2}[LCR]?)"))
+
+			// Runway mentions must carry the RWY/RUNWAY keyword themselves (a bare "16R/34L"
+			// with no RWY prefix is too easy to confuse with something else) AND have
+			// CLSD/CLOSED nearby — not just anywhere in the NOTAM.
+			foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(
+				U, @"R(?:WY|UNWAY)\s*(\d{1,2}[LCR]?)\s*/\s*(\d{1,2}[LCR]?)"))
 			{
+				if (!taxiOnly && !RegexAny(ContextWindow(U, m.Index, m.Length), @"\bCLSD", @"\bCLOSED")) continue;
 				if (!set.Contains(m.Groups[1].Value)) set.Add(m.Groups[1].Value);
 				if (!set.Contains(m.Groups[2].Value)) set.Add(m.Groups[2].Value);
 			}
 			foreach (System.Text.RegularExpressions.Match m in
 				System.Text.RegularExpressions.Regex.Matches(U, @"R(?:WY|UNWAY)\s*(\d{1,2}[LCR]?)\b(?!\s*/)"))
+			{
+				if (!taxiOnly && !RegexAny(ContextWindow(U, m.Index, m.Length), @"\bCLSD", @"\bCLOSED")) continue;
 				if (!set.Contains(m.Groups[1].Value)) set.Add(m.Groups[1].Value);
+			}
 			return set;
 		}
 
