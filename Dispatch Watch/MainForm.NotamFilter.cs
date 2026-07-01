@@ -536,16 +536,34 @@ namespace ICAO_CSV
 			// Fuel (3/3 on sample)
 			s.Fuel = RegexAny(U, @"FUEL.{0,20}(NOT\s+AVBL|U/S|NIL|UNAVAIL)", @"NO\s+FUEL", @"FUEL\s+DISRUPTION");
 
-			// Not as alternate / PPR / delay (7/7 on sample)
-			s.NotAltn = RegexAny(U, @"\bPPR\b", @"PRIOR\s+PERMISSION", @"CANNOT\s+BE\s+CHOSEN\s+AS",
+			// Not as alternate / PPR / delay (7/7 on sample).
+			// \bPPR\b excludes a directly-following phone number ("PPR 617-561-1919") — that
+			// pattern is a ground-ops contact instruction (taxi/parking access), not a
+			// restriction on using the airport as an alternate, and was a false-positive
+			// source on plain RWY-closure NOTAMs.
+			s.NotAltn = RegexAny(U, @"\bPPR\b(?!\s*\d[\d\-]{5,})", @"PRIOR\s+PERMISSION", @"CANNOT\s+BE\s+CHOSEN\s+AS",
 				@"NOT.{0,12}ALTERNATE", @"NOT\s+AVBL\s+AS\s+ALTN", @"\bDIVERSION", @"SUBJ.{0,10}DLA",
 				@"EXPECT\s+DELAY", @"DELAY\s+EXPECTED", @"\bO/R\s+ONLY", @"NOT\s+AVBL\s+FOR\s+LANDING");
 
 			// LVP exception => ILS available except in low-vis => CAT I, not "No ILS"
 			bool lvpExc = RegexAny(U, @"(EXC|EXCEPT)\s+LVP");
 
-			// No ILS (2/2): ILS unserviceable, unless it is only an LVP-only restriction
-			s.NoILS = !lvpExc && RegexAny(U, @"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE))");
+			// No ILS (2/2): ILS unserviceable, unless it is only an LVP-only restriction OR
+			// another runway at the airport still has a working ILS (mirrors the APT CLSD
+			// "all runways closed" check below) — losing the ILS on one runway shouldn't flag
+			// "No ILS" airport-wide when a parallel/other runway remains ILS-equipped.
+			bool ilsOutageText = !lvpExc && RegexAny(U, @"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE))");
+			s.NoILS = ilsOutageText;
+			if (ilsOutageText && runways.Count > 0)
+			{
+				System.Collections.Generic.List<string> affectedRwys = new System.Collections.Generic.List<string>();
+				foreach (System.Text.RegularExpressions.Match m in
+					System.Text.RegularExpressions.Regex.Matches(U, @"RWY\s*(\d{1,2}[LCR]?)"))
+					if (!affectedRwys.Contains(m.Groups[1].Value)) affectedRwys.Add(m.Groups[1].Value);
+
+				foreach (RwyInfo r in runways)
+					if (r.CatMax >= 1 && !affectedRwys.Contains(r.Desig.ToUpper())) { s.NoILS = false; break; }
+			}
 
 			// CAT I (3/6): CAT II/III lost, or downgrade to CAT I, or ILS U/S except LVP
 			s.CatI = RegexAny(U, @"CAT\s*(II|III|2|3)\b.{0,28}(NOT\s+(AUTH|AVBL|AVAILABLE)|U/S|UNSERVICEABLE|DOWNGRAD)",
