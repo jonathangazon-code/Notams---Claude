@@ -557,11 +557,17 @@ namespace ICAO_CSV
 			// LVP exception => ILS available except in low-vis => CAT I, not "No ILS"
 			bool lvpExc = RegexAny(U, @"(EXC|EXCEPT)\s+LVP");
 
-			// No ILS (2/2): ILS unserviceable, unless it is only an LVP-only restriction OR
-			// another runway at the airport still has a working ILS (mirrors the APT CLSD
-			// "all runways closed" check below) — losing the ILS on one runway shouldn't flag
-			// "No ILS" airport-wide when a parallel/other runway remains ILS-equipped.
-			bool ilsOutageText = !lvpExc && RegexAny(U, @"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE)|NOT\s+USABLE|ON\s+TEST)");
+			// A DME "associated with" the ILS is a supporting component, not the ILS itself
+			// (LOC/GP) — losing it doesn't take the ILS approach out of service.
+			bool dmeOnly = RegexAny(U, @"\bDME\b.{0,20}ASSOCIATED\s+WITH\s+ILS.{0,15}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE))");
+
+			// No ILS (2/2): ILS unserviceable, unless it is only an LVP-only restriction, a
+			// DME-only outage (see above), OR another runway at the airport still has a
+			// working ILS (mirrors the APT CLSD "all runways closed" check below) — losing
+			// the ILS on one runway shouldn't flag "No ILS" airport-wide when a
+			// parallel/other runway remains ILS-equipped.
+			bool ilsOutageText = !lvpExc && !dmeOnly &&
+				RegexAny(U, @"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE)|NOT\s+USABLE|ON\s+TEST)");
 			s.NoILS = ilsOutageText;
 			s.IlsOutage = ilsOutageText;
 			if (ilsOutageText && runways.Count > 0)
