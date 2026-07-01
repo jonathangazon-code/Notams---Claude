@@ -561,7 +561,7 @@ namespace ICAO_CSV
 			// another runway at the airport still has a working ILS (mirrors the APT CLSD
 			// "all runways closed" check below) — losing the ILS on one runway shouldn't flag
 			// "No ILS" airport-wide when a parallel/other runway remains ILS-equipped.
-			bool ilsOutageText = !lvpExc && RegexAny(U, @"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE))");
+			bool ilsOutageText = !lvpExc && RegexAny(U, @"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE)|NOT\s+USABLE|ON\s+TEST)");
 			s.NoILS = ilsOutageText;
 			s.IlsOutage = ilsOutageText;
 			if (ilsOutageText && runways.Count > 0)
