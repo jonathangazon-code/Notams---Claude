@@ -80,7 +80,6 @@ namespace ICAO_CSV
 		private System.Windows.Forms.RadioButton radBtn_Sup_7days;
 		private System.Windows.Forms.RadioButton radBtn_Sup_24Hrs;
 		private System.Windows.Forms.RadioButton radBtn_Sup_noFilter;
-		private System.Windows.Forms.Button btn_AIP_Sup_report;
 		private System.Windows.Forms.WebBrowser Web_Sup_report;
 		private System.Windows.Forms.Button Btn_restartApp;
 		private System.Windows.Forms.Button Btn_XML;
@@ -177,7 +176,6 @@ namespace ICAO_CSV
 			this.radBtn_Sup_7days = new System.Windows.Forms.RadioButton();
 			this.radBtn_Sup_24Hrs = new System.Windows.Forms.RadioButton();
 			this.radBtn_Sup_noFilter = new System.Windows.Forms.RadioButton();
-			this.btn_AIP_Sup_report = new System.Windows.Forms.Button();
 			this.Web_Sup_report = new System.Windows.Forms.WebBrowser();
 			this.tabControl1.SuspendLayout();
 			this.tabPage1.SuspendLayout();
@@ -913,7 +911,6 @@ namespace ICAO_CSV
 			this.AIP_SUP_report.Controls.Add(this.radBtn_Sup_7days);
 			this.AIP_SUP_report.Controls.Add(this.radBtn_Sup_24Hrs);
 			this.AIP_SUP_report.Controls.Add(this.radBtn_Sup_noFilter);
-			this.AIP_SUP_report.Controls.Add(this.btn_AIP_Sup_report);
 			this.AIP_SUP_report.Controls.Add(this.Web_Sup_report);
 			this.AIP_SUP_report.Location = new System.Drawing.Point(4, 25);
 			this.AIP_SUP_report.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
@@ -952,58 +949,51 @@ namespace ICAO_CSV
 			this.Btn_Sup_exportReport.Click += new System.EventHandler(this.Btn_Sup_exportReportClick);
 			//
 			// radBtn_Sup_31days
-			// 
-			this.radBtn_Sup_31days.Location = new System.Drawing.Point(568, 2);
+			//
+			this.radBtn_Sup_31days.Location = new System.Drawing.Point(449, 2);
 			this.radBtn_Sup_31days.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
 			this.radBtn_Sup_31days.Name = "radBtn_Sup_31days";
 			this.radBtn_Sup_31days.Size = new System.Drawing.Size(139, 30);
-			this.radBtn_Sup_31days.TabIndex = 14;
+			this.radBtn_Sup_31days.TabIndex = 13;
 			this.radBtn_Sup_31days.Text = "31 days";
 			this.radBtn_Sup_31days.UseVisualStyleBackColor = true;
-			// 
+			this.radBtn_Sup_31days.CheckedChanged += new System.EventHandler(this.RadBtn_supReportWindowCheckedChanged);
+			//
 			// radBtn_Sup_7days
-			// 
-			this.radBtn_Sup_7days.Location = new System.Drawing.Point(449, 2);
+			//
+			this.radBtn_Sup_7days.Location = new System.Drawing.Point(331, 2);
 			this.radBtn_Sup_7days.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
 			this.radBtn_Sup_7days.Name = "radBtn_Sup_7days";
 			this.radBtn_Sup_7days.Size = new System.Drawing.Size(139, 30);
-			this.radBtn_Sup_7days.TabIndex = 13;
+			this.radBtn_Sup_7days.TabIndex = 12;
 			this.radBtn_Sup_7days.Text = "7 days";
 			this.radBtn_Sup_7days.UseVisualStyleBackColor = true;
-			// 
+			this.radBtn_Sup_7days.CheckedChanged += new System.EventHandler(this.RadBtn_supReportWindowCheckedChanged);
+			//
 			// radBtn_Sup_24Hrs
-			// 
-			this.radBtn_Sup_24Hrs.Location = new System.Drawing.Point(284, 2);
+			//
+			this.radBtn_Sup_24Hrs.Location = new System.Drawing.Point(165, 2);
 			this.radBtn_Sup_24Hrs.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
 			this.radBtn_Sup_24Hrs.Name = "radBtn_Sup_24Hrs";
 			this.radBtn_Sup_24Hrs.Size = new System.Drawing.Size(139, 30);
-			this.radBtn_Sup_24Hrs.TabIndex = 12;
+			this.radBtn_Sup_24Hrs.TabIndex = 11;
 			this.radBtn_Sup_24Hrs.Text = "Next 24Hrs";
 			this.radBtn_Sup_24Hrs.UseVisualStyleBackColor = true;
-			// 
+			this.radBtn_Sup_24Hrs.CheckedChanged += new System.EventHandler(this.RadBtn_supReportWindowCheckedChanged);
+			//
 			// radBtn_Sup_noFilter
-			// 
+			//
 			this.radBtn_Sup_noFilter.Checked = true;
-			this.radBtn_Sup_noFilter.Location = new System.Drawing.Point(152, 2);
+			this.radBtn_Sup_noFilter.Location = new System.Drawing.Point(25, 2);
 			this.radBtn_Sup_noFilter.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
 			this.radBtn_Sup_noFilter.Name = "radBtn_Sup_noFilter";
 			this.radBtn_Sup_noFilter.Size = new System.Drawing.Size(95, 30);
-			this.radBtn_Sup_noFilter.TabIndex = 11;
+			this.radBtn_Sup_noFilter.TabIndex = 10;
 			this.radBtn_Sup_noFilter.TabStop = true;
 			this.radBtn_Sup_noFilter.Text = "No filter";
 			this.radBtn_Sup_noFilter.UseVisualStyleBackColor = true;
-			// 
-			// btn_AIP_Sup_report
-			// 
-			this.btn_AIP_Sup_report.Location = new System.Drawing.Point(25, 2);
-			this.btn_AIP_Sup_report.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
-			this.btn_AIP_Sup_report.Name = "btn_AIP_Sup_report";
-			this.btn_AIP_Sup_report.Size = new System.Drawing.Size(100, 28);
-			this.btn_AIP_Sup_report.TabIndex = 10;
-			this.btn_AIP_Sup_report.Text = "Report !";
-			this.btn_AIP_Sup_report.UseVisualStyleBackColor = true;
-			this.btn_AIP_Sup_report.Click += new System.EventHandler(this.Btn_AIP_Sup_reportClick);
-			// 
+			this.radBtn_Sup_noFilter.CheckedChanged += new System.EventHandler(this.RadBtn_supReportWindowCheckedChanged);
+			//
 			// Web_Sup_report
 			// 
 			this.Web_Sup_report.Location = new System.Drawing.Point(3, 32);

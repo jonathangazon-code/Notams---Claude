@@ -9,9 +9,11 @@ namespace ICAO_CSV
 	{
 		// The report auto-loads when the tab is selected, and re-runs whenever the
 		// dispatcher changes the time-window filter — there's no "Report !" button anymore.
+		// Also covers the AIP SUP Report tab (Sup_Report) — same behavior, different tab.
 		void TabControl1SelectedIndexChanged(object sender, EventArgs e)
 		{
 			if (tabControl1.SelectedTab == tabPage4) Report();
+			else if (tabControl1.SelectedTab == AIP_SUP_report) Sup_Report();
 		}
 
 		void RadBtn_reportWindowCheckedChanged(object sender, EventArgs e)
