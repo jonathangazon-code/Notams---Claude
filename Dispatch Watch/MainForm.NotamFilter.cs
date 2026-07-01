@@ -545,11 +545,12 @@ namespace ICAO_CSV
 			s.Fuel = RegexAny(U, @"FUEL.{0,20}(NOT\s+AVBL|U/S|NIL|UNAVAIL)", @"NO\s+FUEL", @"FUEL\s+DISRUPTION");
 
 			// Not as alternate / PPR / delay (7/7 on sample).
-			// \bPPR\b excludes a directly-following phone number ("PPR 617-561-1919") — that
-			// pattern is a ground-ops contact instruction (taxi/parking access), not a
-			// restriction on using the airport as an alternate, and was a false-positive
-			// source on plain RWY-closure NOTAMs.
-			s.NotAltn = RegexAny(U, @"\bPPR\b(?!\s*\d[\d\-]{5,})", @"PRIOR\s+PERMISSION", @"CANNOT\s+BE\s+CHOSEN\s+AS",
+			// \bPPR\b excludes two common false-positive shapes seen on NAVAID/TWY NOTAMs:
+			// a directly-following phone number ("PPR 617-561-1919" — a ground-ops contact for
+			// taxi/parking access) or a short duration ("AVBL PPR 10MIN" — a prior-notice
+			// window for using degraded equipment, not a restriction on using the airport as
+			// an alternate).
+			s.NotAltn = RegexAny(U, @"\bPPR\b(?!\s*\d[\d\-]{5,})(?!\s*\d{1,3}\s*MIN\b)", @"PRIOR\s+PERMISSION", @"CANNOT\s+BE\s+CHOSEN\s+AS",
 				@"NOT.{0,12}ALTERNATE", @"NOT\s+AVBL\s+AS\s+ALTN", @"\bDIVERSION", @"SUBJ.{0,10}DLA",
 				@"EXPECT\s+DELAY", @"DELAY\s+EXPECTED", @"\bO/R\s+ONLY", @"NOT\s+AVBL\s+FOR\s+LANDING");
 
