@@ -689,6 +689,7 @@ namespace ICAO_CSV
 				Lbl_location.Text        = "";
 				Lbl_notamsUnchecked.Text = "Notams Unchecked : 0";
 				Btn_submitNotams.Visible = false;
+				tabPage1.AutoScrollPosition = new Point(0, 0);
 				return;
 			}
 			Btn_submitNotams.Visible = true;
@@ -886,6 +887,14 @@ namespace ICAO_CSV
 			Btn_submitNotams.Top  = barTop + 4;
 			Btn_submitNotams.Left = barLeft + barW - Btn_submitNotams.Width - 14;
 			Btn_submitNotams.BringToFront();
+
+			// Reset the scroll position again now that all content is built. Doing this only
+			// at the top of the method (before ClearTaggedControls/rebuild) is unreliable —
+			// AutoScrollMinSize is recalculated once the new content is added, which can
+			// silently restore whatever the previous scroll offset was. Setting
+			// AutoScrollPosition (not just VerticalScroll.Value) here guarantees the top bar,
+			// which sits at a fixed Top/Left, is actually visible at the top of the tab.
+			tabPage1.AutoScrollPosition = new Point(0, 0);
 		}
 
 		void ICAO_Notams()
@@ -1012,6 +1021,11 @@ namespace ICAO_CSV
 			}
 			conn.Close();
 			// Auto-save: impact/SUP chips write immediately, remark textfields on Leave.
+
+			// See the comment at the end of Filter_Notams — resetting scroll only up front
+			// (before the rebuild) can be silently overridden once AutoScrollMinSize is
+			// recalculated for the new content.
+			tabPage1.AutoScrollPosition = new Point(0, 0);
 		}
 
 		// Stations-tab impact chips — immediate write (no SUBMIT). Assigning an impact also
