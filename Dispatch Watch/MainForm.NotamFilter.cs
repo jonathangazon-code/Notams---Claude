@@ -648,9 +648,12 @@ namespace ICAO_CSV
 
 		void Filter_Notams()
 		{
+			// Must happen before anything below is positioned: adding/positioning controls
+			// while the AutoScroll panel is still scrolled bakes the current scroll offset
+			// into their effective location, so a later reset can't undo it.
+			tabPage1.AutoScrollPosition = new Point(0, 0);
 			AlignTopBar();
 			_stationMode = false;
-			tabPage1.VerticalScroll.Value = 0;
 			ClearTaggedControls(tabPage1);
 			_pendImpactChks.Clear();
 			_pendSupChk.Clear();
@@ -899,9 +902,10 @@ namespace ICAO_CSV
 
 		void ICAO_Notams()
 		{
+			// See the comment in Filter_Notams: this must run before anything is positioned.
+			tabPage1.AutoScrollPosition = new Point(0, 0);
 			AlignTopBar();
 			_stationMode = true;
-			tabPage1.VerticalScroll.Value = 0;
 			ClearTaggedControls(tabPage1);
 			Btn_submitNotams.Visible = false;   // no SUBMIT in station view
 
