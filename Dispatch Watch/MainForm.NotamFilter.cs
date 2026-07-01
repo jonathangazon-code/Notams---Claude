@@ -520,7 +520,11 @@ namespace ICAO_CSV
 		private static System.Collections.Generic.List<string> ClosedThresholds(string U)
 		{
 			System.Collections.Generic.List<string> set = new System.Collections.Generic.List<string>();
-			if (!RegexAny(U, @"\bCLSD", @"\bCLOSED")) return set;
+			// "AVBL ONLY FOR TAXI(ING)" (or similar "not available for landing/takeoff")
+			// phrasing means the runway can't be used for flight ops even though "CLSD" is
+			// never actually written — treat it the same as an explicit closure.
+			bool taxiOnly = RegexAny(U, @"AVBL\s+ONLY\s+FOR\s+TAXI", @"NOT\s+AVBL\s+FOR\s+(TKOF|TAKE.?OFF|LDG|LANDING)");
+			if (!taxiOnly && !RegexAny(U, @"\bCLSD", @"\bCLOSED")) return set;
 			foreach (System.Text.RegularExpressions.Match m in
 				System.Text.RegularExpressions.Regex.Matches(U, @"(\d{1,2}[LCR]?)\s*/\s*(\d{1,2}[LCR]?)"))
 			{
@@ -1543,7 +1547,7 @@ namespace ICAO_CSV
 			Btn_dbUpdateQuick.Left = 205;   Btn_dbUpdateQuick.Top = 8;
 			Lbl_lastDbUpdate.Left = Btn_dbUpdateQuick.Right + 4;   Lbl_lastDbUpdate.Top = 16;
 			Lbl_ICAO.Left = 505;            Lbl_ICAO.Top = 13;
-			TxtBox_ICAO.Left = 575;         TxtBox_ICAO.Top = 9;
+			TxtBox_ICAO.Left = Lbl_ICAO.Right + (575 - 505 - Lbl_ICAO.Width) / 3;   TxtBox_ICAO.Top = 9;
 			Btn_ICAO.Left = TxtBox_ICAO.Right + 2;   Btn_ICAO.Top = 8;
 		}
 
