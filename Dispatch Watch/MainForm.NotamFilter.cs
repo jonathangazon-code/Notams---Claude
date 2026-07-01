@@ -648,6 +648,7 @@ namespace ICAO_CSV
 
 		void Filter_Notams()
 		{
+			AlignTopBar();
 			_stationMode = false;
 			tabPage1.VerticalScroll.Value = 0;
 			ClearTaggedControls(tabPage1);
@@ -889,6 +890,7 @@ namespace ICAO_CSV
 
 		void ICAO_Notams()
 		{
+			AlignTopBar();
 			_stationMode = true;
 			tabPage1.VerticalScroll.Value = 0;
 			ClearTaggedControls(tabPage1);
@@ -1365,6 +1367,44 @@ namespace ICAO_CSV
 		void Btn_ICAOClick(object sender, EventArgs e)                        { ICAO_Notams(); }
 		void Btn_filterNewClick(object sender, EventArgs e)                   { Filter_Notams(); }
 		void ChckBox_SeeIgnoredCheckedChanged(object sender, EventArgs e)     { ICAO_Notams(); }
+
+		// Quick-access duplicate of the "DB Update" button (tabPage3), reachable without
+		// leaving the NOTAM Filter tab. Runs the same download/dedupe/sync flow.
+		void Btn_dbUpdateQuickClick(object sender, EventArgs e)
+		{
+			Btn_updateDBClick(sender, e);
+			RefreshLastDbUpdateLabel();
+			RefreshCurrentView();
+		}
+
+		// Shows the local ICAO_storedNotams.mdb file's last-write timestamp next to the
+		// quick DB Update button, so the dispatcher can see at a glance how stale the data is.
+		void RefreshLastDbUpdateLabel()
+		{
+			try
+			{
+				string dbPath = System.IO.Path.Combine(Application.StartupPath, "ICAO_storedNotams.mdb");
+				Lbl_lastDbUpdate.Text = System.IO.File.Exists(dbPath)
+					? "MAJ: " + System.IO.File.GetLastWriteTime(dbPath).ToString("dd/MM/yyyy HH:mm")
+					: "MAJ: n/a";
+			}
+			catch { Lbl_lastDbUpdate.Text = "MAJ: n/a"; }
+		}
+
+		// Repositions the top-bar controls (ICAO box excluded — no, included) with raw pixel
+		// values matching the dynamically-created card column (Left=505). Designer controls
+		// are subject to WinForms DPI auto-scaling while the code-built cards are not, so on
+		// a non-design-time DPI the two families drift apart; setting Left/Top here in code
+		// keeps them pixel-identical to the card column regardless of DPI.
+		void AlignTopBar()
+		{
+			Btn_filterNew.Left = 7;        Btn_filterNew.Top = 8;
+			Btn_dbUpdateQuick.Left = 205;   Btn_dbUpdateQuick.Top = 8;
+			Lbl_lastDbUpdate.Left = 363;    Lbl_lastDbUpdate.Top = 8;
+			Lbl_ICAO.Left = 505;            Lbl_ICAO.Top = 13;
+			TxtBox_ICAO.Left = 575;         TxtBox_ICAO.Top = 9;
+			Btn_ICAO.Left = 675;            Btn_ICAO.Top = 8;
+		}
 
 		// Re-render whichever mode is currently shown on tabPage1
 		void RefreshCurrentView()

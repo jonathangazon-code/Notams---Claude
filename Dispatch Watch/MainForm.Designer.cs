@@ -25,6 +25,8 @@ namespace ICAO_CSV
 		private System.Windows.Forms.Label Lbl_notamsUnchecked;
 		private System.Windows.Forms.Button Btn_submitNotams;
 		private System.Windows.Forms.Button Btn_filterNew;
+		private System.Windows.Forms.Button Btn_dbUpdateQuick;
+		private System.Windows.Forms.Label Lbl_lastDbUpdate;
 		private System.Windows.Forms.Label Lbl_ICAO;
 		private System.Windows.Forms.TabControl tabControl1;
 		private System.Windows.Forms.TabPage tabPage1;
@@ -117,6 +119,8 @@ namespace ICAO_CSV
 			this.Lbl_notamsUnchecked = new System.Windows.Forms.Label();
 			this.Btn_submitNotams = new System.Windows.Forms.Button();
 			this.Btn_filterNew = new System.Windows.Forms.Button();
+			this.Btn_dbUpdateQuick = new System.Windows.Forms.Button();
+			this.Lbl_lastDbUpdate = new System.Windows.Forms.Label();
 			this.Lbl_ICAO = new System.Windows.Forms.Label();
 			this.tabControl1 = new System.Windows.Forms.TabControl();
 			this.tabPage1 = new System.Windows.Forms.TabPage();
@@ -453,6 +457,8 @@ namespace ICAO_CSV
 			this.tabPage1.AutoScroll = true;
 			this.tabPage1.Controls.Add(this.Web_FilterHeader);
 			this.tabPage1.Controls.Add(this.Btn_filterNew);
+			this.tabPage1.Controls.Add(this.Btn_dbUpdateQuick);
+			this.tabPage1.Controls.Add(this.Lbl_lastDbUpdate);
 			this.tabPage1.Controls.Add(this.Lbl_ICAO);
 			this.tabPage1.Controls.Add(this.TxtBox_ICAO);
 			this.tabPage1.Controls.Add(this.Btn_ICAO);
@@ -480,6 +486,29 @@ namespace ICAO_CSV
 			this.Btn_filterNew.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
 			this.Btn_filterNew.UseVisualStyleBackColor = false;
 			this.Btn_filterNew.Click += new System.EventHandler(this.Btn_filterNewClick);
+			//
+			// Btn_dbUpdateQuick
+			//
+			this.Btn_dbUpdateQuick.Location = new System.Drawing.Point(205, 8);
+			this.Btn_dbUpdateQuick.Name = "Btn_dbUpdateQuick";
+			this.Btn_dbUpdateQuick.Size = new System.Drawing.Size(150, 30);
+			this.Btn_dbUpdateQuick.TabIndex = 33;
+			this.Btn_dbUpdateQuick.Text = "DB Update";
+			this.Btn_dbUpdateQuick.BackColor = System.Drawing.Color.Black;
+			this.Btn_dbUpdateQuick.ForeColor = System.Drawing.Color.White;
+			this.Btn_dbUpdateQuick.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+			this.Btn_dbUpdateQuick.UseVisualStyleBackColor = false;
+			this.Btn_dbUpdateQuick.Click += new System.EventHandler(this.Btn_dbUpdateQuickClick);
+			//
+			// Lbl_lastDbUpdate
+			//
+			this.Lbl_lastDbUpdate.AutoSize = false;
+			this.Lbl_lastDbUpdate.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular);
+			this.Lbl_lastDbUpdate.Location = new System.Drawing.Point(363, 8);
+			this.Lbl_lastDbUpdate.Size = new System.Drawing.Size(135, 30);
+			this.Lbl_lastDbUpdate.Name = "Lbl_lastDbUpdate";
+			this.Lbl_lastDbUpdate.ForeColor = System.Drawing.Color.Gray;
+			this.Lbl_lastDbUpdate.Text = "";
 			//
 			// Lbl_ICAO
 			//
