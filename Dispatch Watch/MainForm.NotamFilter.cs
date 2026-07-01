@@ -598,8 +598,11 @@ namespace ICAO_CSV
 			// a directly-following phone number ("PPR 617-561-1919" — a ground-ops contact for
 			// taxi/parking access) or a short duration ("AVBL PPR 10MIN" — a prior-notice
 			// window for using degraded equipment, not a restriction on using the airport as
-			// an alternate).
-			s.NotAltn = RegexAny(U, @"\bPPR\b(?!\s*\d[\d\-]{5,})(?!\s*\d{1,3}\s*MIN\b)", @"PRIOR\s+PERMISSION", @"CANNOT\s+BE\s+CHOSEN\s+AS",
+			// an alternate). "EXCEPT ALTN"/"EXC ALTN" explicitly says the airport IS still
+			// usable as an alternate despite the restriction (e.g. "NOT AVBL FOR LANDING,
+			// EXCEPT ALTN") — that carve-out suppresses the whole flag.
+			bool exceptAltn = RegexAny(U, @"(EXC|EXCEPT)\s+ALTN");
+			s.NotAltn = !exceptAltn && RegexAny(U, @"\bPPR\b(?!\s*\d[\d\-]{5,})(?!\s*\d{1,3}\s*MIN\b)", @"PRIOR\s+PERMISSION", @"CANNOT\s+BE\s+CHOSEN\s+AS",
 				@"NOT.{0,12}ALTERNATE", @"NOT\s+AVBL\s+AS\s+ALTN", @"\bDIVERSION", @"SUBJ.{0,10}DLA",
 				@"EXPECT\s+DELAY", @"DELAY\s+EXPECTED", @"\bO/R\s+ONLY", @"NOT\s+AVBL\s+FOR\s+LANDING");
 
