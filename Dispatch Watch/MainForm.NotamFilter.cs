@@ -288,49 +288,72 @@ namespace ICAO_CSV
 			// No structured rows with coordinates -> fall back to the in-memory CSV index
 			// so the diagram works for ANY ICAO (e.g. KJFK), not just saved stations.
 			if (!HasGeo(list)) list = CsvGeoFor(icao);
-			// Only cache a valid result — otherwise a lookup made before the CSV index was
-			// loaded would cache an empty list and the diagram would stay wrong.
+			// Cache once the result is usable (has at least one located runway). An empty
+			// result — e.g. a lookup made before the background CSV index finished loading —
+			// is left uncached so the next render retries and picks up the real geo.
 			if (HasGeo(list)) _geoCache[icao] = list;
 			return list;
 		}
 
-		// Usable only if every threshold has real coordinates.
+		private static bool HasCoords(RwyGeo r) { return r.Lat != 0 || r.Lon != 0; }
+
+		// Usable as soon as at least one threshold has real coordinates. Runways whose
+		// thresholds have no coordinates in the open data (e.g. ZSPD 15/33) are simply
+		// skipped by BuildRwySvgGeo rather than forcing the whole airport to the schematic.
 		private static bool HasGeo(System.Collections.Generic.List<RwyGeo> rs)
 		{
-			if (rs.Count == 0) return false;
-			foreach (RwyGeo r in rs) if (r.Lat == 0 && r.Lon == 0) return false;
-			return true;
+			foreach (RwyGeo r in rs) if (HasCoords(r)) return true;
+			return false;
 		}
 
 		// Airport diagram drawn from the real threshold lat/lon (true crossing angles and
-		// parallel spacing). Thresholds are paired by order (le, he, le2, he2, ...); an odd
-		// leftover end is projected from its heading + length.
+		// parallel spacing). Thresholds are paired by order (le, he, le2, he2, ...). A pair
+		// with one missing threshold is projected from heading + length; a pair with no
+		// coordinates at all is skipped.
 		private static string BuildRwySvgGeo(System.Collections.Generic.List<RwyGeo> rs)
 		{
 			int W = 130, H = 110, pad = 16;
 			int n = rs.Count;
-			double lat0 = 0, lon0 = 0;
-			for (int i = 0; i < n; i++) { lat0 += rs[i].Lat; lon0 += rs[i].Lon; }
-			lat0 /= n; lon0 /= n;
+			// Centroid over located thresholds only — coordless (0,0) points must not skew it.
+			double lat0 = 0, lon0 = 0; int cnt = 0;
+			for (int i = 0; i < n; i++) if (HasCoords(rs[i])) { lat0 += rs[i].Lat; lon0 += rs[i].Lon; cnt++; }
+			if (cnt == 0) return "";
+			lat0 /= cnt; lon0 /= cnt;
 			double cosLat = Math.Cos(lat0 * Math.PI / 180.0);
 
 			System.Collections.Generic.List<double[]> segs = new System.Collections.Generic.List<double[]>();
 			System.Collections.Generic.List<object[]> ends = new System.Collections.Generic.List<object[]>();
 			for (int i = 0; i < n; i += 2)
 			{
-				double ax = (rs[i].Lon - lon0) * cosLat, ay = -(rs[i].Lat - lat0);
-				double bx, by; string bq;
-				if (i + 1 < n) { bx = (rs[i + 1].Lon - lon0) * cosLat; by = -(rs[i + 1].Lat - lat0); bq = rs[i + 1].Qfu; }
-				else
+				RwyGeo a = rs[i];
+				bool hasB = (i + 1 < n);
+				RwyGeo b = hasB ? rs[i + 1] : new RwyGeo();
+				bool aOk = HasCoords(a), bOk = hasB && HasCoords(b);
+				if (!aOk && !bOk) continue;   // whole runway has no coordinates -> skip it
+
+				double ax, ay, bx, by; string aq = a.Qfu, bq = hasB ? b.Qfu : "";
+				if (aOk) { ax = (a.Lon - lon0) * cosLat; ay = -(a.Lat - lat0); }
+				else     { ax = 0; ay = 0; }
+				if (bOk) { bx = (b.Lon - lon0) * cosLat; by = -(b.Lat - lat0); }
+				else     { bx = 0; by = 0; }
+
+				if (aOk && !bOk)          // project the far end from a's heading + length
 				{
-					double L = rs[i].DistM / 111320.0;
-					double rad = rs[i].Hdg * Math.PI / 180.0;
-					bx = ax + Math.Sin(rad) * L; by = ay - Math.Cos(rad) * L; bq = "";
+					double L = a.DistM / 111320.0, rad = a.Hdg * Math.PI / 180.0;
+					bx = ax + Math.Sin(rad) * L; by = ay - Math.Cos(rad) * L;
+					if (!hasB) bq = "";
 				}
+				else if (bOk && !aOk)     // project the near end back from b's heading + length
+				{
+					double L = b.DistM / 111320.0, rad = b.Hdg * Math.PI / 180.0;
+					ax = bx + Math.Sin(rad) * L; ay = by - Math.Cos(rad) * L;
+				}
+
 				segs.Add(new double[] { ax, ay, bx, by });
-				ends.Add(new object[] { rs[i].Qfu, ax, ay });
+				ends.Add(new object[] { aq, ax, ay });
 				if (bq != "") ends.Add(new object[] { bq, bx, by });
 			}
+			if (segs.Count == 0) return "";
 
 			double minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
 			foreach (double[] s in segs)
@@ -564,7 +587,8 @@ namespace ICAO_CSV
 				if (i % 2 == 0) leftCol += cell; else rightCol += cell;
 			}
 			System.Collections.Generic.List<RwyGeo> geo = LoadRwyGeo(AP);
-			string rwySvg = HasGeo(geo) ? BuildRwySvgGeo(geo) : BuildRwySvg(rwyClean);
+			string rwySvg = HasGeo(geo) ? BuildRwySvgGeo(geo) : "";
+			if (rwySvg == "") rwySvg = BuildRwySvg(rwyClean);   // schematic fallback (no geo yet / no coords)
 			return
 				"<html xmlns:v=\"urn:schemas-microsoft-com:vml\"><head><style>" +
 				"v\\:*{behavior:url(#default#VML)}" +

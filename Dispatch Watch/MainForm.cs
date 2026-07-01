@@ -28,6 +28,7 @@ namespace ICAO_CSV
 			EnsureKeywordsTable();
 			EnsureEmailTable();
 			EnsureRunwaysTable();
+			PreloadCsvGeoAsync();   // load runways.csv geo index off the UI thread
 			LoadKeywords();
 			LoadStationsCache();
 			tab_RWYs();

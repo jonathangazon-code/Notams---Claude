@@ -85,40 +85,56 @@ namespace ICAO_CSV
 		// ICAO -> threshold list. Lets the diagram work for ANY ICAO (not just saved
 		// stations) and removes the repeated per-airport file scans.
 		private static Dictionary<string, List<RwyGeo>> _csvGeo;
-		private static bool _csvLoaded = false;
+		private static volatile bool _csvLoaded = false;
+		private static readonly object _csvLock = new object();
 
+		// Kick off the CSV index load on a background thread so no render ever blocks on it.
+		// Until it is ready, CsvGeoFor returns empty (the diagram falls back to the schematic);
+		// once loaded, the next render picks up the real geo (uncached results are retried).
+		public void PreloadCsvGeoAsync()
+		{
+			System.Threading.ThreadPool.QueueUserWorkItem(delegate { EnsureCsvGeoLoaded(); });
+		}
+
+		// Loads runways.csv into _csvGeo exactly once. Thread-safe: builds a local dict and
+		// publishes it atomically so the render thread never sees a half-built index.
 		public void EnsureCsvGeoLoaded()
 		{
 			if (_csvLoaded) return;
-			_csvGeo = new Dictionary<string, List<RwyGeo>>(StringComparer.OrdinalIgnoreCase);
-			try
+			lock (_csvLock)
 			{
-				string csv = Path.Combine(Application.StartupPath, "runways.csv");
-				if (!File.Exists(csv)) return;
-				using (StreamReader sr = new StreamReader(csv))
+				if (_csvLoaded) return;
+				Dictionary<string, List<RwyGeo>> dict = new Dictionary<string, List<RwyGeo>>(StringComparer.OrdinalIgnoreCase);
+				try
 				{
-					bool first = true;
-					string line;
-					char[] comma = new char[] { ',' };
-					char[] quote = new char[] { '"' };
-					while ((line = sr.ReadLine()) != null)
+					string csv = Path.Combine(Application.StartupPath, "runways.csv");
+					if (File.Exists(csv))
+					using (StreamReader sr = new StreamReader(csv))
 					{
-						if (first) { first = false; continue; }   // header
-						string[] f = line.Split(comma);           // runways.csv has no comma inside fields
-						if (f.Length < 19 || f[7].Trim(quote).Trim() == "1") continue;   // closed
-						string id = f[2].Trim(quote).Trim().ToUpper();
-						if (id == "") continue;
-						int distM = (int)Math.Round(ParseD(f[3].Trim(quote)) * 0.3048);
-						AddGeo(id, f[8].Trim(quote),  f[12].Trim(quote), f[9].Trim(quote),  f[10].Trim(quote), distM);
-						AddGeo(id, f[14].Trim(quote), f[18].Trim(quote), f[15].Trim(quote), f[16].Trim(quote), distM);
+						bool first = true;
+						string line;
+						char[] comma = new char[] { ',' };
+						char[] quote = new char[] { '"' };
+						while ((line = sr.ReadLine()) != null)
+						{
+							if (first) { first = false; continue; }   // header
+							string[] f = line.Split(comma);           // runways.csv has no comma inside fields
+							if (f.Length < 19 || f[7].Trim(quote).Trim() == "1") continue;   // closed
+							string id = f[2].Trim(quote).Trim().ToUpper();
+							if (id == "") continue;
+							int distM = (int)Math.Round(ParseD(f[3].Trim(quote)) * 0.3048);
+							AddGeoTo(dict, id, f[8].Trim(quote),  f[12].Trim(quote), f[9].Trim(quote),  f[10].Trim(quote), distM);
+							AddGeoTo(dict, id, f[14].Trim(quote), f[18].Trim(quote), f[15].Trim(quote), f[16].Trim(quote), distM);
+						}
 					}
 				}
-				_csvLoaded = true;   // mark loaded only after a full, successful pass
+				catch { /* partial index is still usable; don't retry-storm on every render */ }
+				_csvGeo = dict;
+				_csvLoaded = true;
 			}
-			catch { _csvLoaded = false; }
 		}
 
-		private static void AddGeo(string icao, string qfu, string hdg, string lat, string lon, int distM)
+		private static void AddGeoTo(Dictionary<string, List<RwyGeo>> dict, string icao, string qfu, string hdg, string lat, string lon, int distM)
 		{
 			qfu = (qfu ?? "").Trim().ToUpper();
 			if (!IsRunwayIdent(qfu)) return;
@@ -126,14 +142,15 @@ namespace ICAO_CSV
 			g.Qfu = qfu; g.DistM = distM;
 			g.Hdg = ParseD(hdg) != 0 ? ParseD(hdg) : DefaultHdg(qfu);
 			g.Lat = ParseD(lat); g.Lon = ParseD(lon);
-			if (!_csvGeo.ContainsKey(icao)) _csvGeo[icao] = new List<RwyGeo>();
-			_csvGeo[icao].Add(g);
+			if (!dict.ContainsKey(icao)) dict[icao] = new List<RwyGeo>();
+			dict[icao].Add(g);
 		}
 
-		// CSV threshold list for an ICAO (loads the index on first call).
+		// CSV threshold list for an ICAO. Non-blocking on the render thread: if the background
+		// index isn't ready yet, returns empty (caller falls back to the schematic diagram).
 		private List<RwyGeo> CsvGeoFor(string icao)
 		{
-			EnsureCsvGeoLoaded();
+			if (!_csvLoaded || _csvGeo == null) return new List<RwyGeo>();
 			icao = (icao ?? "").Trim().ToUpper();
 			return _csvGeo.ContainsKey(icao) ? _csvGeo[icao] : new List<RwyGeo>();
 		}
@@ -143,6 +160,7 @@ namespace ICAO_CSV
 		{
 			icao = (icao ?? "").Trim().ToUpper();
 			if (icao == "") return 0;
+			EnsureCsvGeoLoaded();          // occasional (add/re-import): block until the index is ready
 			List<RwyGeo> geo = CsvGeoFor(icao);
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
 			conn.Open();
@@ -157,6 +175,7 @@ namespace ICAO_CSV
 		// Legacy memo migration (preserve manual CAT, enrich Hdg/threshold from the CSV index).
 		private void MigrateLegacyMemo(string icao, string memo)
 		{
+			EnsureCsvGeoLoaded();          // occasional (first view of a legacy airport): block until ready
 			Dictionary<string, RwyGeo> byQfu = new Dictionary<string, RwyGeo>(StringComparer.OrdinalIgnoreCase);
 			foreach (RwyGeo g in CsvGeoFor(icao)) byQfu[g.Qfu] = g;
 
