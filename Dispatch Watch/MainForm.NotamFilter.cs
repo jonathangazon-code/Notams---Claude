@@ -453,6 +453,12 @@ namespace ICAO_CSV
 		private struct ImpactSuggestion
 		{
 			public bool APClsd, CatI, NoILS, NotAltn, Fuel, Sup;
+			// True when this NOTAM closes a runway but doesn't otherwise trigger any of the
+			// impact codes above (e.g. a single runway closed with a parallel/other one still
+			// open). Not a selectable Impact code by itself (SuggestedSingleCode ignores it) —
+			// it only makes the auto-Keep pre-pass surface the NOTAM for manual review, since
+			// a runway closure is always worth a look even without an automatic impact.
+			public bool RwyClosure;
 		}
 
 		private struct RwyInfo
@@ -572,15 +578,19 @@ namespace ICAO_CSV
 
 			// APT CLSD (22/30, 4 FP): aerodrome closed, OR this NOTAM closes EVERY runway
 			bool apClsdText = RegexAny(U, @"\bAD\s+CLSD", @"\bARP\s+CLSD", @"AERODROME\s+CLOSED", @"AIRPORT\s+CLOSED");
+			System.Collections.Generic.List<string> closed = ClosedThresholds(U);
 			bool allRwyClosed = false;
 			if (runways.Count > 0)
 			{
-				System.Collections.Generic.List<string> closed = ClosedThresholds(U);
 				allRwyClosed = true;
 				foreach (RwyInfo r in runways)
 					if (!closed.Contains(r.Desig.ToUpper())) { allRwyClosed = false; break; }
 			}
 			s.APClsd = apClsdText || allRwyClosed;
+
+			// A runway closure that doesn't close the whole airport still deserves review
+			// (auto-Keep only — see the RwyClosure comment above).
+			s.RwyClosure = closed.Count > 0 && !s.APClsd;
 
 			return s;
 		}
@@ -759,7 +769,7 @@ namespace ICAO_CSV
 				string stxt = !scanR.IsDBNull(1) ? scanR.GetString(1).Replace("(char)39", "'") : "";
 				// keptUpper is unused by SuggestImpacts (rules are per-NOTAM) — safe to pass empty here.
 				ImpactSuggestion sg = SuggestImpacts(stxt, runways, new System.Collections.Generic.List<string>());
-				if (SuggestedSingleCode(sg) != "" || sg.Sup) toKeep.Add(sid);
+				if (SuggestedSingleCode(sg) != "" || sg.Sup || sg.RwyClosure) toKeep.Add(sid);
 			}
 			scanR.Close();
 			foreach (int kid in toKeep)
