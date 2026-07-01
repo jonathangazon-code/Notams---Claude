@@ -453,12 +453,14 @@ namespace ICAO_CSV
 		private struct ImpactSuggestion
 		{
 			public bool APClsd, CatI, NoILS, NotAltn, Fuel, Sup;
-			// True when this NOTAM closes a runway but doesn't otherwise trigger any of the
-			// impact codes above (e.g. a single runway closed with a parallel/other one still
-			// open). Not a selectable Impact code by itself (SuggestedSingleCode ignores it) —
-			// it only makes the auto-Keep pre-pass surface the NOTAM for manual review, since
-			// a runway closure is always worth a look even without an automatic impact.
+			// Auto-Keep-only signals: true when this NOTAM mentions a runway closure / an ILS
+			// outage but doesn't otherwise trigger any of the selectable impact codes above
+			// (e.g. a single runway/ILS down with a parallel/other one still available).
+			// SuggestedSingleCode ignores these — they only make the auto-Keep pre-pass
+			// surface the NOTAM for manual review, since it's always worth a look even
+			// without an automatic impact.
 			public bool RwyClosure;
+			public bool IlsOutage;
 		}
 
 		private struct RwyInfo
@@ -560,6 +562,7 @@ namespace ICAO_CSV
 			// "No ILS" airport-wide when a parallel/other runway remains ILS-equipped.
 			bool ilsOutageText = !lvpExc && RegexAny(U, @"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE))");
 			s.NoILS = ilsOutageText;
+			s.IlsOutage = ilsOutageText;
 			if (ilsOutageText && runways.Count > 0)
 			{
 				System.Collections.Generic.List<string> affectedRwys = new System.Collections.Generic.List<string>();
@@ -769,7 +772,7 @@ namespace ICAO_CSV
 				string stxt = !scanR.IsDBNull(1) ? scanR.GetString(1).Replace("(char)39", "'") : "";
 				// keptUpper is unused by SuggestImpacts (rules are per-NOTAM) — safe to pass empty here.
 				ImpactSuggestion sg = SuggestImpacts(stxt, runways, new System.Collections.Generic.List<string>());
-				if (SuggestedSingleCode(sg) != "" || sg.Sup || sg.RwyClosure) toKeep.Add(sid);
+				if (SuggestedSingleCode(sg) != "" || sg.Sup || sg.RwyClosure || sg.IlsOutage) toKeep.Add(sid);
 			}
 			scanR.Close();
 			foreach (int kid in toKeep)
