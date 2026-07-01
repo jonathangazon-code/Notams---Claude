@@ -1372,9 +1372,11 @@ namespace ICAO_CSV
 		// leaving the NOTAM Filter tab. Runs the same download/dedupe/sync flow.
 		void Btn_dbUpdateQuickClick(object sender, EventArgs e)
 		{
-			Btn_updateDBClick(sender, e);
-			RefreshLastDbUpdateLabel();
-			RefreshCurrentView();
+			RunDbUpdatePipeline(delegate
+			{
+				RefreshLastDbUpdateLabel();
+				RefreshCurrentView();
+			});
 		}
 
 		// Shows the local ICAO_storedNotams.mdb file's last-write timestamp next to the
@@ -1400,7 +1402,7 @@ namespace ICAO_CSV
 		{
 			Btn_filterNew.Left = 7;        Btn_filterNew.Top = 8;
 			Btn_dbUpdateQuick.Left = 205;   Btn_dbUpdateQuick.Top = 8;
-			Lbl_lastDbUpdate.Left = Btn_dbUpdateQuick.Right + 8;   Lbl_lastDbUpdate.Top = 16;
+			Lbl_lastDbUpdate.Left = Btn_dbUpdateQuick.Right + 4;   Lbl_lastDbUpdate.Top = 16;
 			Lbl_ICAO.Left = 505;            Lbl_ICAO.Top = 13;
 			TxtBox_ICAO.Left = 575;         TxtBox_ICAO.Top = 9;
 			Btn_ICAO.Left = 675;            Btn_ICAO.Top = 8;
@@ -1411,31 +1413,6 @@ namespace ICAO_CSV
 		{
 			if (_stationMode) ICAO_Notams();
 			else              Filter_Notams();
-		}
-
-		public void ShowAutoPopup(string message, int durationMs = 1200)
-		{
-			Form popup = new Form
-			{
-				StartPosition    = FormStartPosition.CenterScreen,
-				FormBorderStyle  = FormBorderStyle.FixedToolWindow,
-				Width = 350, Height = 120, TopMost = true, ControlBox = false
-			};
-			Label lbl = new Label
-			{
-				Dock = DockStyle.Fill,
-				TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
-				Text = message, Font = new Font("Segoe UI", 10)
-			};
-			popup.Controls.Add(lbl);
-			popup.Shown += (s, e) =>
-			{
-				var timer = new Timer { Interval = durationMs };
-				timer.Tick += (s2, e2) => { timer.Stop(); popup.Close(); };
-				timer.Start();
-			};
-			popup.Show();
-			popup.Refresh();
 		}
 
 		// ── private helpers ──────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.IO;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -129,7 +130,7 @@ string xmlNotams = "";
 				}
 			}
 			connNotams.Close();
-			RchTxtCSV.Text = result;
+			SetLog(result);
 		}
 
 		public void GetCSV()
@@ -194,86 +195,109 @@ string xmlNotams = "";
 			RchTxtCSV.Text = reader;
 		}
 
-		public void deleteWithdrawnedNotams()
+		// Thread-safe write to the debug/log textbox — the DB-update pipeline runs these
+		// methods on a background thread, so a direct ".Text =" would throw a cross-thread
+		// exception.
+		private void SetLog(string text)
+		{
+			if (RchTxtCSV.InvokeRequired) RchTxtCSV.Invoke((MethodInvoker)delegate { RchTxtCSV.Text = text; });
+			else RchTxtCSV.Text = text;
+		}
+
+		// onProgress reports (percent 0-100 within this phase, status message) so the caller
+		// can weight it into the overall DB-update progress bar. Left null for standalone use
+		// (e.g. the individual buttons on the DB Update tab).
+		public void deleteWithdrawnedNotams(Action<int, string> onProgress = null)
 		{
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
-			conn.Open();
-			OleDbDataReader reader = new OleDbCommand("SELECT key FROM filteredNotams_table", conn).ExecuteReader();
+			conn.Open();   // single connection for the whole method — was 3 opens before
 
 			System.Collections.Generic.List<string> filtered = new System.Collections.Generic.List<string>();
-			while (reader.Read())
-				if (!reader.IsDBNull(0)) filtered.Add(reader.GetString(0));
-			conn.Close();
+			OleDbDataReader fReader = new OleDbCommand("SELECT key FROM filteredNotams_table", conn).ExecuteReader();
+			while (fReader.Read()) if (!fReader.IsDBNull(0)) filtered.Add(fReader.GetString(0));
+			fReader.Close();
+
+			// One pass to snapshot every still-stored key into a set, instead of one
+			// SELECT COUNT(*) query per filtered NOTAM (was O(N) queries, now O(1)).
+			System.Collections.Generic.HashSet<string> storedKeys = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+			OleDbDataReader sReader = new OleDbCommand("SELECT key FROM storedNotams_table", conn).ExecuteReader();
+			while (sReader.Read()) if (!sReader.IsDBNull(0)) storedKeys.Add(sReader.GetString(0));
+			sReader.Close();
 
 			System.Collections.Generic.List<string> withdrawn = new System.Collections.Generic.List<string>();
-			conn.Open();
-			foreach (string key in filtered)
-			{
-				OleDbCommand chk = new OleDbCommand("SELECT COUNT(*) FROM storedNotams_table WHERE key=?", conn);
-				chk.Parameters.AddWithValue("?", key);
-				if ((int)chk.ExecuteScalar() == 0)
-					withdrawn.Add(key);
-			}
-			conn.Close();
+			foreach (string key in filtered) if (!storedKeys.Contains(key)) withdrawn.Add(key);
 
 			string monitor = "";
-			conn.Open();
+			int total = withdrawn.Count, done = 0;
 			foreach (string key in withdrawn)
 			{
 				OleDbCommand del = new OleDbCommand("DELETE FROM filteredNotams_table WHERE key=?", conn);
 				del.Parameters.AddWithValue("?", key);
 				del.ExecuteNonQuery();
 				monitor += key + "\n";
+				done++;
+				if (onProgress != null) onProgress(total == 0 ? 100 : done * 100 / total, "Removing withdrawn NOTAM " + done + "/" + total + "...");
 			}
 			conn.Close();
-			RchTxtCSV.Text = monitor;
+			SetLog(monitor);
+			if (onProgress != null && total == 0) onProgress(100, "No withdrawn NOTAMs to remove.");
 		}
 
-		public void NewNotams()
+		public void NewNotams(Action<int, string> onProgress = null)
 		{
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
-			conn.Open();
-			OleDbDataReader reader = new OleDbCommand("SELECT key FROM storedNotams_table", conn).ExecuteReader();
+			conn.Open();   // single connection for the whole method — was 2 + 2*N opens before
 
-			System.Collections.Generic.List<string> stored = new System.Collections.Generic.List<string>();
-			while (reader.Read())
-				if (!reader.IsDBNull(0)) stored.Add(reader.GetString(0));
-			conn.Close();
+			// Snapshot of already-filtered keys, loaded once instead of one COUNT(*) query
+			// per candidate row.
+			System.Collections.Generic.HashSet<string> existingFiltered = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+			OleDbDataReader fReader = new OleDbCommand("SELECT key FROM filteredNotams_table", conn).ExecuteReader();
+			while (fReader.Read()) if (!fReader.IsDBNull(0)) existingFiltered.Add(fReader.GetString(0));
+			fReader.Close();
 
-			System.Collections.Generic.List<string> newKeys = new System.Collections.Generic.List<string>();
-			conn.Open();
-			foreach (string key in stored)
+			// Single full-table scan collects the fields for every row that isn't filtered
+			// yet, instead of one "SELECT * WHERE key=?" round-trip per new NOTAM. Columns
+			// are looked up by name (GetOrdinal) rather than hard-coded position, so this
+			// doesn't depend on the table's physical column order.
+			System.Collections.Generic.List<string[]> newRows = new System.Collections.Generic.List<string[]>();
+			OleDbDataReader sReader = new OleDbCommand("SELECT * FROM storedNotams_table", conn).ExecuteReader();
+			int ordKey        = sReader.GetOrdinal("key");
+			int ordStateName  = sReader.GetOrdinal("StateName");
+			int ordSubject    = sReader.GetOrdinal("Subject");
+			int ordModifier   = sReader.GetOrdinal("Modifier");
+			int ordMessage    = sReader.GetOrdinal("message");
+			int ordStartdate  = sReader.GetOrdinal("startdate");
+			int ordEnddate    = sReader.GetOrdinal("enddate");
+			int ordAll        = sReader.GetOrdinal("all");
+			int ordLocation   = sReader.GetOrdinal("location");
+			int ordCreated    = sReader.GetOrdinal("Created");
+			while (sReader.Read())
 			{
-				OleDbCommand chk = new OleDbCommand("SELECT COUNT(*) FROM filteredNotams_table WHERE key=?", conn);
-				chk.Parameters.AddWithValue("?", key);
-				if ((int)chk.ExecuteScalar() == 0)
-					newKeys.Add(key);
+				string key = !sReader.IsDBNull(ordKey) ? sReader.GetString(ordKey) : "";
+				if (key == "" || existingFiltered.Contains(key)) continue;
+
+				string[] row = new string[10];
+				row[0] = key;
+				row[1] = !sReader.IsDBNull(ordStateName) ? sReader.GetString(ordStateName) : "";
+				row[2] = !sReader.IsDBNull(ordSubject)   ? sReader.GetString(ordSubject)   : "";
+				row[3] = !sReader.IsDBNull(ordModifier)  ? sReader.GetString(ordModifier)  : "";
+				row[4] = !sReader.IsDBNull(ordMessage)   ? sReader.GetString(ordMessage)   : "";
+				row[5] = !sReader.IsDBNull(ordStartdate) ? sReader.GetString(ordStartdate) : "";
+				row[6] = !sReader.IsDBNull(ordEnddate)   ? sReader.GetString(ordEnddate)   : "";
+				row[7] = !sReader.IsDBNull(ordAll)       ? sReader.GetString(ordAll)       : "";
+				row[8] = !sReader.IsDBNull(ordLocation)  ? sReader.GetString(ordLocation)  : "";
+				row[9] = !sReader.IsDBNull(ordCreated)   ? sReader.GetString(ordCreated)   : "";
+				newRows.Add(row);
 			}
-			conn.Close();
+			sReader.Close();
 
 			string testFilter = "";
-			foreach (string key in newKeys)
+			int total = newRows.Count, done = 0;
+			foreach (string[] row in newRows)
 			{
-				string StateName="", Subject="", Modifier="", message="", startdate="", enddate="", all="", location="", created="";
-				conn.Open();
-				OleDbCommand qry = new OleDbCommand("SELECT * FROM storedNotams_table WHERE key=?", conn);
-				qry.Parameters.AddWithValue("?", key);
-				OleDbDataReader r = qry.ExecuteReader();
-				while (r.Read())
-				{
-					if (!r.IsDBNull(1))  StateName  = r.GetString(1);
-					if (!r.IsDBNull(10)) Subject    = r.GetString(10);
-					if (!r.IsDBNull(11)) Modifier   = r.GetString(11);
-					if (!r.IsDBNull(12)) message    = r.GetString(12);
-					if (!r.IsDBNull(13)) startdate  = r.GetString(13);
-					if (!r.IsDBNull(14)) enddate    = r.GetString(14);
-					if (!r.IsDBNull(15)) all        = r.GetString(15);
-					if (!r.IsDBNull(16)) location   = r.GetString(16);
-					if (!r.IsDBNull(18)) created    = r.GetString(18);
-				}
-				conn.Close();
+				string key = row[0], StateName = row[1], Subject = row[2], Modifier = row[3], message = row[4],
+					startdate = row[5], enddate = row[6], all = row[7], location = row[8], created = row[9];
 
-				conn.Open();
 				OleDbCommand ins = new OleDbCommand(
 					"INSERT INTO filteredNotams_table ([StateName],[Subject],[Modifier],[message],[startdate],[enddate],[all],[location],[Created],[key],[Checked]) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
 					conn);
@@ -289,15 +313,18 @@ string xmlNotams = "";
 				ins.Parameters.AddWithValue("?", key);
 				ins.Parameters.AddWithValue("?", "N");
 				ins.ExecuteNonQuery();
-				conn.Close();
 
 				testFilter += StateName + "||" + Subject + "||" + Modifier + "||" + message + "||" +
 					startdate + "||" + enddate + "||" + all + "||" + location + "||" + created + "||N\n";
+				done++;
+				if (onProgress != null) onProgress(total == 0 ? 100 : done * 100 / total, "Adding new NOTAM " + done + "/" + total + "...");
 			}
-			RchTxtCSV.Text = testFilter;
+			conn.Close();
+			SetLog(testFilter);
+			if (onProgress != null && total == 0) onProgress(100, "No new NOTAMs to add.");
 		}
 
-		public void DelOld()
+		public void DelOld(Action<int, string> onProgress = null)
 		{
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
@@ -321,34 +348,150 @@ string xmlNotams = "";
 				if (intToday > intEnd && !reader.IsDBNull(1))
 					toDelete.Add(reader.GetString(1));
 			}
-			conn.Close();
+			reader.Close();
 
 			string deletedNotams = "";
-			conn.Open();
+			int total = toDelete.Count, done = 0;
 			foreach (string key in toDelete)
 			{
-				if (string.IsNullOrEmpty(key)) continue;
+				if (string.IsNullOrEmpty(key)) { done++; continue; }
 				OleDbCommand del = new OleDbCommand("DELETE FROM filteredNotams_table WHERE key=?", conn);
 				del.Parameters.AddWithValue("?", key);
 				del.ExecuteNonQuery();
 				deletedNotams += key;
+				done++;
+				if (onProgress != null) onProgress(total == 0 ? 100 : done * 100 / total, "Removing expired NOTAM " + done + "/" + total + "...");
 			}
 			conn.Close();
 
-			RchTxtCSV.Text = todayList + "\n\n" + deletedNotams + "\n\n" + endDateList;
+			SetLog(todayList + "\n\n" + deletedNotams + "\n\n" + endDateList);
+			if (onProgress != null && total == 0) onProgress(100, "No expired NOTAMs to remove.");
 		}
 
-		void Btn_updateDBClick(object sender, EventArgs e)
+		// ── DB update pipeline: runs on a background thread with a live progress dialog ──
+
+		private System.ComponentModel.BackgroundWorker _dbUpdateWorker;
+		private Form _dbProgressForm;
+		private Label _dbProgressStatus;
+		private ProgressBar _dbProgressBar;
+
+		void Btn_updateDBClick(object sender, EventArgs e) { RunDbUpdatePipeline(null); }
+
+		// Runs GetXML -> deleteWithdrawnedNotams -> NewNotams -> DelOld on a background
+		// thread and reports weighted progress into a single dialog, replacing the old
+		// sequence of blocking popups + a final MessageBox. onCompleted (optional) runs on
+		// the UI thread once the pipeline finishes successfully — used by the NOTAM Filter
+		// tab's quick button to refresh its view and the "last update" label afterwards.
+		public void RunDbUpdatePipeline(Action onCompleted)
 		{
-			ShowAutoPopup("Downloading XML Notams from Web Service...");
-			GetXML();
-			ShowAutoPopup("Deleting withdrawn NOTAMs...");
-			deleteWithdrawnedNotams();
-			ShowAutoPopup("Adding new NOTAMs...");
-			NewNotams();
-			ShowAutoPopup("Deleting old NOTAMs...");
-			DelOld();
-			MessageBox.Show("Database successfully updated!", "DB Updated");
+			if (_dbUpdateWorker != null && _dbUpdateWorker.IsBusy) return;   // already running
+
+			Btn_updateDB.Enabled = false;
+			if (Btn_dbUpdateQuick != null) Btn_dbUpdateQuick.Enabled = false;
+			ShowDbProgressForm();
+
+			_dbUpdateWorker = new System.ComponentModel.BackgroundWorker { WorkerReportsProgress = true };
+			_dbUpdateWorker.DoWork += delegate(object s, System.ComponentModel.DoWorkEventArgs e)
+			{
+				System.ComponentModel.BackgroundWorker w = (System.ComponentModel.BackgroundWorker)s;
+
+				// Phase weights: download has no measurable sub-progress, so it just jumps
+				// to 30%; the three DB-diff phases report fine-grained progress based on the
+				// actual NOTAM counts they process.
+				w.ReportProgress(2, "Downloading NOTAMs from web service...");
+				GetXML();
+				w.ReportProgress(30, "Checking for withdrawn NOTAMs...");
+				deleteWithdrawnedNotams(delegate(int pct, string msg) { w.ReportProgress(30 + pct * 15 / 100, msg); });
+				w.ReportProgress(45, "Adding new NOTAMs...");
+				NewNotams(delegate(int pct, string msg) { w.ReportProgress(45 + pct * 45 / 100, msg); });
+				w.ReportProgress(90, "Removing expired NOTAMs...");
+				DelOld(delegate(int pct, string msg) { w.ReportProgress(90 + pct * 10 / 100, msg); });
+			};
+			_dbUpdateWorker.ProgressChanged += delegate(object s, System.ComponentModel.ProgressChangedEventArgs e)
+			{
+				UpdateDbProgress(e.ProgressPercentage, e.UserState as string);
+			};
+			_dbUpdateWorker.RunWorkerCompleted += delegate(object s, System.ComponentModel.RunWorkerCompletedEventArgs e)
+			{
+				Btn_updateDB.Enabled = true;
+				if (Btn_dbUpdateQuick != null) Btn_dbUpdateQuick.Enabled = true;
+
+				if (e.Error != null)
+				{
+					CloseDbProgressForm();
+					MessageBox.Show("Error while updating the database:\n" + e.Error.Message, "DB Update Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					return;
+				}
+
+				UpdateDbProgress(100, "Database successfully updated!");
+				if (onCompleted != null) onCompleted();
+				Timer closeTimer = new Timer { Interval = 900 };
+				closeTimer.Tick += delegate(object s2, EventArgs e2) { closeTimer.Stop(); CloseDbProgressForm(); };
+				closeTimer.Start();
+			};
+			_dbUpdateWorker.RunWorkerAsync();
+		}
+
+		// Dark, non-modal progress dialog matching the app's dark-card styling (used
+		// elsewhere for the airport header card). Lives only for the duration of a DB update.
+		private void ShowDbProgressForm()
+		{
+			_dbProgressForm = new Form
+			{
+				StartPosition   = FormStartPosition.CenterScreen,
+				FormBorderStyle = FormBorderStyle.FixedDialog,
+				ControlBox      = false,
+				MinimizeBox     = false,
+				MaximizeBox     = false,
+				TopMost         = true,
+				ShowInTaskbar   = false,
+				Width = 420, Height = 130,
+				BackColor = Color.FromArgb(38, 50, 56),
+				Text = "Dispatch Watch"
+			};
+
+			Label title = new Label
+			{
+				Text = "UPDATING DATABASE",
+				ForeColor = Color.White,
+				Font = new Font("Segoe UI", 10, FontStyle.Bold),
+				Dock = DockStyle.Top, Height = 32,
+				TextAlign = ContentAlignment.MiddleCenter
+			};
+			_dbProgressStatus = new Label
+			{
+				Text = "Starting...",
+				ForeColor = Color.FromArgb(207, 216, 220),
+				Font = new Font("Segoe UI", 9),
+				Dock = DockStyle.Top, Height = 26,
+				TextAlign = ContentAlignment.MiddleCenter
+			};
+			_dbProgressBar = new ProgressBar
+			{
+				Minimum = 0, Maximum = 100, Value = 0,
+				Style = ProgressBarStyle.Continuous,
+				Dock = DockStyle.Bottom, Height = 20
+			};
+			Panel pad = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(38, 50, 56) };
+
+			_dbProgressForm.Controls.Add(pad);
+			_dbProgressForm.Controls.Add(_dbProgressBar);
+			_dbProgressForm.Controls.Add(_dbProgressStatus);
+			_dbProgressForm.Controls.Add(title);
+			_dbProgressForm.Show(this);
+		}
+
+		private void UpdateDbProgress(int percent, string status)
+		{
+			if (_dbProgressForm == null || _dbProgressForm.IsDisposed) return;
+			_dbProgressBar.Value = Math.Max(0, Math.Min(100, percent));
+			if (status != null) _dbProgressStatus.Text = status;
+		}
+
+		private void CloseDbProgressForm()
+		{
+			if (_dbProgressForm != null && !_dbProgressForm.IsDisposed) _dbProgressForm.Close();
+			_dbProgressForm = null;
 		}
 
 		// Event to track CSV download progress
