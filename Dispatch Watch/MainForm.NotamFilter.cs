@@ -535,9 +535,29 @@ namespace ICAO_CSV
 
 		// Data-derived rules, validated against the dispatcher's historical classifications
 		// (see ICAO_storedNotams.mdb analysis). allKeptUpper kept for signature compatibility.
+		// Runway idents this NOTAM's text reports as ILS-down (excludes LVP-only and
+		// DME-only outages — see SuggestImpacts). Shared by SuggestImpacts (single-NOTAM
+		// check) and the airport-wide union built in Filter_Notams, so that several
+		// simultaneous NOTAMs each losing a different runway's ILS are recognised together
+		// (e.g. "ILS RWY 12 ON TEST" + "ILS RWY 30 ON TEST" on a single 12/30 runway).
+		private static System.Collections.Generic.List<string> ExtractIlsDownRwys(string U)
+		{
+			System.Collections.Generic.List<string> res = new System.Collections.Generic.List<string>();
+			bool lvpExc = RegexAny(U, @"(EXC|EXCEPT)\s+LVP");
+			bool dmeOnly = RegexAny(U, @"\bDME\b.{0,20}ASSOCIATED\s+WITH\s+ILS.{0,15}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE))");
+			bool ilsOutageText = !lvpExc && !dmeOnly &&
+				RegexAny(U, @"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE)|NOT\s+USABLE|ON\s+TEST)");
+			if (!ilsOutageText) return res;
+			foreach (System.Text.RegularExpressions.Match m in
+				System.Text.RegularExpressions.Regex.Matches(U, @"RWY\s*(\d{1,2}[LCR]?)"))
+				if (!res.Contains(m.Groups[1].Value)) res.Add(m.Groups[1].Value);
+			return res;
+		}
+
 		private static ImpactSuggestion SuggestImpacts(string notamText,
 			System.Collections.Generic.List<RwyInfo> runways,
-			System.Collections.Generic.List<string> allKeptUpper)
+			System.Collections.Generic.List<string> allKeptUpper,
+			System.Collections.Generic.List<string> extraIlsDownRwys = null)
 		{
 			ImpactSuggestion s = new ImpactSuggestion();
 			string U = notamText.ToUpper();
@@ -569,17 +589,19 @@ namespace ICAO_CSV
 			// DME-only outage (see above), OR another runway at the airport still has a
 			// working ILS (mirrors the APT CLSD "all runways closed" check below) — losing
 			// the ILS on one runway shouldn't flag "No ILS" airport-wide when a
-			// parallel/other runway remains ILS-equipped.
+			// parallel/other runway remains ILS-equipped. extraIlsDownRwys folds in ILS
+			// outages reported by OTHER simultaneous NOTAMs at the same airport (e.g. two
+			// separate NOTAMs, one per runway end, both saying "ILS ... ON TEST") so the
+			// combined effect is recognised even though each NOTAM only mentions its own end.
 			bool ilsOutageText = !lvpExc && !dmeOnly &&
 				RegexAny(U, @"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE)|NOT\s+USABLE|ON\s+TEST)");
 			s.NoILS = ilsOutageText;
 			s.IlsOutage = ilsOutageText;
 			if (ilsOutageText && runways.Count > 0)
 			{
-				System.Collections.Generic.List<string> affectedRwys = new System.Collections.Generic.List<string>();
-				foreach (System.Text.RegularExpressions.Match m in
-					System.Text.RegularExpressions.Regex.Matches(U, @"RWY\s*(\d{1,2}[LCR]?)"))
-					if (!affectedRwys.Contains(m.Groups[1].Value)) affectedRwys.Add(m.Groups[1].Value);
+				System.Collections.Generic.List<string> affectedRwys = new System.Collections.Generic.List<string>(ExtractIlsDownRwys(U));
+				if (extraIlsDownRwys != null)
+					foreach (string rw in extraIlsDownRwys) if (!affectedRwys.Contains(rw)) affectedRwys.Add(rw);
 
 				foreach (RwyInfo r in runways)
 					if (r.CatMax >= 1 && !affectedRwys.Contains(r.Desig.ToUpper())) { s.NoILS = false; break; }
@@ -765,6 +787,9 @@ namespace ICAO_CSV
 
 			// Per-NOTAM RTBs with colored left border strip (Option B)
 			System.Collections.Generic.List<RwyInfo> runways = ParseRunways(RWYs);
+			// Filled below, before the auto-keep pass; reused by the chip-suggestion call
+			// further down so both agree on which runways are currently ILS-down airport-wide.
+			System.Collections.Generic.List<string> ilsDownUnion;
 
 			// Auto-Keep / Auto-Un-Keep: promote not-yet-kept NOTAMs to Status='K' when the
 			// engine detects a potential impact/SUP/closure/ILS outage, and demote NOTAMs
@@ -781,26 +806,42 @@ namespace ICAO_CSV
 				"SELECT ID, [all], Status FROM filteredNotams_table WHERE (Checked='N') AND (location=?)", conn);
 			cmdScan.Parameters.AddWithValue("?", AP);
 			OleDbDataReader scanR = cmdScan.ExecuteReader();
-			System.Collections.Generic.List<int> toKeep = new System.Collections.Generic.List<int>();
-			System.Collections.Generic.List<int> toUnKeep = new System.Collections.Generic.List<int>();
+			System.Collections.Generic.List<object[]> scanRows = new System.Collections.Generic.List<object[]>();
 			while (scanR.Read())
 			{
 				int sid = !scanR.IsDBNull(0) ? scanR.GetInt32(0) : 0;
+				string stxt = !scanR.IsDBNull(1) ? scanR.GetString(1).Replace("(char)39", "'") : "";
 				string status = !scanR.IsDBNull(2) ? scanR.GetString(2) : "";
-				bool kept = status == "K";
+				scanRows.Add(new object[] { sid, stxt, status });
+			}
+			scanR.Close();
+
+			// Union of runway idents reported ILS-down by ANY of this airport's active
+			// NOTAMs, so simultaneous NOTAMs that each cover a different end of the same
+			// runway (or different runways) are recognised together — see ExtractIlsDownRwys.
+			ilsDownUnion = new System.Collections.Generic.List<string>();
+			foreach (object[] row in scanRows)
+				foreach (string rw in ExtractIlsDownRwys(((string)row[1]).ToUpper()))
+					if (!ilsDownUnion.Contains(rw)) ilsDownUnion.Add(rw);
+
+			System.Collections.Generic.List<int> toKeep = new System.Collections.Generic.List<int>();
+			System.Collections.Generic.List<int> toUnKeep = new System.Collections.Generic.List<int>();
+			foreach (object[] row in scanRows)
+			{
+				int sid = (int)row[0];
+				string stxt = (string)row[1];
+				bool kept = (string)row[2] == "K";
 
 				if (kept && !_autoKeptIds.Contains(sid)) continue;    // manual Keep — never touch
 				if (!kept && _autoKeepSkip.Contains(sid)) continue;   // dispatcher explicitly ignored it
 
-				string stxt = !scanR.IsDBNull(1) ? scanR.GetString(1).Replace("(char)39", "'") : "";
 				// keptUpper is unused by SuggestImpacts (rules are per-NOTAM) — safe to pass empty here.
-				ImpactSuggestion sg = SuggestImpacts(stxt, runways, new System.Collections.Generic.List<string>());
+				ImpactSuggestion sg = SuggestImpacts(stxt, runways, new System.Collections.Generic.List<string>(), ilsDownUnion);
 				bool signal = SuggestedSingleCode(sg) != "" || sg.Sup || sg.RwyClosure || sg.IlsOutage;
 
 				if (!kept && signal) toKeep.Add(sid);
 				else if (kept && !signal) toUnKeep.Add(sid);
 			}
-			scanR.Close();
 			foreach (int kid in toKeep)
 			{
 				OleDbCommand uk = new OleDbCommand("UPDATE filteredNotams_table SET Status='K' WHERE ID=?", conn);
@@ -913,7 +954,7 @@ namespace ICAO_CSV
 					string storedSupRef = !dBreader.IsDBNull(supRefOrd) ? dBreader.GetString(supRefOrd) : "";
 
 					// Auto-suggestion only when nothing is stored yet
-					ImpactSuggestion sug = SuggestImpacts(notam_text, runways, keptUpper);
+					ImpactSuggestion sug = SuggestImpacts(notam_text, runways, keptUpper, ilsDownUnion);
 					string sugCode = SuggestedSingleCode(sug);
 
 					string remarkDefault = NotamRemarkDefault(notam_text, fromDate, tillDate);
@@ -1453,7 +1494,15 @@ namespace ICAO_CSV
 
 
 		void Btn_ICAOClick(object sender, EventArgs e)                        { ICAO_Notams(); }
-		void Btn_filterNewClick(object sender, EventArgs e)                   { Filter_Notams(); }
+		void TxtBox_ICAO_KeyDown(object sender, KeyEventArgs e)
+		{
+			if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; ICAO_Notams(); }
+		}
+		void Btn_filterNewClick(object sender, EventArgs e)
+		{
+			TxtBox_ICAO.Text = "";   // leaving the manual station view — clear the search box
+			Filter_Notams();
+		}
 		void ChckBox_SeeIgnoredCheckedChanged(object sender, EventArgs e)     { ICAO_Notams(); }
 
 		// Quick-access duplicate of the "DB Update" button (tabPage3), reachable without
@@ -1495,7 +1544,7 @@ namespace ICAO_CSV
 			Lbl_lastDbUpdate.Left = Btn_dbUpdateQuick.Right + 4;   Lbl_lastDbUpdate.Top = 16;
 			Lbl_ICAO.Left = 505;            Lbl_ICAO.Top = 13;
 			TxtBox_ICAO.Left = 575;         TxtBox_ICAO.Top = 9;
-			Btn_ICAO.Left = 675;            Btn_ICAO.Top = 8;
+			Btn_ICAO.Left = TxtBox_ICAO.Right + 2;   Btn_ICAO.Top = 8;
 		}
 
 		// Re-render whichever mode is currently shown on tabPage1

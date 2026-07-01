@@ -583,6 +583,7 @@ namespace ICAO_CSV
 			this.TxtBox_ICAO.Size = new System.Drawing.Size(94, 29);
 			this.TxtBox_ICAO.TabIndex = 31;
 			this.TxtBox_ICAO.Text = "";
+			this.TxtBox_ICAO.KeyDown += new System.Windows.Forms.KeyEventHandler(this.TxtBox_ICAO_KeyDown);
 			// 
 			// tabPage3
 			// 
