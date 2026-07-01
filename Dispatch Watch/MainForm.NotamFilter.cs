@@ -1385,7 +1385,7 @@ namespace ICAO_CSV
 			{
 				string dbPath = System.IO.Path.Combine(Application.StartupPath, "ICAO_storedNotams.mdb");
 				Lbl_lastDbUpdate.Text = System.IO.File.Exists(dbPath)
-					? "MAJ: " + System.IO.File.GetLastWriteTime(dbPath).ToString("dd/MM/yyyy HH:mm")
+					? "MAJ: " + System.IO.File.GetLastWriteTime(dbPath).ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)
 					: "MAJ: n/a";
 			}
 			catch { Lbl_lastDbUpdate.Text = "MAJ: n/a"; }
@@ -1400,7 +1400,7 @@ namespace ICAO_CSV
 		{
 			Btn_filterNew.Left = 7;        Btn_filterNew.Top = 8;
 			Btn_dbUpdateQuick.Left = 205;   Btn_dbUpdateQuick.Top = 8;
-			Lbl_lastDbUpdate.Left = 363;    Lbl_lastDbUpdate.Top = 8;
+			Lbl_lastDbUpdate.Left = Btn_dbUpdateQuick.Right + 8;   Lbl_lastDbUpdate.Top = 16;
 			Lbl_ICAO.Left = 505;            Lbl_ICAO.Top = 13;
 			TxtBox_ICAO.Left = 575;         TxtBox_ICAO.Top = 9;
 			Btn_ICAO.Left = 675;            Btn_ICAO.Top = 8;

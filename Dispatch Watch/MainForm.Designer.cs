@@ -502,10 +502,9 @@ namespace ICAO_CSV
 			//
 			// Lbl_lastDbUpdate
 			//
-			this.Lbl_lastDbUpdate.AutoSize = false;
+			this.Lbl_lastDbUpdate.AutoSize = true;
 			this.Lbl_lastDbUpdate.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular);
-			this.Lbl_lastDbUpdate.Location = new System.Drawing.Point(363, 8);
-			this.Lbl_lastDbUpdate.Size = new System.Drawing.Size(135, 30);
+			this.Lbl_lastDbUpdate.Location = new System.Drawing.Point(363, 16);
 			this.Lbl_lastDbUpdate.Name = "Lbl_lastDbUpdate";
 			this.Lbl_lastDbUpdate.ForeColor = System.Drawing.Color.Gray;
 			this.Lbl_lastDbUpdate.Text = "";
