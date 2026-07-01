@@ -248,9 +248,9 @@ namespace ICAO_CSV
 		private static string RwyLabel(string text, double x, double y, double cx, double cy)
 		{
 			double ox = (x - cx) * 0.22, oy = (y - cy) * 0.22;
-			double lx = x + ox - 9, ly = y + oy - 7;
+			double lx = x + ox - 12, ly = y + oy - 9;
 			return "<div style=\"position:absolute;left:" + F(lx) + "px;top:" + F(ly) +
-				"px;width:18px;text-align:center;font-size:9px;color:#b0bec5;font-family:monospace\">" + text + "</div>";
+				"px;width:24px;text-align:center;font-size:13px;font-weight:bold;color:#b0bec5;font-family:monospace\">" + text + "</div>";
 		}
 
 		private static string F(double v) { return v.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture); }
