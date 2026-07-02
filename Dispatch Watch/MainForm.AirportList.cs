@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using System.Data.OleDb;
@@ -11,6 +12,79 @@ namespace ICAO_CSV
 	{
 		private TextBox      _aptSearch;
 		private DataGridView _aptDgv;
+		private bool         _aptSuppressSave;
+
+		// ── Airport name lookup (airports.csv, OurAirports data — same file already used
+		// for runway geo) ────────────────────────────────────────────────────
+		private static Dictionary<string, string> _airportNames;
+		private static volatile bool _namesLoaded;
+		private static readonly object _namesLock = new object();
+
+		public void PreloadAirportNamesAsync()
+		{
+			System.Threading.ThreadPool.QueueUserWorkItem(delegate { EnsureAirportNamesLoaded(); });
+		}
+
+		// Loads airports.csv into an ICAO -> name index exactly once. No network lookup —
+		// the file is already shipped next to the exe for the runway CSV import, and names
+		// can contain commas ("Cleveland Clinic, Marymount Hospital Heliport") so this reuses
+		// the quote-aware CsvSplit from MainForm.Rwys.cs rather than a naive Split(',').
+		public void EnsureAirportNamesLoaded()
+		{
+			if (_namesLoaded) return;
+			lock (_namesLock)
+			{
+				if (_namesLoaded) return;
+				Dictionary<string, string> dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+				try
+				{
+					string csv = Path.Combine(Application.StartupPath, "airports.csv");
+					if (File.Exists(csv))
+					using (StreamReader sr = new StreamReader(csv))
+					{
+						bool first = true;
+						string line;
+						while ((line = sr.ReadLine()) != null)
+						{
+							if (first) { first = false; continue; }   // header
+							string[] f = CsvSplit(line);
+							if (f.Length < 14) continue;
+							string icao = f[12].Trim();                // icao_code
+							if (icao == "") icao = f[1].Trim();        // fall back to ident
+							icao = icao.ToUpper();
+							string name = f[3].Trim();                 // name
+							if (icao == "" || name == "" || dict.ContainsKey(icao)) continue;
+							dict[icao] = name;
+						}
+					}
+				}
+				catch { /* partial index is still usable */ }
+				_airportNames = dict;
+				_namesLoaded = true;
+			}
+		}
+
+		private static string AirportNameFor(string icao)
+		{
+			if (!_namesLoaded || _airportNames == null) return "";
+			icao = (icao ?? "").Trim().ToUpper();
+			return _airportNames.ContainsKey(icao) ? _airportNames[icao] : "";
+		}
+
+		// Persistent Name column on Stations_ICAO_IATA (OCC.mdb), idempotent like the other
+		// EnsureXxx schema helpers.
+		public void EnsureAirportNameColumn()
+		{
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+				conn.Open();
+				try { new OleDbCommand("ALTER TABLE Stations_ICAO_IATA ADD COLUMN Name TEXT(100)", conn).ExecuteNonQuery(); }
+				catch { /* already exists */ }
+				conn.Close();
+			}
+			catch { }
+		}
 
 		// ── UI ───────────────────────────────────────────────────────────────
 		public void Airport_List()
@@ -29,19 +103,22 @@ namespace ICAO_CSV
 			APT_List.Controls.Add(searchHint);
 			_aptSearch.TextChanged += (s, e) => FilterAptGrid();
 
-			Button bCopy = new Button { Tag = "dispose", Top = 49, Left = 380, Size = new Size(110, 26),
-				Text = "Copy ICAO List", BackColor = Color.FromArgb(38, 50, 56), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-			bCopy.Click += (s, e) => CopyAptList();
-			APT_List.Controls.Add(bCopy);
-
 			_aptDgv = new DataGridView { Tag = "dispose", Top = 85, Left = 20, Size = new Size(700, 900),
 				AllowUserToAddRows = true, RowHeadersWidth = 28, BackgroundColor = Color.White,
 				AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None };
-			_aptDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "ICAO", HeaderText = "ICAO", Width = 80 });
+			_aptDgv.ColumnHeadersDefaultCellStyle.Font = new Font(_aptDgv.Font, FontStyle.Bold);
+			_aptDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "ICAO", HeaderText = "ICAO", Width = 80,
+				DefaultCellStyle = { Font = new Font(_aptDgv.Font, FontStyle.Bold) } });
 			_aptDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "IATA", HeaderText = "IATA", Width = 80 });
-			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "LH",       HeaderText = "Long Haul", Width = 90 });
-			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "FedEx",    HeaderText = "FedEx",     Width = 70 });
-			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Charters", HeaderText = "Charters",  Width = 80 });
+			_aptDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Name", HeaderText = "Airport Name", Width = 260 });
+			// Same colour coding as the NOTAM/AIP SUP reports (Long Haul = RoyalBlue, FedEx/
+			// Short Haul = purple, Charters = SeaGreen) so the two views read consistently.
+			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "LH", HeaderText = "Long Haul", Width = 90,
+				DefaultCellStyle = { BackColor = Color.RoyalBlue } });
+			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "FedEx", HeaderText = "FedEx", Width = 70,
+				DefaultCellStyle = { BackColor = Color.FromArgb(102, 51, 153) } });
+			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Charters", HeaderText = "Charters", Width = 80,
+				DefaultCellStyle = { BackColor = Color.SeaGreen } });
 			_aptDgv.Columns.Add(new DataGridViewButtonColumn { Name = "Del", HeaderText = "", Text = "Del",
 				UseColumnTextForButtonValue = true, Width = 55, DefaultCellStyle = { BackColor = Color.MistyRose } });
 
@@ -53,7 +130,7 @@ namespace ICAO_CSV
 				if (_aptDgv.Columns[e.ColumnIndex].Name == "Del") { DeleteAptRow(e.RowIndex); return; }
 				if (_aptDgv.Columns[e.ColumnIndex] is DataGridViewCheckBoxColumn) _aptDgv.EndEdit();
 			};
-			_aptDgv.CellValueChanged += (s, e) => { if (e.RowIndex >= 0) SaveAptRow(e.RowIndex); };
+			_aptDgv.CellValueChanged += (s, e) => { if (!_aptSuppressSave && e.RowIndex >= 0) SaveAptRow(e.RowIndex); };
 
 			APT_List.Controls.Add(_aptDgv);
 
@@ -62,10 +139,18 @@ namespace ICAO_CSV
 
 		private void LoadAptGrid()
 		{
+			_aptSuppressSave = true;
 			_aptDgv.Rows.Clear();
+
+			// Rows whose Name is still blank in the DB and could be resolved from the CSV
+			// index right now (only if the background load already finished) — persisted in
+			// a second pass below, since an UPDATE can't run while this reader is open.
+			Dictionary<int, string> toBackfill = new Dictionary<int, string>();
+
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
 			conn.Open();
 			OleDbDataReader reader = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA ORDER BY ICAO", conn).ExecuteReader();
+			int nameOrd = reader.GetOrdinal("Name");
 			while (reader.Read())
 			{
 				int    id       = !reader.IsDBNull(0) ? reader.GetInt32(0)  : 0;
@@ -74,11 +159,33 @@ namespace ICAO_CSV
 				string lh       = !reader.IsDBNull(3) ? reader.GetString(3) : "";
 				string fedex    = !reader.IsDBNull(4) ? reader.GetString(4) : "";
 				string charters = !reader.IsDBNull(5) ? reader.GetString(5) : "";
+				string name     = !reader.IsDBNull(nameOrd) ? reader.GetString(nameOrd) : "";
 
-				int rowIndex = _aptDgv.Rows.Add(icao, iata, lh == "Yes", fedex == "Yes", charters == "Yes");
+				if (name == "")
+				{
+					string resolved = AirportNameFor(icao);
+					if (resolved != "") { name = resolved; toBackfill[id] = resolved; }
+				}
+
+				int rowIndex = _aptDgv.Rows.Add(icao, iata, name, lh == "Yes", fedex == "Yes", charters == "Yes");
 				_aptDgv.Rows[rowIndex].Tag = id;
 			}
 			conn.Close();
+			_aptSuppressSave = false;
+
+			if (toBackfill.Count > 0)
+			{
+				OleDbConnection uconn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+				uconn.Open();
+				foreach (KeyValuePair<int, string> kv in toBackfill)
+				{
+					OleDbCommand upd = new OleDbCommand("UPDATE Stations_ICAO_IATA SET Name=? WHERE ID=?", uconn);
+					upd.Parameters.AddWithValue("?", kv.Value);
+					upd.Parameters.AddWithValue("?", kv.Key);
+					upd.ExecuteNonQuery();
+				}
+				uconn.Close();
+			}
 		}
 
 		private void FilterAptGrid()
@@ -92,14 +199,6 @@ namespace ICAO_CSV
 			}
 		}
 
-		private void CopyAptList()
-		{
-			List<string> icaos = new List<string>();
-			foreach (DataGridViewRow row in _aptDgv.Rows)
-				if (!row.IsNewRow && row.Visible && Cell(row, "ICAO") != "") icaos.Add(Cell(row, "ICAO"));
-			if (icaos.Count > 0) Clipboard.SetText(string.Join(Environment.NewLine, icaos.ToArray()));
-		}
-
 		// Insert (Tag still null, ICAO now filled) or update (Tag holds the DB ID) a row
 		// as soon as any of its cells commits — the grid's own "Copy List"/checkbox/text
 		// edits all funnel through here instead of a separate Add/Edit form.
@@ -111,20 +210,38 @@ namespace ICAO_CSV
 			string icao = Cell(row, "ICAO").Trim().ToUpper();
 			if (icao == "") return;   // wait until the dispatcher has typed an ICAO
 			string iata     = Cell(row, "IATA").Trim().ToUpper();
+			string name     = Cell(row, "Name").Trim();
 			string lh       = CheckedCell(row, "LH")       ? "Yes" : "No";
 			string fedex    = CheckedCell(row, "FedEx")    ? "Yes" : "No";
 			string charters = CheckedCell(row, "Charters") ? "Yes" : "No";
 
+			bool isNew = row.Tag == null;
+
+			// A brand-new airport with no manually-typed name yet -> resolve it from the CSV
+			// index (blocking is fine here, same as the runway CSV import below: this is an
+			// occasional one-off action, not a hot render path).
+			if (isNew && name == "")
+			{
+				EnsureAirportNamesLoaded();
+				name = AirportNameFor(icao);
+				if (name != "")
+				{
+					_aptSuppressSave = true;
+					row.Cells["Name"].Value = name;
+					_aptSuppressSave = false;
+				}
+			}
+
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
 			conn.Open();
 
-			bool isNew = row.Tag == null;
 			if (isNew)
 			{
 				OleDbCommand ins = new OleDbCommand(
-					"INSERT INTO Stations_ICAO_IATA ([ICAO],[IATA],[LH],[FedEx],[Charters]) VALUES (?,?,?,?,?)", conn);
+					"INSERT INTO Stations_ICAO_IATA ([ICAO],[IATA],[Name],[LH],[FedEx],[Charters]) VALUES (?,?,?,?,?,?)", conn);
 				ins.Parameters.AddWithValue("?", icao);
 				ins.Parameters.AddWithValue("?", iata);
+				ins.Parameters.AddWithValue("?", name);
 				ins.Parameters.AddWithValue("?", lh);
 				ins.Parameters.AddWithValue("?", fedex);
 				ins.Parameters.AddWithValue("?", charters);
@@ -136,9 +253,10 @@ namespace ICAO_CSV
 			else
 			{
 				OleDbCommand upd = new OleDbCommand(
-					"UPDATE Stations_ICAO_IATA SET ICAO=?,IATA=?,LH=?,FedEx=?,Charters=? WHERE ID=?", conn);
+					"UPDATE Stations_ICAO_IATA SET ICAO=?,IATA=?,Name=?,LH=?,FedEx=?,Charters=? WHERE ID=?", conn);
 				upd.Parameters.AddWithValue("?", icao);
 				upd.Parameters.AddWithValue("?", iata);
+				upd.Parameters.AddWithValue("?", name);
 				upd.Parameters.AddWithValue("?", lh);
 				upd.Parameters.AddWithValue("?", fedex);
 				upd.Parameters.AddWithValue("?", charters);
