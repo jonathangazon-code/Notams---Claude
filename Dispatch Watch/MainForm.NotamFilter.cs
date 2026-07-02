@@ -565,13 +565,18 @@ namespace ICAO_CSV
 		// check) and the airport-wide union built in Filter_Notams, so that several
 		// simultaneous NOTAMs each losing a different runway's ILS are recognised together
 		// (e.g. "ILS RWY 12 ON TEST" + "ILS RWY 30 ON TEST" on a single 12/30 runway).
+		// Shared by ExtractIlsDownRwys and SuggestImpacts so the two never drift apart.
+		// Covers: U/S, unserviceable, not avbl/available, not usable, on test, on (flight)
+		// calibration, and "do not use" — all common ways NOTAMs report an ILS out of service.
+		private const string IlsOutagePattern =
+			@"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE)|NOT\s+USABLE|ON\s+TEST|ON\s+(FLT|FLIGHT)\s+CALIBRATION|DO\s+NOT\s+USE)";
+
 		private static System.Collections.Generic.List<string> ExtractIlsDownRwys(string U)
 		{
 			System.Collections.Generic.List<string> res = new System.Collections.Generic.List<string>();
 			bool lvpExc = RegexAny(U, @"(EXC|EXCEPT)\s+LVP");
 			bool dmeOnly = RegexAny(U, @"\bDME\b.{0,20}ASSOCIATED\s+WITH\s+ILS.{0,15}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE))");
-			bool ilsOutageText = !lvpExc && !dmeOnly &&
-				RegexAny(U, @"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE)|NOT\s+USABLE|ON\s+TEST)");
+			bool ilsOutageText = !lvpExc && !dmeOnly && RegexAny(U, IlsOutagePattern);
 			if (!ilsOutageText) return res;
 			foreach (System.Text.RegularExpressions.Match m in
 				System.Text.RegularExpressions.Regex.Matches(U, @"RWY\s*(\d{1,2}[LCR]?)"))
@@ -621,8 +626,7 @@ namespace ICAO_CSV
 			// outages reported by OTHER simultaneous NOTAMs at the same airport (e.g. two
 			// separate NOTAMs, one per runway end, both saying "ILS ... ON TEST") so the
 			// combined effect is recognised even though each NOTAM only mentions its own end.
-			bool ilsOutageText = !lvpExc && !dmeOnly &&
-				RegexAny(U, @"\bILS\b.{0,30}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE)|NOT\s+USABLE|ON\s+TEST)");
+			bool ilsOutageText = !lvpExc && !dmeOnly && RegexAny(U, IlsOutagePattern);
 			s.NoILS = ilsOutageText;
 			s.IlsOutage = ilsOutageText;
 			if (ilsOutageText && runways.Count > 0)
