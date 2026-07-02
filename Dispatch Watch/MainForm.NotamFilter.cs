@@ -592,8 +592,10 @@ namespace ICAO_CSV
 			ImpactSuggestion s = new ImpactSuggestion();
 			string U = notamText.ToUpper();
 
-			// SUP — independent
-			s.Sup = U.Contains("SUP");
+			// SUP — independent. Require an actual "SUP nnn/yyyy" reference (same pattern as
+			// ExtractSupRef), not a bare substring match — plain U.Contains("SUP") was a false
+			// positive on any word containing "SUP", e.g. "SECONDARY POWER SUPPLY".
+			s.Sup = System.Text.RegularExpressions.Regex.IsMatch(U, @"SUP\s*0*\d+\s*/\s*\d{2,4}");
 
 			// Fuel (3/3 on sample)
 			s.Fuel = RegexAny(U, @"FUEL.{0,20}(NOT\s+AVBL|U/S|NIL|UNAVAIL)", @"NO\s+FUEL", @"FUEL\s+DISRUPTION");
