@@ -41,8 +41,21 @@ namespace ICAO_CSV
 			this.FormClosing += MainForm_FormClosing;
 			// Run the first Filter render once the window is shown (and maximized) so the
 			// layout uses the real tab width rather than the smaller design-time size.
-			this.Shown += delegate { Filter_Notams(); };
+			this.Shown += delegate { _formShown = true; Filter_Notams(); };
+
+			// The NOTAM Filter/Station cards compute their width from tabPage1.ClientSize.Width
+			// at render time and don't auto-resize afterward (they're absolute-positioned, not
+			// docked/anchored) — without this, widening the window past its initial maximized
+			// size leaves the right column stuck at its old, narrower width. Debounced via a
+			// short timer so a drag-resize doesn't re-render (and re-query the DB) on every
+			// intermediate frame — only once, shortly after the size settles.
+			_resizeDebounce = new Timer { Interval = 200 };
+			_resizeDebounce.Tick += delegate { _resizeDebounce.Stop(); if (_formShown) RefreshCurrentView(); };
+			this.Resize += delegate { _resizeDebounce.Stop(); _resizeDebounce.Start(); };
 		}
+
+		private bool _formShown;
+		private Timer _resizeDebounce;
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
