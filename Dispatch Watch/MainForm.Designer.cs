@@ -814,6 +814,7 @@ namespace ICAO_CSV
 			this.APT_List.TabIndex = 5;
 			this.APT_List.Text = "APT List";
 			this.APT_List.UseVisualStyleBackColor = true;
+			this.APT_List.Enter += new System.EventHandler(this.AptListTabEnter);
 			//
 			// AIP_SUP_report
 			// 

@@ -86,6 +86,17 @@ namespace ICAO_CSV
 			catch { }
 		}
 
+		// Re-fetch the grid every time the tab becomes active (not just once at startup) so
+		// airport names picked up by the background CSV load after the first visit — it can
+		// take a few seconds for ~80k lines — actually show up once it's ready, without
+		// requiring the dispatcher to edit a row to trigger a refresh.
+		void AptListTabEnter(object sender, EventArgs e)
+		{
+			if (_aptDgv == null) return;   // not built yet (very first call handles this itself)
+			LoadAptGrid();
+			FilterAptGrid();
+		}
+
 		// ── UI ───────────────────────────────────────────────────────────────
 		public void Airport_List()
 		{
@@ -103,7 +114,7 @@ namespace ICAO_CSV
 			APT_List.Controls.Add(searchHint);
 			_aptSearch.TextChanged += (s, e) => FilterAptGrid();
 
-			_aptDgv = new DataGridView { Tag = "dispose", Top = 85, Left = 20, Size = new Size(700, 900),
+			_aptDgv = new DataGridView { Tag = "dispose", Top = 85, Left = 20, Size = new Size(800, 900),
 				AllowUserToAddRows = true, RowHeadersWidth = 28, BackgroundColor = Color.White,
 				AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None };
 			_aptDgv.ColumnHeadersDefaultCellStyle.Font = new Font(_aptDgv.Font, FontStyle.Bold);
@@ -112,13 +123,12 @@ namespace ICAO_CSV
 			_aptDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "IATA", HeaderText = "IATA", Width = 80 });
 			_aptDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Name", HeaderText = "Airport Name", Width = 260 });
 			// Same colour coding as the NOTAM/AIP SUP reports (Long Haul = RoyalBlue, FedEx/
-			// Short Haul = purple, Charters = SeaGreen) so the two views read consistently.
-			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "LH", HeaderText = "Long Haul", Width = 90,
-				DefaultCellStyle = { BackColor = Color.RoyalBlue } });
-			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "FedEx", HeaderText = "FedEx", Width = 70,
-				DefaultCellStyle = { BackColor = Color.FromArgb(102, 51, 153) } });
-			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Charters", HeaderText = "Charters", Width = 80,
-				DefaultCellStyle = { BackColor = Color.SeaGreen } });
+			// Short Haul = purple, Charters = SeaGreen) so the two views read consistently —
+			// the colour lives on the checkbox glyph itself (custom-painted below), the cell
+			// background stays white.
+			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "LH",       HeaderText = "Long Haul", Width = 90 });
+			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "FedEx",    HeaderText = "FedEx",     Width = 70 });
+			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Charters", HeaderText = "Charters",  Width = 80 });
 			_aptDgv.Columns.Add(new DataGridViewButtonColumn { Name = "Del", HeaderText = "", Text = "Del",
 				UseColumnTextForButtonValue = true, Width = 55, DefaultCellStyle = { BackColor = Color.MistyRose } });
 
@@ -131,6 +141,7 @@ namespace ICAO_CSV
 				if (_aptDgv.Columns[e.ColumnIndex] is DataGridViewCheckBoxColumn) _aptDgv.EndEdit();
 			};
 			_aptDgv.CellValueChanged += (s, e) => { if (!_aptSuppressSave && e.RowIndex >= 0) SaveAptRow(e.RowIndex); };
+			_aptDgv.CellPainting += AptDgvCellPainting;
 
 			APT_List.Controls.Add(_aptDgv);
 
@@ -186,6 +197,43 @@ namespace ICAO_CSV
 				}
 				uconn.Close();
 			}
+		}
+
+		// Custom-paints the LH/FedEx/Charters checkbox cells: white cell background, with the
+		// category colour applied to the checkbox glyph itself (filled square + white
+		// checkmark when checked, coloured outline only when unchecked) instead of tinting
+		// the whole cell background.
+		private void AptDgvCellPainting(object sender, DataGridViewCellPaintingEventArgs e)
+		{
+			if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+			string colName = _aptDgv.Columns[e.ColumnIndex].Name;
+			Color color;
+			if (colName == "LH") color = Color.RoyalBlue;
+			else if (colName == "FedEx") color = Color.FromArgb(102, 51, 153);
+			else if (colName == "Charters") color = Color.SeaGreen;
+			else return;   // let other columns paint normally
+
+			e.PaintBackground(e.ClipBounds, false);   // false = don't tint with selection colour
+
+			bool isChecked = e.Value is bool && (bool)e.Value;
+			int boxSize = 16;
+			Rectangle box = new Rectangle(
+				e.CellBounds.Left + (e.CellBounds.Width - boxSize) / 2,
+				e.CellBounds.Top + (e.CellBounds.Height - boxSize) / 2,
+				boxSize, boxSize);
+
+			using (SolidBrush fill = new SolidBrush(isChecked ? color : Color.White))
+				e.Graphics.FillRectangle(fill, box);
+			using (Pen border = new Pen(color, 2))
+				e.Graphics.DrawRectangle(border, box.X, box.Y, box.Width - 1, box.Height - 1);
+			if (isChecked)
+				using (Pen check = new Pen(Color.White, 2))
+					e.Graphics.DrawLines(check, new Point[] {
+						new Point(box.Left + 3, box.Top + 8),
+						new Point(box.Left + 7, box.Top + 12),
+						new Point(box.Right - 3, box.Top + 4) });
+
+			e.Handled = true;
 		}
 
 		private void FilterAptGrid()
