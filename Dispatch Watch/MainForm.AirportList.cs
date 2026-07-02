@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -8,26 +9,63 @@ namespace ICAO_CSV
 {
 	public partial class MainForm
 	{
+		private TextBox      _aptSearch;
+		private DataGridView _aptDgv;
+
+		// ── UI ───────────────────────────────────────────────────────────────
 		public void Airport_List()
 		{
+			APT_List.VerticalScroll.Value = 0;
 			ClearTaggedControls(APT_List);
-			APT_List.AutoScroll = true;
 
+			Label hdr = new Label { Tag = "dispose", Top = 18, Left = 20, AutoSize = true,
+				Font = new Font("Microsoft Sans Serif", 12f, FontStyle.Bold), Text = "Airports" };
+			APT_List.Controls.Add(hdr);
+
+			_aptSearch = new TextBox { Tag = "dispose", Top = 50, Left = 20, Width = 200 };
+			APT_List.Controls.Add(_aptSearch);
+			Label searchHint = new Label { Tag = "dispose", Top = 54, Left = 226, AutoSize = true,
+				ForeColor = Color.Gray, Font = new Font("Microsoft Sans Serif", 8.5f), Text = "Search ICAO / IATA" };
+			APT_List.Controls.Add(searchHint);
+			_aptSearch.TextChanged += (s, e) => FilterAptGrid();
+
+			Button bCopy = new Button { Tag = "dispose", Top = 49, Left = 380, Size = new Size(110, 26),
+				Text = "Copy ICAO List", BackColor = Color.FromArgb(38, 50, 56), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+			bCopy.Click += (s, e) => CopyAptList();
+			APT_List.Controls.Add(bCopy);
+
+			_aptDgv = new DataGridView { Tag = "dispose", Top = 85, Left = 20, Size = new Size(700, 900),
+				AllowUserToAddRows = true, RowHeadersWidth = 28, BackgroundColor = Color.White,
+				AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None };
+			_aptDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "ICAO", HeaderText = "ICAO", Width = 80 });
+			_aptDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "IATA", HeaderText = "IATA", Width = 80 });
+			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "LH",       HeaderText = "Long Haul", Width = 90 });
+			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "FedEx",    HeaderText = "FedEx",     Width = 70 });
+			_aptDgv.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Charters", HeaderText = "Charters",  Width = 80 });
+			_aptDgv.Columns.Add(new DataGridViewButtonColumn { Name = "Del", HeaderText = "", Text = "Del",
+				UseColumnTextForButtonValue = true, Width = 55, DefaultCellStyle = { BackColor = Color.MistyRose } });
+
+			// Checkbox columns commit (and save) on click instead of waiting for focus to
+			// leave the cell — matches the AIP SUP report's "click to toggle" feel.
+			_aptDgv.CellContentClick += (s, e) =>
+			{
+				if (e.RowIndex < 0) return;
+				if (_aptDgv.Columns[e.ColumnIndex].Name == "Del") { DeleteAptRow(e.RowIndex); return; }
+				if (_aptDgv.Columns[e.ColumnIndex] is DataGridViewCheckBoxColumn) _aptDgv.EndEdit();
+			};
+			_aptDgv.CellValueChanged += (s, e) => { if (e.RowIndex >= 0) SaveAptRow(e.RowIndex); };
+
+			APT_List.Controls.Add(_aptDgv);
+
+			LoadAptGrid();
+		}
+
+		private void LoadAptGrid()
+		{
+			_aptDgv.Rows.Clear();
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
 			conn.Open();
-			OleDbDataReader reader = new OleDbCommand("Select * From Stations_ICAO_IATA ORDER BY ICAO", conn).ExecuteReader();
-
-			TxtBox_APT_ICAO.Text     = "";
-			TxtBox_APT_IATA.Text     = "";
-			ChckBx_APT_LH.Checked   = false;
-			ChckBx_APT_FedEx.Checked = false;
-			ChckBx_APT_Charters.Checked = false;
-
-			Dictionary<int, Button> del_Buttons  = new Dictionary<int, Button>();
-			Dictionary<int, Button> edit_Buttons = new Dictionary<int, Button>();
-			int i = 0;
-			Top = 70;
-
+			OleDbDataReader reader = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA ORDER BY ICAO", conn).ExecuteReader();
 			while (reader.Read())
 			{
 				int    id       = !reader.IsDBNull(0) ? reader.GetInt32(0)  : 0;
@@ -37,118 +75,121 @@ namespace ICAO_CSV
 				string fedex    = !reader.IsDBNull(4) ? reader.GetString(4) : "";
 				string charters = !reader.IsDBNull(5) ? reader.GetString(5) : "";
 
-				FontFamily family = new FontFamily("Courier New");
-
-				AddDisposableLabel(APT_List, family, icao,       Top + 20*i, 28,  45, Color.OrangeRed);
-				AddDisposableLabel(APT_List, family, " - "+iata, Top + 20*i, 65,  65, Color.CornflowerBlue);
-
-				AddDisposableCheckBox(APT_List, Top + 20*i, 150, lh       == "Yes");
-				AddDisposableCheckBox(APT_List, Top + 20*i, 190, fedex    == "Yes");
-				AddDisposableCheckBox(APT_List, Top + 20*i, 230, charters == "Yes");
-
-				int capturedId = id;
-				del_Buttons[id] = MakeSmallButton("Del", Color.Red,       new System.Drawing.Point(310, Top-3+20*i));
-				del_Buttons[id].Click += (s, e) => Delete_APT(capturedId);
-				APT_List.Controls.Add(del_Buttons[id]);
-
-				edit_Buttons[id] = MakeSmallButton("Edit", Color.LightBlue, new System.Drawing.Point(270, Top-3+20*i));
-				edit_Buttons[id].Click += (s, e) => Edit_APT(capturedId);
-				APT_List.Controls.Add(edit_Buttons[id]);
-
-				i++;
+				int rowIndex = _aptDgv.Rows.Add(icao, iata, lh == "Yes", fedex == "Yes", charters == "Yes");
+				_aptDgv.Rows[rowIndex].Tag = id;
 			}
 			conn.Close();
 		}
 
-		void Delete_APT(int i)
+		private void FilterAptGrid()
 		{
-			if (MessageBox.Show("Are you sure that you want to delete ?", "Delete Airport", MessageBoxButtons.YesNo) != System.Windows.Forms.DialogResult.Yes)
-				return;
-
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
-			conn.Open();
-			OleDbCommand cmd = new OleDbCommand("DELETE From Stations_ICAO_IATA WHERE ID=?", conn);
-			cmd.Parameters.AddWithValue("?", i);
-			cmd.ExecuteNonQuery();
-			conn.Close();
-			LoadStationsCache();
-			Airport_List();
-		}
-
-		void Edit_APT(int i)
-		{
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
-			conn.Open();
-			OleDbCommand cmd = new OleDbCommand("Select * From Stations_ICAO_IATA WHERE ID=?", conn);
-			cmd.Parameters.AddWithValue("?", i);
-			OleDbDataReader reader = cmd.ExecuteReader();
-
-			while (reader.Read())
+			string term = (_aptSearch.Text ?? "").Trim().ToUpper();
+			foreach (DataGridViewRow row in _aptDgv.Rows)
 			{
-				TxtBox_APT_ICAO.Text        = !reader.IsDBNull(1) ? reader.GetString(1) : "";
-				TxtBox_APT_IATA.Text        = !reader.IsDBNull(2) ? reader.GetString(2) : "";
-				ChckBx_APT_LH.Checked      = !reader.IsDBNull(3) && reader.GetString(3) == "Yes";
-				ChckBx_APT_FedEx.Checked   = !reader.IsDBNull(4) && reader.GetString(4) == "Yes";
-				ChckBx_APT_Charters.Checked = !reader.IsDBNull(5) && reader.GetString(5) == "Yes";
+				if (row.IsNewRow) { row.Visible = true; continue; }
+				string icao = Cell(row, "ICAO"), iata = Cell(row, "IATA");
+				row.Visible = term == "" || icao.ToUpper().Contains(term) || iata.ToUpper().Contains(term);
 			}
-			conn.Close();
-
-			Btn_addAPT.Text = "Edit";
-			Btn_addAPT.Tag  = i.ToString();
 		}
 
-		void Btn_addAPTClick(object sender, System.EventArgs e)
+		private void CopyAptList()
 		{
-			string icao     = TxtBox_APT_ICAO.Text;
-			string iata     = TxtBox_APT_IATA.Text;
-			string lh       = ChckBx_APT_LH.Checked       ? "Yes" : "No";
-			string fedex    = ChckBx_APT_FedEx.Checked     ? "Yes" : "No";
-			string charters = ChckBx_APT_Charters.Checked  ? "Yes" : "No";
+			List<string> icaos = new List<string>();
+			foreach (DataGridViewRow row in _aptDgv.Rows)
+				if (!row.IsNewRow && row.Visible && Cell(row, "ICAO") != "") icaos.Add(Cell(row, "ICAO"));
+			if (icaos.Count > 0) Clipboard.SetText(string.Join(Environment.NewLine, icaos.ToArray()));
+		}
 
-			bool isNew = (Btn_addAPT.Text != "Edit");
+		// Insert (Tag still null, ICAO now filled) or update (Tag holds the DB ID) a row
+		// as soon as any of its cells commits — the grid's own "Copy List"/checkbox/text
+		// edits all funnel through here instead of a separate Add/Edit form.
+		private void SaveAptRow(int rowIndex)
+		{
+			DataGridViewRow row = _aptDgv.Rows[rowIndex];
+			if (row.IsNewRow) return;
+
+			string icao = Cell(row, "ICAO").Trim().ToUpper();
+			if (icao == "") return;   // wait until the dispatcher has typed an ICAO
+			string iata     = Cell(row, "IATA").Trim().ToUpper();
+			string lh       = CheckedCell(row, "LH")       ? "Yes" : "No";
+			string fedex    = CheckedCell(row, "FedEx")    ? "Yes" : "No";
+			string charters = CheckedCell(row, "Charters") ? "Yes" : "No";
 
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
 			conn.Open();
 
-			if (!isNew)
+			bool isNew = row.Tag == null;
+			if (isNew)
 			{
-				Btn_addAPT.Text = "Add Airport !";
-				int intID = int.Parse(Btn_addAPT.Tag.ToString());
-				OleDbCommand cmd = new OleDbCommand("UPDATE Stations_ICAO_IATA SET ICAO=?,IATA=?,LH=?,FedEx=?,Charters=? WHERE ID=?", conn);
-				cmd.Parameters.AddWithValue("?", icao);
-				cmd.Parameters.AddWithValue("?", iata);
-				cmd.Parameters.AddWithValue("?", lh);
-				cmd.Parameters.AddWithValue("?", fedex);
-				cmd.Parameters.AddWithValue("?", charters);
-				cmd.Parameters.AddWithValue("?", intID);
-				cmd.ExecuteNonQuery();
+				OleDbCommand ins = new OleDbCommand(
+					"INSERT INTO Stations_ICAO_IATA ([ICAO],[IATA],[LH],[FedEx],[Charters]) VALUES (?,?,?,?,?)", conn);
+				ins.Parameters.AddWithValue("?", icao);
+				ins.Parameters.AddWithValue("?", iata);
+				ins.Parameters.AddWithValue("?", lh);
+				ins.Parameters.AddWithValue("?", fedex);
+				ins.Parameters.AddWithValue("?", charters);
+				ins.ExecuteNonQuery();
+
+				OleDbCommand idQuery = new OleDbCommand("SELECT @@IDENTITY", conn);
+				row.Tag = Convert.ToInt32(idQuery.ExecuteScalar());
 			}
 			else
 			{
-				OleDbCommand cmd = new OleDbCommand("INSERT INTO Stations_ICAO_IATA ([ICAO],[IATA],[LH],[FedEx],[Charters]) VALUES (?,?,?,?,?)", conn);
-				cmd.Parameters.AddWithValue("?", icao);
-				cmd.Parameters.AddWithValue("?", iata);
-				cmd.Parameters.AddWithValue("?", lh);
-				cmd.Parameters.AddWithValue("?", fedex);
-				cmd.Parameters.AddWithValue("?", charters);
-				cmd.ExecuteNonQuery();
+				OleDbCommand upd = new OleDbCommand(
+					"UPDATE Stations_ICAO_IATA SET ICAO=?,IATA=?,LH=?,FedEx=?,Charters=? WHERE ID=?", conn);
+				upd.Parameters.AddWithValue("?", icao);
+				upd.Parameters.AddWithValue("?", iata);
+				upd.Parameters.AddWithValue("?", lh);
+				upd.Parameters.AddWithValue("?", fedex);
+				upd.Parameters.AddWithValue("?", charters);
+				upd.Parameters.AddWithValue("?", (int)row.Tag);
+				upd.ExecuteNonQuery();
 			}
-
 			conn.Close();
 
 			// New airport -> pre-encode its runways from the CSV
 			if (isNew)
 			{
-				string ic = (icao ?? "").Trim().ToUpper();
-				ImportRunwaysFromCsv(ic);
-				RegenerateRwyMemo(ic);
+				ImportRunwaysFromCsv(icao);
+				RegenerateRwyMemo(icao);
 			}
 
 			LoadStationsCache();
-			Airport_List();
+		}
+
+		private void DeleteAptRow(int rowIndex)
+		{
+			DataGridViewRow row = _aptDgv.Rows[rowIndex];
+			if (row.IsNewRow || row.Tag == null) return;
+
+			string icao = Cell(row, "ICAO");
+			if (MessageBox.Show("Delete " + icao + " ?", "Delete Airport", MessageBoxButtons.YesNo) != DialogResult.Yes)
+				return;
+
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			conn.Open();
+			OleDbCommand cmd = new OleDbCommand("DELETE From Stations_ICAO_IATA WHERE ID=?", conn);
+			cmd.Parameters.AddWithValue("?", (int)row.Tag);
+			cmd.ExecuteNonQuery();
+			conn.Close();
+
+			_aptDgv.Rows.Remove(row);
+			LoadStationsCache();
 		}
 
 		// ── helpers ──────────────────────────────────────────────────────────
+
+		private static string Cell(DataGridViewRow row, string columnName)
+		{
+			object v = row.Cells[columnName].Value;
+			return v == null ? "" : v.ToString().Trim();
+		}
+
+		private static bool CheckedCell(DataGridViewRow row, string columnName)
+		{
+			object v = row.Cells[columnName].Value;
+			return v != null && v is bool && (bool)v;
+		}
 
 		private void ClearTaggedControls(System.Windows.Forms.Control panel)
 		{
@@ -181,23 +222,6 @@ namespace ICAO_CSV
 			foreach (var c in browsers) { panel.Controls.Remove(c); c.Dispose(); }
 			foreach (var c in grids)    { panel.Controls.Remove(c); c.Dispose(); }
 			foreach (var c in combos)   { panel.Controls.Remove(c); c.Dispose(); }
-		}
-
-		private void AddDisposableLabel(System.Windows.Forms.Control parent, FontFamily family, string text, int top, int left, int width, System.Drawing.Color color)
-		{
-			Label lbl = new Label { Font = new Font(family, 11.0f, FontStyle.Bold), Tag = "dispose", Top = top, Left = left, Size = new Size(width, 16), ForeColor = color, Text = text };
-			parent.Controls.Add(lbl);
-		}
-
-		private void AddDisposableCheckBox(System.Windows.Forms.Control parent, int top, int left, bool chked)
-		{
-			CheckBox chk = new CheckBox { Enabled = false, Tag = "dispose", Top = top, Left = left, Size = new Size(20, 16), ForeColor = Color.DimGray, Checked = chked };
-			parent.Controls.Add(chk);
-		}
-
-		private Button MakeSmallButton(string text, System.Drawing.Color color, System.Drawing.Point location)
-		{
-			return new Button { Tag = "dispose", Size = new Size(35, 20), Location = location, Text = text, BackColor = color, Font = new Font(System.Drawing.SystemFonts.DefaultFont.FontFamily, 7) };
 		}
 	}
 }

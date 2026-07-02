@@ -51,13 +51,6 @@ namespace ICAO_CSV
 		private System.Windows.Forms.RadioButton radBtn_7days;
 		private System.Windows.Forms.Button Btn_delWithdrawned;
 		private System.Windows.Forms.TabPage APT_List;
-		private System.Windows.Forms.Button Btn_CopyAPTList;
-		private System.Windows.Forms.Button Btn_addAPT;
-		private System.Windows.Forms.CheckBox ChckBx_APT_Charters;
-		private System.Windows.Forms.CheckBox ChckBx_APT_FedEx;
-		private System.Windows.Forms.CheckBox ChckBx_APT_LH;
-		private System.Windows.Forms.TextBox TxtBox_APT_IATA;
-		private System.Windows.Forms.TextBox TxtBox_APT_ICAO;
 		private System.Windows.Forms.Button Btn_printReport;
 		private System.Windows.Forms.Button Btn_exportReport;
 		private System.Windows.Forms.TabPage tabPage_Keywords;
@@ -162,13 +155,6 @@ namespace ICAO_CSV
 			this.Btn_sendReports = new System.Windows.Forms.Button();
 			this.Lbl_emailTitle = new System.Windows.Forms.Label();
 			this.APT_List = new System.Windows.Forms.TabPage();
-			this.Btn_CopyAPTList = new System.Windows.Forms.Button();
-			this.Btn_addAPT = new System.Windows.Forms.Button();
-			this.ChckBx_APT_Charters = new System.Windows.Forms.CheckBox();
-			this.ChckBx_APT_FedEx = new System.Windows.Forms.CheckBox();
-			this.ChckBx_APT_LH = new System.Windows.Forms.CheckBox();
-			this.TxtBox_APT_IATA = new System.Windows.Forms.TextBox();
-			this.TxtBox_APT_ICAO = new System.Windows.Forms.TextBox();
 			this.AIP_SUP_report = new System.Windows.Forms.TabPage();
 			this.Btn_Sup_printReport = new System.Windows.Forms.Button();
 			this.Btn_Sup_exportReport = new System.Windows.Forms.Button();
@@ -820,14 +806,7 @@ namespace ICAO_CSV
 			this.Btn_updateRWys.UseVisualStyleBackColor = true;
 			// 
 			// APT_List
-			// 
-			this.APT_List.Controls.Add(this.Btn_CopyAPTList);
-			this.APT_List.Controls.Add(this.Btn_addAPT);
-			this.APT_List.Controls.Add(this.ChckBx_APT_Charters);
-			this.APT_List.Controls.Add(this.ChckBx_APT_FedEx);
-			this.APT_List.Controls.Add(this.ChckBx_APT_LH);
-			this.APT_List.Controls.Add(this.TxtBox_APT_IATA);
-			this.APT_List.Controls.Add(this.TxtBox_APT_ICAO);
+			//
 			this.APT_List.Location = new System.Drawing.Point(4, 25);
 			this.APT_List.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
 			this.APT_List.Name = "APT_List";
@@ -835,73 +814,6 @@ namespace ICAO_CSV
 			this.APT_List.TabIndex = 5;
 			this.APT_List.Text = "APT List";
 			this.APT_List.UseVisualStyleBackColor = true;
-			// 
-			// Btn_CopyAPTList
-			// 
-			this.Btn_CopyAPTList.Location = new System.Drawing.Point(907, 26);
-			this.Btn_CopyAPTList.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-			this.Btn_CopyAPTList.Name = "Btn_CopyAPTList";
-			this.Btn_CopyAPTList.Size = new System.Drawing.Size(100, 27);
-			this.Btn_CopyAPTList.TabIndex = 13;
-			this.Btn_CopyAPTList.Text = "Copy List";
-			this.Btn_CopyAPTList.UseVisualStyleBackColor = true;
-			// 
-			// Btn_addAPT
-			// 
-			this.Btn_addAPT.Location = new System.Drawing.Point(509, 26);
-			this.Btn_addAPT.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-			this.Btn_addAPT.Name = "Btn_addAPT";
-			this.Btn_addAPT.Size = new System.Drawing.Size(115, 27);
-			this.Btn_addAPT.TabIndex = 12;
-			this.Btn_addAPT.Text = "Add Airport !";
-			this.Btn_addAPT.UseVisualStyleBackColor = true;
-			this.Btn_addAPT.Click += new System.EventHandler(this.Btn_addAPTClick);
-			// 
-			// ChckBx_APT_Charters
-			// 
-			this.ChckBx_APT_Charters.Location = new System.Drawing.Point(391, 30);
-			this.ChckBx_APT_Charters.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-			this.ChckBx_APT_Charters.Name = "ChckBx_APT_Charters";
-			this.ChckBx_APT_Charters.Size = new System.Drawing.Size(92, 20);
-			this.ChckBx_APT_Charters.TabIndex = 11;
-			this.ChckBx_APT_Charters.Text = "Charters";
-			this.ChckBx_APT_Charters.UseVisualStyleBackColor = true;
-			// 
-			// ChckBx_APT_FedEx
-			// 
-			this.ChckBx_APT_FedEx.Location = new System.Drawing.Point(304, 30);
-			this.ChckBx_APT_FedEx.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-			this.ChckBx_APT_FedEx.Name = "ChckBx_APT_FedEx";
-			this.ChckBx_APT_FedEx.Size = new System.Drawing.Size(92, 20);
-			this.ChckBx_APT_FedEx.TabIndex = 10;
-			this.ChckBx_APT_FedEx.Text = "FedEx";
-			this.ChckBx_APT_FedEx.UseVisualStyleBackColor = true;
-			// 
-			// ChckBx_APT_LH
-			// 
-			this.ChckBx_APT_LH.Location = new System.Drawing.Point(199, 27);
-			this.ChckBx_APT_LH.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-			this.ChckBx_APT_LH.Name = "ChckBx_APT_LH";
-			this.ChckBx_APT_LH.Size = new System.Drawing.Size(107, 21);
-			this.ChckBx_APT_LH.TabIndex = 9;
-			this.ChckBx_APT_LH.Text = "Long Haul";
-			this.ChckBx_APT_LH.UseVisualStyleBackColor = true;
-			// 
-			// TxtBox_APT_IATA
-			// 
-			this.TxtBox_APT_IATA.Location = new System.Drawing.Point(109, 27);
-			this.TxtBox_APT_IATA.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-			this.TxtBox_APT_IATA.Name = "TxtBox_APT_IATA";
-			this.TxtBox_APT_IATA.Size = new System.Drawing.Size(72, 22);
-			this.TxtBox_APT_IATA.TabIndex = 8;
-			// 
-			// TxtBox_APT_ICAO
-			// 
-			this.TxtBox_APT_ICAO.Location = new System.Drawing.Point(29, 27);
-			this.TxtBox_APT_ICAO.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
-			this.TxtBox_APT_ICAO.Name = "TxtBox_APT_ICAO";
-			this.TxtBox_APT_ICAO.Size = new System.Drawing.Size(65, 22);
-			this.TxtBox_APT_ICAO.TabIndex = 7;
 			//
 			// AIP_SUP_report
 			// 
