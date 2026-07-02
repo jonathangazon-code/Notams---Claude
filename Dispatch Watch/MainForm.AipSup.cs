@@ -45,8 +45,11 @@ namespace ICAO_CSV
 
 		public void AIP_SUP_Checklist() { } // replaced by HTML checkboxes in Sup_Report()
 
-		// The report auto-loads when the tab is selected, and re-runs whenever the
-		// dispatcher changes the time-window filter — there's no "Report !" button anymore.
+		// The report auto-loads when the tab is selected (TabPage.Enter fires whenever this
+		// page becomes the active tab), and re-runs whenever the dispatcher changes the
+		// time-window filter — there's no "Report !" button anymore.
+		void AipSupReportTabEnter(object sender, EventArgs e) { Sup_Report(); }
+
 		void RadBtn_supReportWindowCheckedChanged(object sender, EventArgs e)
 		{
 			if (((RadioButton)sender).Checked) Sup_Report();

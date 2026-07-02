@@ -302,7 +302,6 @@ namespace ICAO_CSV
 			this.tabControl1.Size = new System.Drawing.Size(1885, 1268);
 			this.tabControl1.TabIndex = 20;
 			this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.tabControl1.SelectedIndexChanged += new System.EventHandler(this.TabControl1SelectedIndexChanged);
 			//
 			// tabPage_Email
 			//
@@ -676,7 +675,8 @@ namespace ICAO_CSV
 			this.tabPage4.TabIndex = 3;
 			this.tabPage4.Text = "NOTAM Report";
 			this.tabPage4.UseVisualStyleBackColor = true;
-			// 
+			this.tabPage4.Enter += new System.EventHandler(this.TabPage4Enter);
+			//
 			// Btn_printReport
 			// 
 			this.Btn_printReport.BackColor = System.Drawing.Color.Black;
@@ -919,7 +919,8 @@ namespace ICAO_CSV
 			this.AIP_SUP_report.TabIndex = 7;
 			this.AIP_SUP_report.Text = "AIP SUP Report";
 			this.AIP_SUP_report.UseVisualStyleBackColor = true;
-			// 
+			this.AIP_SUP_report.Enter += new System.EventHandler(this.AipSupReportTabEnter);
+			//
 			// Btn_Sup_printReport
 			// 
 			this.Btn_Sup_printReport.BackColor = System.Drawing.Color.Black;
