@@ -114,11 +114,19 @@ namespace ICAO_CSV
 					string fromTxt     = dateTransformation(fromDate);
 					string tillTxt     = dateTransformation(tillDate);
 
-					string thBg  = (loaded_avio == "Yes") ? "" : " bgcolor=\"Red\"";
-					string chkd  = (loaded_avio == "Yes") ? " checked" : "";
-					string chk_status = "<th id=\"th_" + int_APT_ID + "\"" + thBg + " style=\"width:30px\">" +
-						"<input type=\"checkbox\" id=\"chk_" + int_APT_ID + "\"" + chkd +
-						" onclick=\"window.external.UpdateAviobook(" + int_APT_ID + ")\"></th>";
+					// A CSS-styled "checkbox" (colored square + checkmark) instead of a native
+					// <input type="checkbox"> — native checkboxes render as tiny, blurry
+					// glyphs in the wkhtmltopdf PDF export (different rendering engine than
+					// the app's WebBrowser preview); this div-based version renders
+					// identically (crisp, same size/color) in both.
+					bool isYes = loaded_avio == "Yes";
+					string chkColor = isYes ? "#2e7d52" : "#c62828";
+					string chkMark  = isYes ? "&#10003;" : "";
+					string chk_status = "<th id=\"th_" + int_APT_ID + "\" style=\"width:34px;text-align:center\">" +
+						"<div id=\"chk_" + int_APT_ID + "\" onclick=\"window.external.UpdateAviobook(" + int_APT_ID + ")\" " +
+						"style=\"width:18px;height:18px;margin:0 auto;border-radius:3px;cursor:pointer;" +
+						"background:" + chkColor + ";color:#fff;font-weight:bold;line-height:18px;" +
+						"font-family:Arial;font-size:13px\">" + chkMark + "</div></th>";
 
 					string row = "<tr><th style=\"color:SaddleBrown;\">" + location + "</th>" +
 						"<th style=\"width:100px;font-family:Courier New;\">" + key + "</th>" +
@@ -142,9 +150,7 @@ namespace ICAO_CSV
 			string js = "<script type=\"text/javascript\">" +
 				"function updateCheckbox(id,isYes){" +
 				"var chk=document.getElementById('chk_'+id);" +
-				"var th=document.getElementById('th_'+id);" +
-				"if(chk)chk.checked=isYes;" +
-				"if(th)th.bgColor=isYes?'':'Red';}" +
+				"if(chk){chk.style.background=isYes?'#2e7d52':'#c62828';chk.innerHTML=isYes?'&#10003;':'';}}" +
 				"</script>";
 			string report = "<html><head><title>AIP SUP Listing</title>" + js + "</head>" +
 				"<body style=\"font-family:Calibri\">" +

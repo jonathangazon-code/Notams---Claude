@@ -30,7 +30,11 @@ namespace ICAO_CSV
 
 				var proc = new System.Diagnostics.Process();
 				proc.StartInfo.FileName        = wkhtmlExe;
-				proc.StartInfo.Arguments       = "--dpi 500 --disable-smart-shrinking \"" + tempHtml + "\" \"" + pdfPath + "\"";
+				// A very high --dpi with no matching --zoom shrinks all CSS px-sized content
+				// (text, table borders, the AIP SUP checkboxes) tiny and blurry on the page —
+				// text in a PDF is vector-drawn regardless of DPI, so a plain 96 DPI (the
+				// default wkhtmltopdf/browser assumption) renders crisp at any zoom level.
+				proc.StartInfo.Arguments       = "--dpi 96 --disable-smart-shrinking --image-quality 100 \"" + tempHtml + "\" \"" + pdfPath + "\"";
 				proc.StartInfo.UseShellExecute = false;
 				proc.StartInfo.CreateNoWindow  = true;
 				proc.Start();
