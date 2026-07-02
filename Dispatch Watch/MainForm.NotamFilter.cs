@@ -670,13 +670,15 @@ namespace ICAO_CSV
 		private string BuildAirportCardHtml(string AP, string RWYs, int newCount, out int headerHeight)
 		{
 			string iata = GetIATA(AP);
+			string name = GetAirportName(AP);
 			string[] rwyLines = RWYs.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
 			System.Collections.Generic.List<string> rwyClean = new System.Collections.Generic.List<string>();
 			foreach (string rl in rwyLines) if (rl.Trim() != "") rwyClean.Add(rl.Trim());
 			int pairRows = (rwyClean.Count + 1) / 2;
-			headerHeight = Math.Max(72 + pairRows * 26 + 12, 72 + 130);
+			headerHeight = Math.Max(72 + pairRows * 26 + 12, 72 + 130) + (name != "" ? 16 : 0);
 
 			string iataLine = (iata != "" && iata != AP) ? "<div class=\"sub\">IATA: " + iata + "</div>" : "";
+			string nameLine = name != "" ? "<div class=\"apname\">" + name.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
 			string leftCol = "", rightCol = "";
 			for (int i = 0; i < rwyClean.Count; i++)
 			{
@@ -693,8 +695,10 @@ namespace ICAO_CSV
 				"body{margin:0;padding:10px 14px;background:#263238;font-family:'Courier New',monospace;overflow:hidden;position:relative}" +
 				".icao{font-size:22px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
 				".newbadge{font-size:13px;font-weight:normal;letter-spacing:0;color:#ffca28;margin-left:12px}" +
-				".sub{font-size:13px;color:#78909c;margin-top:2px;margin-bottom:10px}" +
-				".blk{font-size:13px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:6px 14px;margin-top:10px;margin-right:10px;vertical-align:top}" +
+				".sub{font-size:13px;color:#78909c;margin-top:2px}" +
+				".apname{font-size:13px;color:#90a4ae;margin-top:1px}" +
+				".blk{font-size:13px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:6px 14px;margin-right:10px;vertical-align:top}" +
+				".rwytable{margin-top:10px}" +
 				".rwyline{white-space:nowrap;line-height:1.9}" +
 				".diagram{position:absolute;top:8px;right:14px}" +
 				"</style></head><body>" +
@@ -703,7 +707,8 @@ namespace ICAO_CSV
 				(newCount > 0 ? "<span class=\"newbadge\">" + newCount + " new</span>" : "") +
 				"</div>" +
 				iataLine +
-				"<table cellspacing=\"0\" cellpadding=\"0\"><tr>" +
+				nameLine +
+				"<table class=\"rwytable\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
 				"<td class=\"blk\">" + leftCol + "</td>" +
 				"<td class=\"blk\">" + rightCol + "</td>" +
 				"</tr></table>" +
