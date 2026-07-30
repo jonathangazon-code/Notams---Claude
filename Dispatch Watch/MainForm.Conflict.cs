@@ -122,10 +122,14 @@ namespace ICAO_CSV
 			Web_Conflict.DocumentText = html;
 		}
 
+		// Widened from the intended ±2h to ±12h for testing (no conflicts were showing up
+		// with the tighter window) — revert to 2 once verified against real data.
+		private const int ConflictWindowHours = 12;
+
 		private bool Overlaps(DateTime notamStart, DateTime notamEnd, DateTime flightTime)
 		{
-			DateTime winStart = flightTime.AddHours(-2);
-			DateTime winEnd   = flightTime.AddHours(2);
+			DateTime winStart = flightTime.AddHours(-ConflictWindowHours);
+			DateTime winEnd   = flightTime.AddHours(ConflictWindowHours);
 			return notamStart <= winEnd && notamEnd >= winStart;
 		}
 
