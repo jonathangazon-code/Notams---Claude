@@ -1,0 +1,5 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ArchiveConfig>
+  <FlightScheduleServiceUrl>http://10.48.12.43:5458/FlightScheduleService.svc/web/</FlightScheduleServiceUrl>
+  <BriefingServiceUrl>http://10.48.12.43:5455/BriefingService.svc/web/</BriefingServiceUrl>
+</ArchiveConfig>

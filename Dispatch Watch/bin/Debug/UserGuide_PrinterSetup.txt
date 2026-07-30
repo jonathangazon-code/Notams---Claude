@@ -1,0 +1,33 @@
+Internet Explorer is not Available in Windows 11, Edge is launched per default.
+The Print "Page Setup" has to be adapted in INTERNET EXPLORER for the application to export the pdf file properly (margins, and background colors)
+
+*****************************************************************
+Trick to open Internet Explorer:
+Type Internet Options in the Start menu search bar.
+Open the Control Panel applet that appears in the results.
+Find the Programs tab and click Manage add-ons.
+Finally, click Learn more about toolbars and extensions in the bottom-left corner of the window.
+For some strange reason, this will launch Internet Explorer, bypassing the commands that normally force you into Edge.
+*****************************************************************
+Once Internet Explorer is finally opened:
+Than click on the "Tools" wheel on top right corner
+-> Print
+-> Page Setup
+-> tick "Print Background Colors and Images"
+-> Header And Footers : all fields to "Empty"
+
+Margin Left and Right 19.05
+Margin Top and Bottom 10
+
+
+
+--------------
+French Version
+--------------
+Truc pour ouvrir internet explorer :
+Tapez Options Internet dans la barre de recherche du menu Démarrer.
+Ouvrez l’applet du Panneau de configuration qui apparaît dans les résultats.
+Trouvez l’onglet Programmes puis cliquez sur Gérer les modules complémentaires.
+Cliquez enfin sur En savoir plus sur les barres d’outils et les extensions dans le coin inférieur gauche de la fenêtre.
+Pour une raison étrange, cela lancera Internet Explorer en contournant les commandes qui vous dirigent de force sur Edge.
+
