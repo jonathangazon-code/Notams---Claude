@@ -190,6 +190,8 @@ namespace ICAO_CSV
 					if (!int.TryParse(El(flight, FsNs + "Fltleg_ID"), out fltlegId) || fltlegId == 0) continue;
 
 					string callsign = El(flight, FsNs + "FPfx") + El(flight, FsNs + "FLNr");
+					if (!CallsignAllowed(callsign)) continue;   // e.g. only TAY/FDX/DHL, set on the Admin tab
+
 					string reg      = El(flight, FsNs + "ACREG");
 					string std      = El(flight, FsNs + "STD");
 					string fldtVal  = El(flight, FsNs + "FLDt");
@@ -292,6 +294,20 @@ namespace ICAO_CSV
 					toDrop.Add(id);
 			}
 			csvRdr.Close();
+
+			// Also drop any previously-stored row (either source) whose callsign no longer
+			// matches the Admin tab's filter — covers rows fetched before the filter was
+			// set/changed, since the day/CSV loops above already skip disallowed callsigns
+			// going forward but don't touch what's already in the table.
+			OleDbDataReader allRdr = new OleDbCommand("SELECT FltlegID, Callsign FROM FlightSchedule", wconn).ExecuteReader();
+			while (allRdr.Read())
+			{
+				int id = Convert.ToInt32(allRdr.GetValue(0));
+				string callsign = allRdr.IsDBNull(1) ? "" : allRdr.GetString(1);
+				if (!CallsignAllowed(callsign) && !toDrop.Contains(id)) toDrop.Add(id);
+			}
+			allRdr.Close();
+
 			foreach (int id in toDrop)
 			{
 				OleDbCommand del = new OleDbCommand("DELETE FROM FlightSchedule WHERE FltlegID=?", wconn);
@@ -331,6 +347,8 @@ namespace ICAO_CSV
 				if (!int.TryParse((id ?? "").Trim(), out csvId) || csvId == 0) continue;
 
 				string callsign = (callsignRaw ?? "").Trim();
+				if (!CallsignAllowed(callsign)) continue;   // e.g. only TAY/FDX/DHL, set on the Admin tab
+
 				string reg = (aircraft ?? "").Replace("-", "").Trim().ToUpper();
 
 				DateTime stdDt, staDt;
