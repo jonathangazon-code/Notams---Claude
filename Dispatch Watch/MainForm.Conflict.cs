@@ -83,9 +83,9 @@ namespace ICAO_CSV
 				foreach (FsFlight f in flights)
 				{
 					if (f.Origin == iata && f.HasStd && Overlaps(notamStart, notamEnd, f.Std))
-						matches.Add(f.Callsign + " — origin — STD " + FormatUtc(f.Std) + "Z");
+						matches.Add(f.Callsign + " (" + f.Origin + "-" + f.Dest + ") — origin — STD " + FormatUtc(f.Std) + "Z");
 					if (f.Dest == iata && f.HasSta && Overlaps(notamStart, notamEnd, f.Sta))
-						matches.Add(f.Callsign + " — destination — STA " + FormatUtc(f.Sta) + "Z");
+						matches.Add(f.Callsign + " (" + f.Origin + "-" + f.Dest + ") — destination — STA " + FormatUtc(f.Sta) + "Z");
 				}
 				if (matches.Count == 0) continue;   // no conflict — nothing to show for this NOTAM
 
@@ -113,10 +113,14 @@ namespace ICAO_CSV
 				"<html xmlns:v=\"urn:schemas-microsoft-com:vml\"><head><style>" +
 				"v\\:*{behavior:url(#default#VML)}" +
 				"body{margin:0;padding:16px;font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#222}" +
-				".sectionHeader{display:block;padding:10px 14px;border-left:4px solid;border-radius:6px;margin:0 0 8px 0}" +
+				".sectionHeader{position:relative;display:block;padding:10px 14px;border-left:4px solid;border-radius:6px;margin:0 0 8px 0}" +
 				".dot{display:inline-block;width:10px;height:10px;border-radius:5px;margin-right:8px}" +
 				".sectionTitle{font-size:15px;font-weight:bold;color:#222}" +
-				".count{float:right;color:#fff;font-size:12px;padding:2px 10px;border-radius:10px}" +
+				// Absolute rather than float:right — in the IE7-mode WebBrowser, a floated
+				// span after inline content doesn't get cleared by the section header (whose
+				// height then collapses around it), so the badge visually escapes its own
+				// header and overlaps the airport card below instead of sitting flush right.
+				".count{position:absolute;top:10px;right:14px;color:#fff;font-size:12px;padding:2px 10px;border-radius:10px}" +
 				".card{border:1px solid #cfd8dc;border-radius:8px;overflow:hidden;margin:0 0 18px 0}" +
 				".ahead{background:#263238;padding:14px 18px;position:relative}" +
 				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
