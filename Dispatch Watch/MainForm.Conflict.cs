@@ -70,15 +70,21 @@ namespace ICAO_CSV
 				string remark   = reader.IsDBNull(ordRemark) ? "" : reader.GetString(ordRemark);
 				if (location == "") continue;
 
+				// FlightSchedule.Origin/Dest are IATA codes (webservice's iataID, and the
+				// CSV's DEP/ARR columns) while the NOTAM's location is ICAO — comparing them
+				// directly never matched. Convert the NOTAM's station to IATA once here.
+				string iata = GetIATA(location);
+				if (iata == "") continue;   // station not in Stations_ICAO_IATA — no IATA to match flights against
+
 				DateTime notamStart, notamEnd;
 				if (!TryParseNotamDate(startRaw, out notamStart) || !TryParseNotamDate(endRaw, out notamEnd)) continue;
 
 				List<string> matches = new List<string>();
 				foreach (FsFlight f in flights)
 				{
-					if (f.Origin == location && f.HasStd && Overlaps(notamStart, notamEnd, f.Std))
+					if (f.Origin == iata && f.HasStd && Overlaps(notamStart, notamEnd, f.Std))
 						matches.Add(f.Callsign + " — origin — STD " + FormatUtc(f.Std) + "Z");
-					if (f.Dest == location && f.HasSta && Overlaps(notamStart, notamEnd, f.Sta))
+					if (f.Dest == iata && f.HasSta && Overlaps(notamStart, notamEnd, f.Sta))
 						matches.Add(f.Callsign + " — destination — STA " + FormatUtc(f.Sta) + "Z");
 				}
 				if (matches.Count == 0) continue;   // no conflict — nothing to show for this NOTAM
