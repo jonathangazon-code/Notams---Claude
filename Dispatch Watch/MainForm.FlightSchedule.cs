@@ -211,6 +211,12 @@ namespace ICAO_CSV
 					string fldtVal  = El(flight, FsNs + "FLDt");
 					string origin   = NestedIata(flight, FsNs + "departureAerodrome");
 					string dest     = NestedIata(flight, FsNs + "arrivalAerodrome");
+					// getFlightList also returns placeholder/technical entries alongside the
+					// real flight — same STD/ACREG as a genuine flight but no route and no
+					// crew, FLNr defaulting to "3" (hence the recurring bogus "TAY3" rows).
+					// A real flight always has both ends of its route; anything without one
+					// isn't a flight the dispatcher needs to see.
+					if (origin == "" && dest == "") continue;
 
 					List<string> crewParts = new List<string>();
 					XElement crewMembers = flight.Element(FsNs + "CrewMembers");
@@ -330,6 +336,19 @@ namespace ICAO_CSV
 			}
 			allRdr.Close();
 
+			// Purge already-stored ghost/placeholder rows from before this guard existed —
+			// getFlightList's routeless "TAY3"-style entries (see above) may already sit in
+			// the table from earlier refreshes.
+			OleDbDataReader routeRdr = new OleDbCommand("SELECT FltlegID, Origin, Dest FROM FlightSchedule", wconn).ExecuteReader();
+			while (routeRdr.Read())
+			{
+				int id = Convert.ToInt32(routeRdr.GetValue(0));
+				string o = routeRdr.IsDBNull(1) ? "" : routeRdr.GetString(1);
+				string d = routeRdr.IsDBNull(2) ? "" : routeRdr.GetString(2);
+				if (o == "" && d == "" && !toDrop.Contains(id)) toDrop.Add(id);
+			}
+			routeRdr.Close();
+
 			foreach (int id in toDrop)
 			{
 				OleDbCommand del = new OleDbCommand("DELETE FROM FlightSchedule WHERE FltlegID=?", wconn);
@@ -381,11 +400,14 @@ namespace ICAO_CSV
 				if (!CallsignAllowed(callsign)) continue;   // e.g. only TAY/FDX/DHL, set on the Admin tab
 
 				string reg = (aircraft ?? "").Replace("-", "").Trim().ToUpper();
+				string origin = (dep ?? "").Trim().ToUpper();
+				string dest = (arr ?? "").Trim().ToUpper();
 
 				DateTime stdDt, staDt;
 				string std = TryParseCsvDate(stdRaw, out stdDt) ? stdDt.ToString("yyyy-MM-ddTHH:mm:ss") + "Z" : "";
 				string sta = TryParseCsvDate(staRaw, out staDt) ? staDt.ToString("yyyy-MM-ddTHH:mm:ss") + "Z" : "";
 				if (callsign == "" || std == "") continue;   // not enough to place it in the grid
+				if (origin == "" && dest == "") continue;   // same guard as the webservice path — no route, not a real flight
 
 				string mergeKey = MergeKey(callsign, std);
 				int fltlegId = -csvId;
@@ -393,7 +415,7 @@ namespace ICAO_CSV
 				if (wsKeys.Contains(mergeKey)) continue;   // already covered by the real feed
 
 				string fldt = stdDt.ToString("yyyy-MM-dd");
-				result.Add(new object[] { fltlegId, fldt, callsign, reg, std, "", "CSV", sta, (dep ?? "").Trim().ToUpper(), (arr ?? "").Trim().ToUpper() });
+				result.Add(new object[] { fltlegId, fldt, callsign, reg, std, "", "CSV", sta, origin, dest });
 			}
 			return result;
 		}
