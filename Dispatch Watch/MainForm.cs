@@ -33,6 +33,7 @@ namespace ICAO_CSV
 			PreloadAirportNamesAsync();   // load airports.csv name index off the UI thread
 			EnsureArchiveConfig();
 			EnsureFlightScheduleTable();
+			EnsureFlightSchedFolder();
 			RefreshLastDbUpdateLabel();
 			LoadKeywords();
 			LoadStationsCache();

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data.OleDb;
 using System.Drawing;
 using System.Globalization;
+using System.IO;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
@@ -23,6 +24,9 @@ namespace ICAO_CSV
 		// Flight schedule cache in ICAO_storedNotams.mdb — one row per Fltleg_ID. STA is
 		// the expensive field (one getBriefing call per flight), so it's kept here and
 		// only re-fetched when a flight's STD has actually changed since last cached.
+		// [Source] distinguishes a webservice-backed row ('WS') from a temporary one built
+		// from the CSV fallback ('CSV', see LoadCsvSupplementalFlights) — old rows predate
+		// this column and read back as "", which is treated as 'WS' everywhere below.
 		public void EnsureFlightScheduleTable()
 		{
 			try
@@ -31,9 +35,22 @@ namespace ICAO_CSV
 				conn.Open();
 				try { new OleDbCommand("CREATE TABLE FlightSchedule ([FltlegID] LONG, [FLDt] TEXT(10), [Callsign] TEXT(20), [Reg] TEXT(10), [STD] TEXT(25), [STA] TEXT(25), [Crew] TEXT(255))", conn).ExecuteNonQuery(); }
 				catch { /* already exists */ }
+				try { new OleDbCommand("ALTER TABLE FlightSchedule ADD COLUMN Source TEXT(3)", conn).ExecuteNonQuery(); }
+				catch { /* already exists */ }
 				conn.Close();
 			}
 			catch { }
+		}
+
+		// Where the dispatcher drops the FPM "Refuel EU" CSV export as a stand-in for
+		// flights the FlightScheduleService.svc feed doesn't expose yet. Created next to
+		// the exe so it's obvious where to put the file; the exact filename doesn't
+		// matter, the most recently modified *.csv in the folder is used.
+		private static string FlightSchedCsvFolder { get { return Path.Combine(Application.StartupPath, "FlightSched"); } }
+
+		public void EnsureFlightSchedFolder()
+		{
+			try { Directory.CreateDirectory(FlightSchedCsvFolder); } catch { }
 		}
 
 		void FlightScheduleTabEnter(object sender, EventArgs e)
@@ -119,6 +136,15 @@ namespace ICAO_CSV
 			return e != null ? e.Value : "";
 		}
 
+		// A flight's identity across both sources — same physical flight should carry the
+		// same Callsign+STD whether it comes from the webservice or the CSV fallback, so
+		// this is the key used to detect a CSV placeholder that has since "graduated" to
+		// a real webservice entry.
+		private static string MergeKey(string callsign, string std)
+		{
+			return (callsign ?? "").Trim().ToUpper() + "|" + (std ?? "").Trim();
+		}
+
 		private void FetchFlightSchedule(Action<int, string> onProgress)
 		{
 			Dictionary<int, string[]> cached = new Dictionary<int, string[]>();   // FltlegID -> [STD, STA]
@@ -135,13 +161,17 @@ namespace ICAO_CSV
 			}
 			rconn.Close();
 
-			List<object[]> flights = new List<object[]>();   // FltlegID, FLDt, Callsign, Reg, STD, Crew
+			// FltlegID, FLDt, Callsign, Reg, STD, Crew, Source ("WS"/"CSV"), precomputed STA
+			// (CSV rows already carry their own STA — no getBriefing call needed/possible
+			// since they have no real Fltleg_ID yet).
+			List<object[]> flights = new List<object[]>();
+			HashSet<string> wsKeys = new HashSet<string>();   // Callsign|STD already covered by the webservice
 
 			for (int dayOffset = 0; dayOffset <= 7; dayOffset++)
 			{
 				DateTime day = DateTime.UtcNow.Date.AddDays(dayOffset);
 				string fldt = day.ToString("ddMMMyy", CultureInfo.InvariantCulture).ToUpper();
-				onProgress(dayOffset * 10 / 8, "Downloading flight list for " + fldt + "...");
+				onProgress(dayOffset * 10 / 16, "Downloading flight list for " + fldt + "...");
 
 				string xml;
 				try
@@ -175,9 +205,15 @@ namespace ICAO_CSV
 						}
 					string crew = string.Join(" / ", crewParts.ToArray());
 
-					flights.Add(new object[] { fltlegId, fldtVal, callsign, reg, std, crew });
+					flights.Add(new object[] { fltlegId, fldtVal, callsign, reg, std, crew, "WS", null });
+					wsKeys.Add(MergeKey(callsign, std));
 				}
 			}
+
+			onProgress(50, "Reading FlightSched CSV fallback...");
+			HashSet<int> csvIdsSeen = new HashSet<int>();
+			foreach (object[] csvFlight in LoadCsvSupplementalFlights(wsKeys, csvIdsSeen))
+				flights.Add(csvFlight);
 
 			OleDbConnection wconn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			wconn.Open();
@@ -191,32 +227,39 @@ namespace ICAO_CSV
 				string reg      = (string)f[3];
 				string std      = (string)f[4];
 				string crew     = (string)f[5];
+				string source   = (string)f[6];
+				string csvSta   = (string)f[7];
 
 				string[] cache;
 				bool exists = cached.TryGetValue(fltlegId, out cache);
-				// getBriefing legitimately 404s/errors for flights whose briefing hasn't
-				// been generated yet (e.g. far-future legs) — FetchSta already swallows
-				// that and returns "", and the flight is still persisted with a blank STA
-				// rather than being dropped from the list.
-				string sta = (exists && cache[0] == std && cache[1] != "") ? cache[1] : FetchSta(fltlegId);
+				string sta;
+				if (source == "CSV")
+					sta = csvSta;   // no Fltleg_ID to brief yet — STA comes straight from the CSV
+				else
+					// getBriefing legitimately 404s/errors for flights whose briefing hasn't
+					// been generated yet (e.g. far-future legs) — FetchSta already swallows
+					// that and returns "", and the flight is still persisted with a blank STA
+					// rather than being dropped from the list.
+					sta = (exists && cache[0] == std && cache[1] != "") ? cache[1] : FetchSta(fltlegId);
 
 				try
 				{
 				if (exists)
 				{
-					OleDbCommand upd = new OleDbCommand("UPDATE FlightSchedule SET FLDt=?, Callsign=?, Reg=?, STD=?, STA=?, Crew=? WHERE FltlegID=?", wconn);
+					OleDbCommand upd = new OleDbCommand("UPDATE FlightSchedule SET FLDt=?, Callsign=?, Reg=?, STD=?, STA=?, Crew=?, Source=? WHERE FltlegID=?", wconn);
 					upd.Parameters.AddWithValue("?", fldtVal);
 					upd.Parameters.AddWithValue("?", callsign);
 					upd.Parameters.AddWithValue("?", reg);
 					upd.Parameters.AddWithValue("?", std);
 					upd.Parameters.AddWithValue("?", sta);
 					upd.Parameters.AddWithValue("?", crew);
+					upd.Parameters.AddWithValue("?", source);
 					upd.Parameters.AddWithValue("?", fltlegId);
 					upd.ExecuteNonQuery();
 				}
 				else
 				{
-					OleDbCommand ins = new OleDbCommand("INSERT INTO FlightSchedule ([FltlegID],[FLDt],[Callsign],[Reg],[STD],[STA],[Crew]) VALUES (?,?,?,?,?,?,?)", wconn);
+					OleDbCommand ins = new OleDbCommand("INSERT INTO FlightSchedule ([FltlegID],[FLDt],[Callsign],[Reg],[STD],[STA],[Crew],[Source]) VALUES (?,?,?,?,?,?,?,?)", wconn);
 					ins.Parameters.AddWithValue("?", fltlegId);
 					ins.Parameters.AddWithValue("?", fldtVal);
 					ins.Parameters.AddWithValue("?", callsign);
@@ -224,15 +267,141 @@ namespace ICAO_CSV
 					ins.Parameters.AddWithValue("?", std);
 					ins.Parameters.AddWithValue("?", sta);
 					ins.Parameters.AddWithValue("?", crew);
+					ins.Parameters.AddWithValue("?", source);
 					ins.ExecuteNonQuery();
 				}
 				}
 				catch { /* one bad row shouldn't drop the rest of the week */ }
 
 				done++;
-				onProgress(10 + done * 90 / Math.Max(1, total), "Loading briefing " + done + " / " + total + "...");
+				onProgress(50 + done * 45 / Math.Max(1, total), "Loading briefing " + done + " / " + total + "...");
 			}
+
+			// Drop stale CSV placeholders: ones that graduated to a real webservice row
+			// (merge key now covered by a "WS" row — the CSV row is superseded and would
+			// otherwise sit alongside it as a duplicate) or ones simply no longer present
+			// in the latest CSV file (cancelled/dropped from the export).
+			List<int> toDrop = new List<int>();
+			OleDbDataReader csvRdr = new OleDbCommand("SELECT FltlegID, Callsign, STD FROM FlightSchedule WHERE Source='CSV'", wconn).ExecuteReader();
+			while (csvRdr.Read())
+			{
+				int id = Convert.ToInt32(csvRdr.GetValue(0));
+				string csvCallsign = csvRdr.IsDBNull(1) ? "" : csvRdr.GetString(1);
+				string csvStd      = csvRdr.IsDBNull(2) ? "" : csvRdr.GetString(2);
+				if (wsKeys.Contains(MergeKey(csvCallsign, csvStd)) || !csvIdsSeen.Contains(id))
+					toDrop.Add(id);
+			}
+			csvRdr.Close();
+			foreach (int id in toDrop)
+			{
+				OleDbCommand del = new OleDbCommand("DELETE FROM FlightSchedule WHERE FltlegID=?", wconn);
+				del.Parameters.AddWithValue("?", id);
+				del.ExecuteNonQuery();
+			}
+
 			wconn.Close();
+		}
+
+		// Parses the most recently modified *.csv in FlightSchedCsvFolder (the FPM
+		// "Refuel EU" export the dispatcher drops there manually) and returns flights not
+		// already covered by the webservice feed (wsKeys), as synthetic FlightSchedule
+		// rows with Source="CSV". The CSV's own numeric "ID" column is negated to build a
+		// stable FltlegID that can never collide with a real (always positive) Fltleg_ID,
+		// so re-running with the same CSV updates the same row in place, and the row can
+		// later be matched/dropped once the flight appears for real on the webservice.
+		private List<object[]> LoadCsvSupplementalFlights(HashSet<string> wsKeys, HashSet<int> csvIdsSeen)
+		{
+			List<object[]> result = new List<object[]>();
+			string path = FindLatestFlightSchedCsv();
+			if (path == null) return result;
+
+			List<Dictionary<string, string>> rows;
+			try { rows = ParseCsvFile(path); } catch { return result; }
+
+			foreach (Dictionary<string, string> row in rows)
+			{
+				string id, callsignRaw, aircraft, stdRaw, staRaw;
+				if (!row.TryGetValue("ID", out id)) continue;
+				row.TryGetValue("ATC", out callsignRaw);
+				row.TryGetValue("Aircraft", out aircraft);
+				row.TryGetValue("STD", out stdRaw);
+				row.TryGetValue("STA", out staRaw);
+
+				int csvId;
+				if (!int.TryParse((id ?? "").Trim(), out csvId) || csvId == 0) continue;
+
+				string callsign = (callsignRaw ?? "").Trim();
+				string reg = (aircraft ?? "").Replace("-", "").Trim().ToUpper();
+
+				DateTime stdDt, staDt;
+				string std = TryParseCsvDate(stdRaw, out stdDt) ? stdDt.ToString("yyyy-MM-ddTHH:mm:ss") + "Z" : "";
+				string sta = TryParseCsvDate(staRaw, out staDt) ? staDt.ToString("yyyy-MM-ddTHH:mm:ss") + "Z" : "";
+				if (callsign == "" || std == "") continue;   // not enough to place it in the grid
+
+				string mergeKey = MergeKey(callsign, std);
+				int fltlegId = -csvId;
+				csvIdsSeen.Add(fltlegId);
+				if (wsKeys.Contains(mergeKey)) continue;   // already covered by the real feed
+
+				string fldt = stdDt.ToString("yyyy-MM-dd");
+				result.Add(new object[] { fltlegId, fldt, callsign, reg, std, "", "CSV", sta });
+			}
+			return result;
+		}
+
+		// The CSV's Date/STD/STA columns are "dd/MM/yyyy" and "dd/MM/yyyy HH:mm" — assumed
+		// UTC to match the webservice feed's convention (the export doesn't say either way;
+		// worth confirming against a known flight if the merged times look off by a few hours).
+		private static bool TryParseCsvDate(string raw, out DateTime result)
+		{
+			return DateTime.TryParseExact((raw ?? "").Trim(), "dd/MM/yyyy HH:mm",
+				CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out result);
+		}
+
+		private static string FindLatestFlightSchedCsv()
+		{
+			try
+			{
+				if (!Directory.Exists(FlightSchedCsvFolder)) return null;
+				string[] files = Directory.GetFiles(FlightSchedCsvFolder, "*.csv");
+				if (files.Length == 0) return null;
+				string latest = files[0];
+				DateTime latestTime = File.GetLastWriteTimeUtc(latest);
+				for (int i = 1; i < files.Length; i++)
+				{
+					DateTime t = File.GetLastWriteTimeUtc(files[i]);
+					if (t > latestTime) { latestTime = t; latest = files[i]; }
+				}
+				return latest;
+			}
+			catch { return null; }
+		}
+
+		// Quote-aware CSV parsing (headers can contain no commas here, but values like
+		// "TAY812 " and dates do), keyed by header name rather than fixed column index
+		// since the FPM export's column order/count isn't a contract Dispatch Watch
+		// controls. Reuses the same CsvSplit convention as MainForm.Rwys.cs/AirportList.cs.
+		private static List<Dictionary<string, string>> ParseCsvFile(string path)
+		{
+			List<Dictionary<string, string>> rows = new List<Dictionary<string, string>>();
+			using (StreamReader sr = new StreamReader(path))
+			{
+				string headerLine = sr.ReadLine();
+				if (headerLine == null) return rows;
+				string[] headers = CsvSplit(headerLine);
+
+				string line;
+				while ((line = sr.ReadLine()) != null)
+				{
+					if (line.Trim() == "") continue;
+					string[] fields = CsvSplit(line);
+					Dictionary<string, string> row = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+					for (int i = 0; i < headers.Length && i < fields.Length; i++)
+						row[headers[i].Trim()] = fields[i];
+					rows.Add(row);
+				}
+			}
+			return rows;
 		}
 
 		// A getBriefing response bundles several BriefingContentProduct blocks (OFP, MET,
