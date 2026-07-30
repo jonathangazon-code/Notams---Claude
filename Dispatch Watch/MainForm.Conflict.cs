@@ -20,17 +20,25 @@ namespace ICAO_CSV
 		void ConflictTabEnter(object sender, EventArgs e) { Build_Conflict_Report(); }
 
 		// Cross-references every Kept, impact-classified NOTAM against FlightSchedule:
-		// a conflict exists when the NOTAM's validity window overlaps the ±2h window
-		// around a flight's STD (station used as Origin) or STA (station used as Dest).
-		// One section per impact code (A/N/C/D/F, same severity order as
-		// SuggestedSingleCode), each listing the airport card + matching flights + full
-		// NOTAM text for every conflict found; SUP is out of scope for this tab.
+		// a conflict exists when the NOTAM's validity window overlaps the ±window (Admin
+		// tab, _conflictWindowHours) around a flight's STD (station used as Origin) or STA
+		// (station used as Dest). One section per impact code (A/N/C/D/F, same severity
+		// order as SuggestedSingleCode), each listing the airport card + matching flights +
+		// full NOTAM text for every conflict found; SUP is out of scope for this tab.
 		public void Build_Conflict_Report()
 		{
+			EnsureArchiveConfig();
 			List<FsFlight> flights = LoadFsFlights();
 
 			List<string> impactOrder = new List<string> { "A", "N", "C", "D", "F" };
 			StringBuilder body = new StringBuilder();
+
+			if (flights.Count == 0)
+				body.Append(
+					"<div class=\"warnBanner\">" +
+					"<span class=\"warnIcon\">&#9888;</span>" +
+					"Flight Schedule is empty — no flights to cross-reference. Load the <b>Flight Schedule</b> tab first, then come back here." +
+					"</div>");
 
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
@@ -117,32 +125,44 @@ namespace ICAO_CSV
 				".remark{font-size:12px;color:#455a64;margin:0 0 8px 0}" +
 				".notamkey{font-size:12px;color:#607d8b;font-weight:bold;margin:0 0 4px 0}" +
 				".notamtext{background:#f5f5f5;border-radius:6px;padding:10px 12px;font-family:'Courier New',monospace;font-size:12.5px;white-space:pre-wrap;line-height:1.6}" +
+				".warnBanner{background:#fff3e0;color:#7a4a00;border:1px solid #ffcc80;border-radius:6px;padding:10px 14px;margin:0 0 16px 0;font-size:13px}" +
+				".warnIcon{margin-right:8px}" +
 				"</style></head><body>" + body + "</body></html>";
 
 			Web_Conflict.DocumentText = html;
 		}
 
-		// Widened from the intended ±2h to ±12h for testing (no conflicts were showing up
-		// with the tighter window) — revert to 2 once verified against real data.
-		private const int ConflictWindowHours = 12;
-
 		private bool Overlaps(DateTime notamStart, DateTime notamEnd, DateTime flightTime)
 		{
-			DateTime winStart = flightTime.AddHours(-ConflictWindowHours);
-			DateTime winEnd   = flightTime.AddHours(ConflictWindowHours);
+			DateTime winStart = flightTime.AddHours(-_conflictWindowHours);
+			DateTime winEnd   = flightTime.AddHours(_conflictWindowHours);
 			return notamStart <= winEnd && notamEnd >= winStart;
 		}
 
 		private static string FormatUtc(DateTime dt) { return dt.ToString("dd/MM HH:mm"); }
 
-		// NOTAM start/enddate are stored as "yyyy-MM-dd HH:mm..." (see dateTransformation) —
-		// only the first 16 characters ("yyyy-MM-dd HH:mm") are the actual date/time.
+		// NOTAM start/enddate are actually stored ISO-style with a "T" separator (built in
+		// GetXML as "yyyy-MM-ddTHH:mm:ss.000Z") — ParseExact against a space-separated
+		// format silently failed for every row, so no NOTAM ever reached the overlap test
+		// regardless of window size. Extracted positionally instead (same style as
+		// dateTransformation(), which only reads the date portion and never cared whether
+		// position 10 was 'T' or a space) so this is resilient to either separator.
 		private static bool TryParseNotamDate(string raw, out DateTime result)
 		{
+			result = DateTime.MinValue;
 			raw = (raw ?? "").Trim();
-			if (raw.Length < 16) { result = DateTime.MinValue; return false; }
-			return DateTime.TryParseExact(raw.Substring(0, 16), "yyyy-MM-dd HH:mm",
-				CultureInfo.InvariantCulture, DateTimeStyles.None, out result);
+			if (raw.Length < 16) return false;
+			try
+			{
+				int year   = int.Parse(raw.Substring(0, 4));
+				int month  = int.Parse(raw.Substring(5, 2));
+				int day    = int.Parse(raw.Substring(8, 2));
+				int hour   = int.Parse(raw.Substring(11, 2));
+				int minute = int.Parse(raw.Substring(14, 2));
+				result = new DateTime(year, month, day, hour, minute, 0);
+				return true;
+			}
+			catch { return false; }
 		}
 
 		private List<FsFlight> LoadFsFlights()

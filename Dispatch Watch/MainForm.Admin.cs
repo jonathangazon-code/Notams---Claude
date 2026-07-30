@@ -20,11 +20,15 @@ namespace ICAO_CSV
 		// other operator's flights are filtered out of both the webservice feed and the
 		// CSV fallback. Also editable here.
 		private static List<string> _callsignPrefixFilters = new List<string> { "TAY", "FDX", "DHL" };
+		// ±window (hours) the Conflict tab uses around a flight's STD/STA to decide
+		// whether an overlapping NOTAM counts as a conflict. Editable here.
+		private static int _conflictWindowHours = 12;
 		private static bool   _archiveConfigLoaded;
 
 		private TextBox _adminFlightScheduleUrl;
 		private TextBox _adminBriefingUrl;
 		private TextBox _adminCallsignPrefixes;
+		private TextBox _adminConflictWindow;
 		private Label   _adminStatus;
 
 		private static string ArchiveConfigPath { get { return Path.Combine(Application.StartupPath, "ArchiveConfig.xml"); } }
@@ -41,9 +45,12 @@ namespace ICAO_CSV
 					XElement fs = root.Element("FlightScheduleServiceUrl");
 					XElement br = root.Element("BriefingServiceUrl");
 					XElement cs = root.Element("CallsignPrefixes");
+					XElement cw = root.Element("ConflictWindowHours");
 					if (fs != null && !string.IsNullOrEmpty(fs.Value)) _flightScheduleBaseUrl = fs.Value;
 					if (br != null && !string.IsNullOrEmpty(br.Value)) _briefingBaseUrl = br.Value;
 					if (cs != null && !string.IsNullOrEmpty(cs.Value)) _callsignPrefixFilters = ParsePrefixes(cs.Value);
+					int parsedWindow;
+					if (cw != null && int.TryParse(cw.Value, out parsedWindow) && parsedWindow > 0) _conflictWindowHours = parsedWindow;
 				}
 				else
 				{
@@ -62,7 +69,8 @@ namespace ICAO_CSV
 					new XElement("ArchiveConfig",
 						new XElement("FlightScheduleServiceUrl", _flightScheduleBaseUrl),
 						new XElement("BriefingServiceUrl", _briefingBaseUrl),
-						new XElement("CallsignPrefixes", string.Join(",", _callsignPrefixFilters.ToArray()))));
+						new XElement("CallsignPrefixes", string.Join(",", _callsignPrefixFilters.ToArray())),
+						new XElement("ConflictWindowHours", _conflictWindowHours)));
 				doc.Save(ArchiveConfigPath);
 			}
 			catch { }
@@ -123,18 +131,28 @@ namespace ICAO_CSV
 				Text = string.Join(",", _callsignPrefixFilters.ToArray()) };
 			tabPage_Admin.Controls.Add(_adminCallsignPrefixes);
 
-			Button save = new Button { Tag = "dispose", Top = 234, Left = 20, Width = 100, Height = 30, Text = "Save" };
+			Label lbl4 = new Label { Tag = "dispose", Top = 234, Left = 20, AutoSize = true,
+				Text = "Conflict tab — window around STD/STA (± hours)" };
+			tabPage_Admin.Controls.Add(lbl4);
+			_adminConflictWindow = new TextBox { Tag = "dispose", Top = 256, Left = 20, Width = 80,
+				Text = _conflictWindowHours.ToString() };
+			tabPage_Admin.Controls.Add(_adminConflictWindow);
+
+			Button save = new Button { Tag = "dispose", Top = 292, Left = 20, Width = 100, Height = 30, Text = "Save" };
 			save.Click += delegate
 			{
 				_flightScheduleBaseUrl   = _adminFlightScheduleUrl.Text.Trim();
 				_briefingBaseUrl         = _adminBriefingUrl.Text.Trim();
 				_callsignPrefixFilters   = ParsePrefixes(_adminCallsignPrefixes.Text);
+				int parsedWindow;
+				if (int.TryParse(_adminConflictWindow.Text.Trim(), out parsedWindow) && parsedWindow > 0)
+					_conflictWindowHours = parsedWindow;
 				SaveArchiveConfig();
 				_adminStatus.Text = "Saved.";
 			};
 			tabPage_Admin.Controls.Add(save);
 
-			_adminStatus = new Label { Tag = "dispose", Top = 242, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
+			_adminStatus = new Label { Tag = "dispose", Top = 300, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
 			tabPage_Admin.Controls.Add(_adminStatus);
 		}
 	}
