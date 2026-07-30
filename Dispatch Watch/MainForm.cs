@@ -31,6 +31,8 @@ namespace ICAO_CSV
 			PreloadCsvGeoAsync();   // load runways.csv geo index off the UI thread
 			EnsureAirportNameColumn();
 			PreloadAirportNamesAsync();   // load airports.csv name index off the UI thread
+			EnsureArchiveConfig();
+			EnsureFlightScheduleTable();
 			RefreshLastDbUpdateLabel();
 			LoadKeywords();
 			LoadStationsCache();

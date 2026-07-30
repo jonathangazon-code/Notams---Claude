@@ -30,8 +30,9 @@ There are no automated tests, no lint tools, and no CLI build commands — Sharp
 - Windows only (WinForms + OleDb)
 - `wkhtmltopdf.exe` must be placed next to the compiled `.exe` for PDF export to work
 - Two Access databases must be present at runtime:
-  - `ICAO_storedNotams.mdb` — NOTAMs, filter results, impact classification
+  - `ICAO_storedNotams.mdb` — NOTAMs, filter results, impact classification, and the Flight Schedule cache
   - `OCC.mdb` — station mapping (ICAO ↔ IATA, operator types, RWY info)
+- Network access to the fleet's flight-planning web services (`FlightScheduleService.svc`/`BriefingService.svc`) is required for the Flight Schedule tab; base URLs are configurable on the Admin tab (`ArchiveConfig.xml`, auto-created on first run)
 
 ## Architecture
 
@@ -54,6 +55,8 @@ There are no automated tests, no lint tools, and no CLI build commands — Sharp
 | `MainForm.Export.cs` | `ExportToPdf()` — calls `wkhtmltopdf.exe` to export HTML reports |
 | `MainForm.Keywords.cs` | `EnsureKeywordsTable()`, `LoadKeywords()`, Keywords tab (add/remove highlight keywords) |
 | `MainForm.Email.cs` | `EnsureEmailTable()`, recipients list, `Btn_sendReportsClick` (emails today's two PDFs via late-bound Outlook COM) |
+| `MainForm.FlightSchedule.cs` | Flight Schedule tab — downloads `getFlightList`/`getBriefing` from the fleet's WebService-Archives feed, caches into a `FlightSchedule` table, `DataGridView` sorted by STD |
+| `MainForm.Admin.cs` | Admin tab — editable Flight Schedule/Briefing service base URLs, persisted to `ArchiveConfig.xml` |
 
 Any new partial file must be registered in `Dispatch Watch.csproj` with `<DependentUpon>MainForm.cs</DependentUpon>`.
 
@@ -79,6 +82,13 @@ Any new partial file must be registered in `Dispatch Watch.csproj` with `<Depend
 - `NewNotams`/`deleteWithdrawnedNotams`/`DelOld` each take an optional `Action<int,string> onProgress` and open **one** OleDb connection for their whole body (previously `NewNotams` opened 2 + 2×N connections — one full-table scan with columns resolved by `GetOrdinal` name lookup, not hard-coded index, replaced the old per-key `SELECT * WHERE key=?` round trip). Diff/dedup logic uses an in-memory `HashSet<string>` of keys instead of one `SELECT COUNT(*)` query per row.
 - Since these methods now run off the UI thread, writes to the debug textbox go through `SetLog()` (marshals via `Invoke` if needed) instead of `RchTxtCSV.Text = …` directly.
 - `RefreshLastDbUpdateLabel` (top bar `Lbl_lastDbUpdate`) shows when the pipeline last **completed**, read from `last_db_update.txt` next to the exe (written by `SaveLastDbUpdateTimestamp`) — deliberately not the `.mdb` file's own last-write time, which also changes on V: drive sync (`StartApp`/`EndApp`) and would look "fresh" even if DB Update was never run.
+
+### Flight Schedule tab + Admin tab
+
+- `MainForm.FlightSchedule.cs` calls two web services (same fleet-ops "WebService-Archives" infrastructure the NOTAM download uses, but a separate flight-planning system): **`getFlightList`** (`FlightScheduleService.svc`, param `FLDT=ddMMMyy`) returns one day's flights — `Fltleg_ID`, `FPfx`/`FLNr` (Callsign), `ACREG` (Reg), `STD`, and `CrewMembers` (Crew) all come from here, in the `http://www.fwz.aero/Schemas/StandardInterfaces` XML namespace (`XDocument`/`XNamespace`, not the NOTAM tab's regex-splitting style, since this feed is a flat non-legacy schema). **`getBriefing`** (`BriefingService.svc`, param `FLTLEG_ID`) is the same per-flight briefing endpoint the fleet's separate archive/reader app also uses to fetch OFP/MET/NOTAM PDFs — Dispatch Watch only regex-extracts `<ScheduledTimeOfArrival>` (STA) from it, since `flightlist.xml` has no arrival time at all.
+- `RefreshFlightSchedule()` walks `FLDT` = today .. today+7 (the feed's actual retention past 7 days is unconfirmed), then calls `getBriefing` **once per flight** to backfill STA — this is the expensive part (a few hundred calls across a week), so it's cached in a `FlightSchedule` table (`ICAO_storedNotams.mdb`) keyed by `FltlegID` and only re-fetched when a flight's `STD` has changed since the last cached value. Runs on a `BackgroundWorker` with the same dark progress-dialog styling as DB Update (`ShowFsProgressForm`/`UpdateFsProgress`/`CloseFsProgressForm`).
+- Grid columns (all UTC, `Reg` shown raw/undashed): Date, Callsign, Reg, STD, STA, Crew — sorted by `STD` ascending. Loads on `TabPage.Enter` plus a manual Refresh button (unlike the Report tabs, a full refresh here means dozens–hundreds of network calls, so an explicit re-trigger is worth keeping).
+- **Admin tab** (`MainForm.Admin.cs`) holds the two editable base URLs (`_flightScheduleBaseUrl`, `_briefingBaseUrl`), persisted to `ArchiveConfig.xml` next to the exe (created with the current defaults — `10.48.12.43:5458`/`5455` — on first run). This is scoped to the Flight Schedule feature only: the NOTAM tab's own `getAdHocNOTAM` call in `MainForm.NotamData.cs` stays hardcoded and is untouched.
 
 ### NOTAM Filter tab — two modes on `tabPage1`
 
