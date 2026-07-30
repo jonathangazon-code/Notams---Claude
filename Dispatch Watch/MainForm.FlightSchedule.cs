@@ -336,9 +336,10 @@ namespace ICAO_CSV
 
 			foreach (Dictionary<string, string> row in rows)
 			{
-				string id, callsignRaw, aircraft, stdRaw, staRaw;
+				string id, atcRaw, flightRaw, aircraft, stdRaw, staRaw;
 				if (!row.TryGetValue("ID", out id)) continue;
-				row.TryGetValue("ATC", out callsignRaw);
+				row.TryGetValue("ATC", out atcRaw);
+				row.TryGetValue("Flight", out flightRaw);
 				row.TryGetValue("Aircraft", out aircraft);
 				row.TryGetValue("STD", out stdRaw);
 				row.TryGetValue("STA", out staRaw);
@@ -346,7 +347,13 @@ namespace ICAO_CSV
 				int csvId;
 				if (!int.TryParse((id ?? "").Trim(), out csvId) || csvId == 0) continue;
 
-				string callsign = (callsignRaw ?? "").Trim();
+				// "ATC" is the tactical/rotation callsign (e.g. "TAY7LL") and can be shared
+				// by several different legs of the same rotation — using it as-is created
+				// duplicate-looking rows. The operator prefix still comes from ATC (it's
+				// reliably the operating carrier's 3-letter code), but the numeric part
+				// comes from "Flight" (e.g. "3V4267" -> "4267"), matching the webservice's
+				// own FPfx+FLNr callsign convention (e.g. "TAY4267").
+				string callsign = BuildCsvCallsign(atcRaw, flightRaw);
 				if (!CallsignAllowed(callsign)) continue;   // e.g. only TAY/FDX/DHL, set on the Admin tab
 
 				string reg = (aircraft ?? "").Replace("-", "").Trim().ToUpper();
@@ -365,6 +372,21 @@ namespace ICAO_CSV
 				result.Add(new object[] { fltlegId, fldt, callsign, reg, std, "", "CSV", sta });
 			}
 			return result;
+		}
+
+		// Rebuilds a webservice-style callsign (operator prefix + flight number, e.g.
+		// "TAY4267") from the CSV's two separate fields: "ATC" reliably carries the 3-letter
+		// operator code as its leading letters, but the digits that follow it are the
+		// tactical rotation callsign, not the flight number — the flight number lives in
+		// "Flight" instead (e.g. "3V4267", prefixed by a marketing/codeshare code). Falls
+		// back to the raw, trimmed ATC value if either field doesn't parse as expected.
+		private static string BuildCsvCallsign(string atcRaw, string flightRaw)
+		{
+			string atc = (atcRaw ?? "").Trim().ToUpper();
+			string prefix = Regex.Match(atc, @"^[A-Z]+").Value;
+			if (prefix.Length > 3) prefix = prefix.Substring(0, 3);
+			string digits = Regex.Match((flightRaw ?? "").Trim(), @"\d+").Value;
+			return (prefix != "" && digits != "") ? prefix + digits : atc;
 		}
 
 		// The CSV's Date/STD/STA columns are "dd/MM/yyyy" and "dd/MM/yyyy HH:mm" — assumed
