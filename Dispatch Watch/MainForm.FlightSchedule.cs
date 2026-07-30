@@ -46,15 +46,22 @@ namespace ICAO_CSV
 		{
 			ClearTaggedControls(tabPage_FlightSchedule);
 
-			Label hdr = new Label { Tag = "dispose", Top = 18, Left = 20, AutoSize = true,
+			// Fixed-height top bar (Dock=Top) + the grid filling everything below
+			// (Dock=Fill) — the grid previously sat at a hard-coded Top/Size, which meant
+			// rows past the tab's visible height (and the grid's own vertical scrollbar
+			// along with them) were simply clipped, with no way to reach them regardless
+			// of window size. Dock=Fill makes the grid always occupy the full remaining
+			// client area and scroll internally once rows overflow it.
+			Panel topBar = new Panel { Tag = "dispose", Dock = DockStyle.Top, Height = 50 };
+			Label hdr = new Label { Top = 14, Left = 20, AutoSize = true,
 				Font = new Font("Microsoft Sans Serif", 12f, FontStyle.Bold), Text = "Flight Schedule — next 7 days (UTC)" };
-			tabPage_FlightSchedule.Controls.Add(hdr);
-
-			Button refresh = new Button { Tag = "dispose", Top = 12, Left = 400, Width = 90, Height = 28, Text = "Refresh" };
+			topBar.Controls.Add(hdr);
+			Button refresh = new Button { Top = 10, Left = 400, Width = 90, Height = 28, Text = "Refresh" };
 			refresh.Click += delegate { RefreshFlightSchedule(); };
-			tabPage_FlightSchedule.Controls.Add(refresh);
+			topBar.Controls.Add(refresh);
+			tabPage_FlightSchedule.Controls.Add(topBar);
 
-			_fsDgv = new DataGridView { Tag = "dispose", Top = 55, Left = 20, Size = new Size(950, 900),
+			_fsDgv = new DataGridView { Tag = "dispose", Dock = DockStyle.Fill,
 				ReadOnly = true, AllowUserToAddRows = false, RowHeadersWidth = 28, BackgroundColor = Color.White,
 				AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None };
 			_fsDgv.ColumnHeadersDefaultCellStyle.Font = new Font(_fsDgv.Font, FontStyle.Bold);
@@ -64,6 +71,8 @@ namespace ICAO_CSV
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "STD",      HeaderText = "STD (UTC)", Width = 140 });
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "STA",      HeaderText = "STA (UTC)", Width = 140 });
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Crew",     HeaderText = "Crew",      Width = 380 });
+			// Dock=Fill controls occupy remaining space in add order, so the grid must be
+			// added after the Top-docked bar.
 			tabPage_FlightSchedule.Controls.Add(_fsDgv);
 		}
 
@@ -185,8 +194,14 @@ namespace ICAO_CSV
 
 				string[] cache;
 				bool exists = cached.TryGetValue(fltlegId, out cache);
+				// getBriefing legitimately 404s/errors for flights whose briefing hasn't
+				// been generated yet (e.g. far-future legs) — FetchSta already swallows
+				// that and returns "", and the flight is still persisted with a blank STA
+				// rather than being dropped from the list.
 				string sta = (exists && cache[0] == std && cache[1] != "") ? cache[1] : FetchSta(fltlegId);
 
+				try
+				{
 				if (exists)
 				{
 					OleDbCommand upd = new OleDbCommand("UPDATE FlightSchedule SET FLDt=?, Callsign=?, Reg=?, STD=?, STA=?, Crew=? WHERE FltlegID=?", wconn);
@@ -211,6 +226,8 @@ namespace ICAO_CSV
 					ins.Parameters.AddWithValue("?", crew);
 					ins.ExecuteNonQuery();
 				}
+				}
+				catch { /* one bad row shouldn't drop the rest of the week */ }
 
 				done++;
 				onProgress(10 + done * 90 / Math.Max(1, total), "Loading briefing " + done + " / " + total + "...");
