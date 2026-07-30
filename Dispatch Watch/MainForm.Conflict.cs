@@ -79,13 +79,18 @@ namespace ICAO_CSV
 				DateTime notamStart, notamEnd;
 				if (!TryParseNotamDate(startRaw, out notamStart) || !TryParseNotamDate(endRaw, out notamEnd)) continue;
 
+				// "Not ALTN" (D) only concerns whether the station can be used as a diversion
+				// destination — an origin match is irrelevant there, unlike every other
+				// impact code.
+				bool checkOrigin = impact != "D";
+
 				List<string> matches = new List<string>();
 				foreach (FsFlight f in flights)
 				{
-					if (f.Origin == iata && f.HasStd && Overlaps(notamStart, notamEnd, f.Std))
-						matches.Add(f.Callsign + " (" + f.Origin + "-" + f.Dest + ") — origin — STD " + FormatUtc(f.Std) + "Z");
+					if (checkOrigin && f.Origin == iata && f.HasStd && Overlaps(notamStart, notamEnd, f.Std))
+						matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — origin — STD " + FormatUtc(f.Std) + "Z");
 					if (f.Dest == iata && f.HasSta && Overlaps(notamStart, notamEnd, f.Sta))
-						matches.Add(f.Callsign + " (" + f.Origin + "-" + f.Dest + ") — destination — STA " + FormatUtc(f.Sta) + "Z");
+						matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — destination — STA " + FormatUtc(f.Sta) + "Z");
 				}
 				if (matches.Count == 0) continue;   // no conflict — nothing to show for this NOTAM
 
@@ -129,7 +134,7 @@ namespace ICAO_CSV
 				".blk{font-size:12px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:6px 12px;margin-right:8px;vertical-align:top}" +
 				".rwytable{margin-top:8px}" +
 				".rwyline{white-space:nowrap;line-height:1.7}" +
-				".diagram{position:absolute;top:10px;right:16px}" +
+				".diagram{position:absolute;top:10px;right:60px}" +
 				".body{padding:12px 18px}" +
 				".flightChip{display:inline-block;background:#fbe9e7;color:#4e342e;font-size:12px;padding:5px 10px;border-radius:6px;margin:0 8px 8px 0}" +
 				".remark{font-size:12px;color:#455a64;margin:0 0 8px 0}" +
