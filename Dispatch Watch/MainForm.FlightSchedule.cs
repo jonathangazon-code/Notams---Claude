@@ -37,6 +37,10 @@ namespace ICAO_CSV
 				catch { /* already exists */ }
 				try { new OleDbCommand("ALTER TABLE FlightSchedule ADD COLUMN Source TEXT(3)", conn).ExecuteNonQuery(); }
 				catch { /* already exists */ }
+				try { new OleDbCommand("ALTER TABLE FlightSchedule ADD COLUMN Origin TEXT(4)", conn).ExecuteNonQuery(); }
+				catch { /* already exists */ }
+				try { new OleDbCommand("ALTER TABLE FlightSchedule ADD COLUMN Dest TEXT(4)", conn).ExecuteNonQuery(); }
+				catch { /* already exists */ }
 				conn.Close();
 			}
 			catch { }
@@ -84,6 +88,8 @@ namespace ICAO_CSV
 			_fsDgv.ColumnHeadersDefaultCellStyle.Font = new Font(_fsDgv.Font, FontStyle.Bold);
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Date",     HeaderText = "Date",      Width = 90 });
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Callsign", HeaderText = "Callsign",  Width = 100 });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Origin",   HeaderText = "Origin",    Width = 70 });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Dest",     HeaderText = "Dest",      Width = 70 });
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Reg",      HeaderText = "Reg",       Width = 80 });
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "STD",      HeaderText = "STD (UTC)", Width = 140 });
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "STA",      HeaderText = "STA (UTC)", Width = 140 });
@@ -134,6 +140,14 @@ namespace ICAO_CSV
 		{
 			XElement e = parent.Element(name);
 			return e != null ? e.Value : "";
+		}
+
+		// departureAerodrome/arrivalAerodrome are nested elements ({iataID, icaoID}), not
+		// flat fields — this reads the IATA code out of one of those two nested elements.
+		private static string NestedIata(XElement flight, XName aerodromeName)
+		{
+			XElement aerodrome = flight.Element(aerodromeName);
+			return aerodrome != null ? El(aerodrome, FsNs + "iataID") : "";
 		}
 
 		// A flight's identity across both sources — same physical flight should carry the
@@ -195,6 +209,8 @@ namespace ICAO_CSV
 					string reg      = El(flight, FsNs + "ACREG");
 					string std      = El(flight, FsNs + "STD");
 					string fldtVal  = El(flight, FsNs + "FLDt");
+					string origin   = NestedIata(flight, FsNs + "departureAerodrome");
+					string dest     = NestedIata(flight, FsNs + "arrivalAerodrome");
 
 					List<string> crewParts = new List<string>();
 					XElement crewMembers = flight.Element(FsNs + "CrewMembers");
@@ -207,7 +223,7 @@ namespace ICAO_CSV
 						}
 					string crew = string.Join(" / ", crewParts.ToArray());
 
-					flights.Add(new object[] { fltlegId, fldtVal, callsign, reg, std, crew, "WS", null });
+					flights.Add(new object[] { fltlegId, fldtVal, callsign, reg, std, crew, "WS", null, origin, dest });
 					wsKeys.Add(MergeKey(callsign, std));
 				}
 			}
@@ -231,6 +247,8 @@ namespace ICAO_CSV
 				string crew     = (string)f[5];
 				string source   = (string)f[6];
 				string csvSta   = (string)f[7];
+				string origin   = (string)f[8];
+				string dest     = (string)f[9];
 
 				string[] cache;
 				bool exists = cached.TryGetValue(fltlegId, out cache);
@@ -248,7 +266,7 @@ namespace ICAO_CSV
 				{
 				if (exists)
 				{
-					OleDbCommand upd = new OleDbCommand("UPDATE FlightSchedule SET FLDt=?, Callsign=?, Reg=?, STD=?, STA=?, Crew=?, Source=? WHERE FltlegID=?", wconn);
+					OleDbCommand upd = new OleDbCommand("UPDATE FlightSchedule SET FLDt=?, Callsign=?, Reg=?, STD=?, STA=?, Crew=?, Source=?, Origin=?, Dest=? WHERE FltlegID=?", wconn);
 					upd.Parameters.AddWithValue("?", fldtVal);
 					upd.Parameters.AddWithValue("?", callsign);
 					upd.Parameters.AddWithValue("?", reg);
@@ -256,12 +274,14 @@ namespace ICAO_CSV
 					upd.Parameters.AddWithValue("?", sta);
 					upd.Parameters.AddWithValue("?", crew);
 					upd.Parameters.AddWithValue("?", source);
+					upd.Parameters.AddWithValue("?", origin);
+					upd.Parameters.AddWithValue("?", dest);
 					upd.Parameters.AddWithValue("?", fltlegId);
 					upd.ExecuteNonQuery();
 				}
 				else
 				{
-					OleDbCommand ins = new OleDbCommand("INSERT INTO FlightSchedule ([FltlegID],[FLDt],[Callsign],[Reg],[STD],[STA],[Crew],[Source]) VALUES (?,?,?,?,?,?,?,?)", wconn);
+					OleDbCommand ins = new OleDbCommand("INSERT INTO FlightSchedule ([FltlegID],[FLDt],[Callsign],[Reg],[STD],[STA],[Crew],[Source],[Origin],[Dest]) VALUES (?,?,?,?,?,?,?,?,?,?)", wconn);
 					ins.Parameters.AddWithValue("?", fltlegId);
 					ins.Parameters.AddWithValue("?", fldtVal);
 					ins.Parameters.AddWithValue("?", callsign);
@@ -270,6 +290,8 @@ namespace ICAO_CSV
 					ins.Parameters.AddWithValue("?", sta);
 					ins.Parameters.AddWithValue("?", crew);
 					ins.Parameters.AddWithValue("?", source);
+					ins.Parameters.AddWithValue("?", origin);
+					ins.Parameters.AddWithValue("?", dest);
 					ins.ExecuteNonQuery();
 				}
 				}
@@ -336,13 +358,15 @@ namespace ICAO_CSV
 
 			foreach (Dictionary<string, string> row in rows)
 			{
-				string id, atcRaw, flightRaw, aircraft, stdRaw, staRaw;
+				string id, atcRaw, flightRaw, aircraft, stdRaw, staRaw, dep, arr;
 				if (!row.TryGetValue("ID", out id)) continue;
 				row.TryGetValue("ATC", out atcRaw);
 				row.TryGetValue("Flight", out flightRaw);
 				row.TryGetValue("Aircraft", out aircraft);
 				row.TryGetValue("STD", out stdRaw);
 				row.TryGetValue("STA", out staRaw);
+				row.TryGetValue("DEP", out dep);
+				row.TryGetValue("ARR", out arr);
 
 				int csvId;
 				if (!int.TryParse((id ?? "").Trim(), out csvId) || csvId == 0) continue;
@@ -369,7 +393,7 @@ namespace ICAO_CSV
 				if (wsKeys.Contains(mergeKey)) continue;   // already covered by the real feed
 
 				string fldt = stdDt.ToString("yyyy-MM-dd");
-				result.Add(new object[] { fltlegId, fldt, callsign, reg, std, "", "CSV", sta });
+				result.Add(new object[] { fltlegId, fldt, callsign, reg, std, "", "CSV", sta, (dep ?? "").Trim().ToUpper(), (arr ?? "").Trim().ToUpper() });
 			}
 			return result;
 		}
@@ -378,14 +402,21 @@ namespace ICAO_CSV
 		// "TAY4267") from the CSV's two separate fields: "ATC" reliably carries the 3-letter
 		// operator code as its leading letters, but the digits that follow it are the
 		// tactical rotation callsign, not the flight number — the flight number lives in
-		// "Flight" instead (e.g. "3V4267", prefixed by a marketing/codeshare code). Falls
-		// back to the raw, trimmed ATC value if either field doesn't parse as expected.
+		// "Flight" instead (e.g. "3V4267", prefixed by a marketing/codeshare code that
+		// itself starts with a digit — "3V"). The flight number is the LAST run of digits
+		// in "Flight", not the first: taking the first run on "3V4267" grabs the stray "3"
+		// from the codeshare prefix instead of "4267" (this was the TAY3 bug — regularly
+		// inserting a bogus "TAY3" flight). Falls back to the raw, trimmed ATC value if
+		// either field doesn't parse as expected.
 		private static string BuildCsvCallsign(string atcRaw, string flightRaw)
 		{
 			string atc = (atcRaw ?? "").Trim().ToUpper();
 			string prefix = Regex.Match(atc, @"^[A-Z]+").Value;
 			if (prefix.Length > 3) prefix = prefix.Substring(0, 3);
-			string digits = Regex.Match((flightRaw ?? "").Trim(), @"\d+").Value;
+
+			MatchCollection digitRuns = Regex.Matches((flightRaw ?? "").Trim(), @"\d+");
+			string digits = digitRuns.Count > 0 ? digitRuns[digitRuns.Count - 1].Value : "";
+
 			return (prefix != "" && digits != "") ? prefix + digits : atc;
 		}
 
@@ -469,7 +500,7 @@ namespace ICAO_CSV
 
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
-			OleDbDataReader reader = new OleDbCommand("SELECT FLDt, Callsign, Reg, STD, STA, Crew FROM FlightSchedule ORDER BY STD", conn).ExecuteReader();
+			OleDbDataReader reader = new OleDbCommand("SELECT FLDt, Callsign, Reg, STD, STA, Crew, Origin, Dest FROM FlightSchedule ORDER BY STD", conn).ExecuteReader();
 			while (reader.Read())
 			{
 				string fldt     = reader.IsDBNull(0) ? "" : reader.GetString(0);
@@ -478,7 +509,9 @@ namespace ICAO_CSV
 				string std      = reader.IsDBNull(3) ? "" : reader.GetString(3);
 				string sta      = reader.IsDBNull(4) ? "" : reader.GetString(4);
 				string crew     = reader.IsDBNull(5) ? "" : reader.GetString(5);
-				_fsDgv.Rows.Add(fldt, callsign, reg, std, sta, crew);
+				string origin   = reader.IsDBNull(6) ? "" : reader.GetString(6);
+				string dest     = reader.IsDBNull(7) ? "" : reader.GetString(7);
+				_fsDgv.Rows.Add(fldt, callsign, origin, dest, reg, std, sta, crew);
 			}
 			conn.Close();
 		}
