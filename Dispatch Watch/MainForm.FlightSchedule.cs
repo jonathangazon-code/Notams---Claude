@@ -236,9 +236,15 @@ namespace ICAO_CSV
 				}
 			}
 
+			onProgress(45, "Reading Movement Manager XML messages...");
+			HashSet<int> mmIdsSeen = new HashSet<int>();
+			HashSet<string> mmKeys;
+			foreach (object[] mmFlight in LoadMmSupplementalFlights(wsKeys, mmIdsSeen, out mmKeys))
+				flights.Add(mmFlight);
+
 			onProgress(50, "Reading FlightSched CSV fallback...");
 			HashSet<int> csvIdsSeen = new HashSet<int>();
-			foreach (object[] csvFlight in LoadCsvSupplementalFlights(wsKeys, csvIdsSeen))
+			foreach (object[] csvFlight in LoadCsvSupplementalFlights(wsKeys, mmKeys, csvIdsSeen))
 				flights.Add(csvFlight);
 
 			OleDbConnection wconn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
@@ -356,16 +362,33 @@ namespace ICAO_CSV
 			// schedule shift of a few minutes), leaving the old ID's row behind forever —
 			// it never gets updated (different key) and nothing previously deleted it,
 			// producing duplicate-looking rows for the "same" flight. Any Source='WS' row
-			// whose FltlegID the webservice didn't return in *this* run's day+0..+7 window
-			// is either superseded or simply no longer scheduled, so it's dropped.
+			// (or legacy blank-Source row, treated the same) whose FltlegID the webservice
+			// didn't return in *this* run's day+0..+7 window is either superseded or simply
+			// no longer scheduled, so it's dropped. 'MM' rows are handled by their own pass
+			// below (wsIdsSeen only ever contains real webservice IDs).
 			OleDbDataReader wsRdr = new OleDbCommand("SELECT FltlegID, Source FROM FlightSchedule", wconn).ExecuteReader();
 			while (wsRdr.Read())
 			{
 				int id = Convert.ToInt32(wsRdr.GetValue(0));
 				string source = wsRdr.IsDBNull(1) ? "" : wsRdr.GetString(1);
-				if (source != "CSV" && !wsIdsSeen.Contains(id) && !toDrop.Contains(id)) toDrop.Add(id);
+				if (source != "CSV" && source != "MM" && !wsIdsSeen.Contains(id) && !toDrop.Contains(id)) toDrop.Add(id);
 			}
 			wsRdr.Close();
+
+			// Same idea for Source='MM' rows: a merge key that graduated to the webservice
+			// (now in wsKeys) drops its MM placeholder, and a FltlegID (synthetic, MmSyntheticId)
+			// that this run's MM catch-up didn't (re)encounter — cancelled, or simply no
+			// longer within the message backlog window — is dropped too.
+			OleDbDataReader mmRdr = new OleDbCommand("SELECT FltlegID, Callsign, STD, Source FROM FlightSchedule WHERE Source='MM'", wconn).ExecuteReader();
+			while (mmRdr.Read())
+			{
+				int id = Convert.ToInt32(mmRdr.GetValue(0));
+				string mmCallsign = mmRdr.IsDBNull(1) ? "" : mmRdr.GetString(1);
+				string mmStd      = mmRdr.IsDBNull(2) ? "" : mmRdr.GetString(2);
+				if ((wsKeys.Contains(MergeKey(mmCallsign, mmStd)) || !mmIdsSeen.Contains(id)) && !toDrop.Contains(id))
+					toDrop.Add(id);
+			}
+			mmRdr.Close();
 
 			// Purge flights whose STD has already passed — the grid should only ever show
 			// upcoming (or currently in-progress) flights.
@@ -400,7 +423,7 @@ namespace ICAO_CSV
 		// stable FltlegID that can never collide with a real (always positive) Fltleg_ID,
 		// so re-running with the same CSV updates the same row in place, and the row can
 		// later be matched/dropped once the flight appears for real on the webservice.
-		private List<object[]> LoadCsvSupplementalFlights(HashSet<string> wsKeys, HashSet<int> csvIdsSeen)
+		private List<object[]> LoadCsvSupplementalFlights(HashSet<string> wsKeys, HashSet<string> mmKeys, HashSet<int> csvIdsSeen)
 		{
 			List<object[]> result = new List<object[]>();
 			string path = FindLatestFlightSchedCsv();
@@ -446,7 +469,7 @@ namespace ICAO_CSV
 				string mergeKey = MergeKey(callsign, std);
 				int fltlegId = -csvId;
 				csvIdsSeen.Add(fltlegId);
-				if (wsKeys.Contains(mergeKey)) continue;   // already covered by the real feed
+				if (wsKeys.Contains(mergeKey) || mmKeys.Contains(mergeKey)) continue;   // already covered by a higher-priority source
 
 				string fldt = stdDt.ToString("yyyy-MM-dd");
 				result.Add(new object[] { fltlegId, fldt, callsign, reg, std, "", "CSV", sta, origin, dest });

@@ -23,12 +23,17 @@ namespace ICAO_CSV
 		// ±window (hours) the Conflict tab uses around a flight's STD/STA to decide
 		// whether an overlapping NOTAM counts as a conflict. Editable here.
 		private static int _conflictWindowHours = 12;
+		// Root folder of the Movement Manager XML "flightInfo_V2" message feed (see
+		// MainForm.MmSchedule.cs) — a network share in production. Editable here in case
+		// the path changes.
+		private static string _mmMessagesPath = @"\\PRODWFPMFLS.aslairlines.com\CaeFpmProd\Archive\INTERFACING\SCHEDULE\IN";
 		private static bool   _archiveConfigLoaded;
 
 		private TextBox _adminFlightScheduleUrl;
 		private TextBox _adminBriefingUrl;
 		private TextBox _adminCallsignPrefixes;
 		private TextBox _adminConflictWindow;
+		private TextBox _adminMmMessagesPath;
 		private Label   _adminStatus;
 
 		private static string ArchiveConfigPath { get { return Path.Combine(Application.StartupPath, "ArchiveConfig.xml"); } }
@@ -46,9 +51,11 @@ namespace ICAO_CSV
 					XElement br = root.Element("BriefingServiceUrl");
 					XElement cs = root.Element("CallsignPrefixes");
 					XElement cw = root.Element("ConflictWindowHours");
+					XElement mm = root.Element("MmMessagesPath");
 					if (fs != null && !string.IsNullOrEmpty(fs.Value)) _flightScheduleBaseUrl = fs.Value;
 					if (br != null && !string.IsNullOrEmpty(br.Value)) _briefingBaseUrl = br.Value;
 					if (cs != null && !string.IsNullOrEmpty(cs.Value)) _callsignPrefixFilters = ParsePrefixes(cs.Value);
+					if (mm != null && !string.IsNullOrEmpty(mm.Value)) _mmMessagesPath = mm.Value;
 					int parsedWindow;
 					if (cw != null && int.TryParse(cw.Value, out parsedWindow) && parsedWindow > 0) _conflictWindowHours = parsedWindow;
 				}
@@ -70,7 +77,8 @@ namespace ICAO_CSV
 						new XElement("FlightScheduleServiceUrl", _flightScheduleBaseUrl),
 						new XElement("BriefingServiceUrl", _briefingBaseUrl),
 						new XElement("CallsignPrefixes", string.Join(",", _callsignPrefixFilters.ToArray())),
-						new XElement("ConflictWindowHours", _conflictWindowHours)));
+						new XElement("ConflictWindowHours", _conflictWindowHours),
+						new XElement("MmMessagesPath", _mmMessagesPath)));
 				doc.Save(ArchiveConfigPath);
 			}
 			catch { }
@@ -138,12 +146,19 @@ namespace ICAO_CSV
 				Text = _conflictWindowHours.ToString() };
 			tabPage_Admin.Controls.Add(_adminConflictWindow);
 
-			Button save = new Button { Tag = "dispose", Top = 292, Left = 20, Width = 100, Height = 30, Text = "Save" };
+			Label lbl5 = new Label { Tag = "dispose", Top = 292, Left = 20, AutoSize = true,
+				Text = "Movement Manager XML messages folder" };
+			tabPage_Admin.Controls.Add(lbl5);
+			_adminMmMessagesPath = new TextBox { Tag = "dispose", Top = 314, Left = 20, Width = 520, Text = _mmMessagesPath };
+			tabPage_Admin.Controls.Add(_adminMmMessagesPath);
+
+			Button save = new Button { Tag = "dispose", Top = 350, Left = 20, Width = 100, Height = 30, Text = "Save" };
 			save.Click += delegate
 			{
 				_flightScheduleBaseUrl   = _adminFlightScheduleUrl.Text.Trim();
 				_briefingBaseUrl         = _adminBriefingUrl.Text.Trim();
 				_callsignPrefixFilters   = ParsePrefixes(_adminCallsignPrefixes.Text);
+				_mmMessagesPath          = _adminMmMessagesPath.Text.Trim();
 				int parsedWindow;
 				if (int.TryParse(_adminConflictWindow.Text.Trim(), out parsedWindow) && parsedWindow > 0)
 					_conflictWindowHours = parsedWindow;
@@ -152,7 +167,7 @@ namespace ICAO_CSV
 			};
 			tabPage_Admin.Controls.Add(save);
 
-			_adminStatus = new Label { Tag = "dispose", Top = 300, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
+			_adminStatus = new Label { Tag = "dispose", Top = 358, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
 			tabPage_Admin.Controls.Add(_adminStatus);
 		}
 	}
