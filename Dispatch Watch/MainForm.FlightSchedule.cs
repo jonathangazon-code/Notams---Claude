@@ -14,6 +14,7 @@ namespace ICAO_CSV
 	public partial class MainForm
 	{
 		private DataGridView _fsDgv;
+		private Label _fsCsvInfoLabel;
 		private System.ComponentModel.BackgroundWorker _fsWorker;
 		private Form _fsProgressForm;
 		private Label _fsProgressStatus;
@@ -80,6 +81,8 @@ namespace ICAO_CSV
 			Button refresh = new Button { Top = 10, Left = 400, Width = 90, Height = 28, Text = "Refresh" };
 			refresh.Click += delegate { RefreshFlightSchedule(); };
 			topBar.Controls.Add(refresh);
+			_fsCsvInfoLabel = new Label { Top = 18, Left = 500, AutoSize = true, ForeColor = Color.Gray, Text = "" };
+			topBar.Controls.Add(_fsCsvInfoLabel);
 			tabPage_FlightSchedule.Controls.Add(topBar);
 
 			_fsDgv = new DataGridView { Tag = "dispose", Dock = DockStyle.Fill,
@@ -333,6 +336,26 @@ namespace ICAO_CSV
 
 				done++;
 				onProgress(50 + done * 45 / Math.Max(1, total), "Loading briefing " + done + " / " + total + "...");
+			}
+
+			// Normalize any already-stored row still holding a pre-alias-map IATA code
+			// (e.g. "BSL" for EuroAirport Basel-Mulhouse-Freiburg) unconditionally, every
+			// refresh — NormalizeIata only ever touches freshly-fetched data, so a row this
+			// run's fetch doesn't happen to re-touch (a CSV row, or an MM row whose source
+			// message has scrolled out of the backlog) would otherwise keep its old value
+			// forever, and the dedup pass below compares stored values as-is, so two rows
+			// that "should" be the same leg never actually matched keys.
+			foreach (string alias in _iataAliasMap.Keys)
+			{
+				string canon = _iataAliasMap[alias];
+				OleDbCommand fixOrigin = new OleDbCommand("UPDATE FlightSchedule SET Origin=? WHERE Origin=?", wconn);
+				fixOrigin.Parameters.AddWithValue("?", canon);
+				fixOrigin.Parameters.AddWithValue("?", alias);
+				fixOrigin.ExecuteNonQuery();
+				OleDbCommand fixDest = new OleDbCommand("UPDATE FlightSchedule SET Dest=? WHERE Dest=?", wconn);
+				fixDest.Parameters.AddWithValue("?", canon);
+				fixDest.Parameters.AddWithValue("?", alias);
+				fixDest.ExecuteNonQuery();
 			}
 
 			// Drop stale CSV placeholders: ones that graduated to a real webservice row
@@ -660,6 +683,17 @@ namespace ICAO_CSV
 				_fsDgv.Rows.Add(fldt, callsign, origin, dest, reg, std, sta, crew);
 			}
 			conn.Close();
+
+			// Lets the dispatcher visually confirm a fresh CSV drop into FlightSched/ was
+			// actually picked up, since LoadCsvSupplementalFlights only ever reads the
+			// single most-recently-modified file there silently.
+			if (_fsCsvInfoLabel != null)
+			{
+				string csvPath = FindLatestFlightSchedCsv();
+				_fsCsvInfoLabel.Text = csvPath != null
+					? "CSV actif : " + Path.GetFileName(csvPath) + " (modifié " + File.GetLastWriteTime(csvPath).ToString("dd/MM HH:mm") + ")"
+					: "CSV actif : aucun";
+			}
 		}
 
 		// ── progress dialog (dark, matches the DB Update dialog's styling) ────
