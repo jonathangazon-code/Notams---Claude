@@ -30,6 +30,12 @@ namespace ICAO_CSV
 			EnsureArchiveConfig();
 			List<FsFlight> flights = LoadFsFlights();
 
+			// The whole tab is capped to the next 7 days — a NOTAM/flight pairing further
+			// out than that isn't shown, regardless of how far ahead FlightSchedule itself
+			// happens to reach (it can extend well past 7 days via the CSV fallback).
+			DateTime nowUtc = DateTime.UtcNow;
+			DateTime windowEnd = nowUtc.AddDays(7);
+
 			List<string> impactOrder = new List<string> { "A", "N", "C", "D", "F" };
 			StringBuilder body = new StringBuilder();
 
@@ -70,29 +76,36 @@ namespace ICAO_CSV
 				string remark   = reader.IsDBNull(ordRemark) ? "" : reader.GetString(ordRemark);
 				if (location == "") continue;
 
-				// FlightSchedule.Origin/Dest are IATA codes (webservice's iataID, and the
-				// CSV's DEP/ARR columns) while the NOTAM's location is ICAO — comparing them
-				// directly never matched. Convert the NOTAM's station to IATA once here.
-				string iata = GetIATA(location);
-				if (iata == "") continue;   // station not in Stations_ICAO_IATA — no IATA to match flights against
-
 				DateTime notamStart, notamEnd;
 				if (!TryParseNotamDate(startRaw, out notamStart) || !TryParseNotamDate(endRaw, out notamEnd)) continue;
 
-				// "Not ALTN" (D) only concerns whether the station can be used as a diversion
-				// destination — an origin match is irrelevant there, unlike every other
-				// impact code.
-				bool checkOrigin = impact != "D";
-
 				List<string> matches = new List<string>();
-				foreach (FsFlight f in flights)
+				if (impact == "D")
 				{
-					if (checkOrigin && f.Origin == iata && f.HasStd && Overlaps(notamStart, notamEnd, f.Std))
-						matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — origin — STD " + FormatUtc(f.Std) + "Z");
-					if (f.Dest == iata && f.HasSta && Overlaps(notamStart, notamEnd, f.Sta))
-						matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — destination — STA " + FormatUtc(f.Sta) + "Z");
+					// Not ALTN shows every Kept, D-classified NOTAM active at some point in
+					// the next 7 days — full stop, no reference to flights at all. Whether an
+					// airport can be used as an alternate isn't a function of which flights
+					// happen to touch it as origin/destination, unlike every other impact
+					// code, so there's no flight-matching step (and no IATA lookup) here.
+					if (notamEnd < nowUtc || notamStart > windowEnd) continue;
 				}
-				if (matches.Count == 0) continue;   // no conflict — nothing to show for this NOTAM
+				else
+				{
+					// FlightSchedule.Origin/Dest are IATA codes (webservice's iataID, and the
+					// CSV's DEP/ARR columns) while the NOTAM's location is ICAO — comparing
+					// them directly never matched. Convert the NOTAM's station to IATA here.
+					string iata = GetIATA(location);
+					if (iata == "") continue;   // station not in Stations_ICAO_IATA — no IATA to match flights against
+
+					foreach (FsFlight f in flights)
+					{
+						if (f.Origin == iata && f.HasStd && f.Std <= windowEnd && Overlaps(notamStart, notamEnd, f.Std))
+							matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — origin — STD " + FormatUtc(f.Std) + "Z");
+						if (f.Dest == iata && f.HasSta && f.Sta <= windowEnd && Overlaps(notamStart, notamEnd, f.Sta))
+							matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — destination — STA " + FormatUtc(f.Sta) + "Z");
+					}
+					if (matches.Count == 0) continue;   // no conflict — nothing to show for this NOTAM
+				}
 
 				cardsByImpact[impact].Add(BuildConflictCardHtml(location, key, all, remark, matches));
 			}
