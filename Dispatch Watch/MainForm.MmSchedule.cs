@@ -163,8 +163,8 @@ namespace ICAO_CSV
 									state.Reg    = El(flight, FsNs + "aircraftRegistration");
 									state.Std    = El(flight, FsNs + "scheduledDepartureTime");
 									state.Sta    = El(flight, FsNs + "scheduledArrivalTime");
-									state.Origin = El(flight, FsNs + "departureAerodrome");
-									state.Dest   = El(flight, FsNs + "arrivalAerodrome");
+									state.Origin = NormalizeIata(El(flight, FsNs + "departureAerodrome"));
+									state.Dest   = NormalizeIata(El(flight, FsNs + "arrivalAerodrome"));
 									state.FldT   = originDate;
 								}
 							}

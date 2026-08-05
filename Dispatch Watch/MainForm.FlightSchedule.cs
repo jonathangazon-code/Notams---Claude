@@ -150,6 +150,20 @@ namespace ICAO_CSV
 			return aerodrome != null ? El(aerodrome, FsNs + "iataID") : "";
 		}
 
+		// Some stations are the same physical airport under two different IATA codes
+		// (e.g. EuroAirport Basel-Mulhouse-Freiburg: BSL on the Swiss side, MLH on the
+		// French side) — different sources/messages report one or the other for what's
+		// otherwise an identical flight, which otherwise reads as two distinct duplicate
+		// legs. Normalized to a single canonical code wherever Origin/Dest is set, across
+		// all three sources (webservice, MM, CSV).
+		private static readonly Dictionary<string, string> _iataAliasMap = new Dictionary<string, string> { { "BSL", "MLH" } };
+		private static string NormalizeIata(string iata)
+		{
+			string canon;
+			string upper = (iata ?? "").Trim().ToUpper();
+			return _iataAliasMap.TryGetValue(upper, out canon) ? canon : upper;
+		}
+
 		// A flight-leg's identity across all three sources (webservice/MM/CSV) — used to
 		// detect a lower-priority placeholder that has since "graduated" to a
 		// higher-priority source. Deliberately keyed by Callsign+Origin+Dest+day (not the
@@ -216,8 +230,8 @@ namespace ICAO_CSV
 					string reg      = El(flight, FsNs + "ACREG");
 					string std      = El(flight, FsNs + "STD");
 					string fldtVal  = El(flight, FsNs + "FLDt");
-					string origin   = NestedIata(flight, FsNs + "departureAerodrome");
-					string dest     = NestedIata(flight, FsNs + "arrivalAerodrome");
+					string origin   = NormalizeIata(NestedIata(flight, FsNs + "departureAerodrome"));
+					string dest     = NormalizeIata(NestedIata(flight, FsNs + "arrivalAerodrome"));
 					// getFlightList also returns placeholder/technical entries alongside the
 					// real flight — same STD/ACREG as a genuine flight but no route and no
 					// crew, FLNr defaulting to "3" (hence the recurring bogus "TAY3" rows).
@@ -510,8 +524,8 @@ namespace ICAO_CSV
 				if (!CallsignAllowed(callsign)) continue;   // e.g. only TAY/FDX/DHL, set on the Admin tab
 
 				string reg = (aircraft ?? "").Replace("-", "").Trim().ToUpper();
-				string origin = (dep ?? "").Trim().ToUpper();
-				string dest = (arr ?? "").Trim().ToUpper();
+				string origin = NormalizeIata(dep);
+				string dest = NormalizeIata(arr);
 
 				DateTime stdDt, staDt;
 				string std = TryParseCsvDate(stdRaw, out stdDt) ? stdDt.ToString("yyyy-MM-ddTHH:mm:ss") + "Z" : "";
