@@ -15,6 +15,8 @@ namespace ICAO_CSV
 	{
 		private DataGridView _fsDgv;
 		private Label _fsCsvInfoLabel;
+		private TextBox[] _fsFilterBoxes;
+		private const int _fsDgvRowHeaderWidth = 28;
 		private System.ComponentModel.BackgroundWorker _fsWorker;
 		private Form _fsProgressForm;
 		private Label _fsProgressStatus;
@@ -76,7 +78,7 @@ namespace ICAO_CSV
 			// client area and scroll internally once rows overflow it.
 			Panel topBar = new Panel { Tag = "dispose", Dock = DockStyle.Top, Height = 50 };
 			Label hdr = new Label { Top = 14, Left = 20, AutoSize = true,
-				Font = new Font("Microsoft Sans Serif", 12f, FontStyle.Bold), Text = "Flight Schedule — next 7 days (UTC)" };
+				Font = new Font("Microsoft Sans Serif", 12f, FontStyle.Bold), Text = "Schedule next 14 days (UTC)" };
 			topBar.Controls.Add(hdr);
 			Button refresh = new Button { Top = 10, Left = 400, Width = 90, Height = 28, Text = "Refresh" };
 			refresh.Click += delegate { RefreshFlightSchedule(); };
@@ -85,20 +87,37 @@ namespace ICAO_CSV
 			topBar.Controls.Add(_fsCsvInfoLabel);
 			tabPage_FlightSchedule.Controls.Add(topBar);
 
+			// Per-column filter row: one textbox per column, positioned/sized to line up
+			// with the grid's own columns below (RowHeadersWidth + cumulative column
+			// widths), AND-combined across columns in FilterFsGrid.
+			int[] colWidths = { 90, 100, 70, 70, 80, 140, 140, 380 };
+			Panel filterRow = new Panel { Tag = "dispose", Dock = DockStyle.Top, Height = 26 };
+			_fsFilterBoxes = new TextBox[colWidths.Length];
+			int filterLeft = _fsDgvRowHeaderWidth;
+			for (int i = 0; i < colWidths.Length; i++)
+			{
+				TextBox tb = new TextBox { Top = 2, Left = filterLeft, Width = colWidths[i] - 3 };
+				tb.TextChanged += delegate { FilterFsGrid(); };
+				filterRow.Controls.Add(tb);
+				_fsFilterBoxes[i] = tb;
+				filterLeft += colWidths[i];
+			}
+			tabPage_FlightSchedule.Controls.Add(filterRow);
+
 			_fsDgv = new DataGridView { Tag = "dispose", Dock = DockStyle.Fill,
-				ReadOnly = true, AllowUserToAddRows = false, RowHeadersWidth = 28, BackgroundColor = Color.White,
+				ReadOnly = true, AllowUserToAddRows = false, RowHeadersWidth = _fsDgvRowHeaderWidth, BackgroundColor = Color.White,
 				AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None };
 			_fsDgv.ColumnHeadersDefaultCellStyle.Font = new Font(_fsDgv.Font, FontStyle.Bold);
-			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Date",     HeaderText = "Date",      Width = 90 });
-			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Callsign", HeaderText = "Callsign",  Width = 100 });
-			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Origin",   HeaderText = "Origin",    Width = 70 });
-			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Dest",     HeaderText = "Dest",      Width = 70 });
-			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Reg",      HeaderText = "Reg",       Width = 80 });
-			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "STD",      HeaderText = "STD (UTC)", Width = 140 });
-			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "STA",      HeaderText = "STA (UTC)", Width = 140 });
-			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Crew",     HeaderText = "Crew",      Width = 380 });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Date",     HeaderText = "Date",      Width = colWidths[0] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Callsign", HeaderText = "Callsign",  Width = colWidths[1] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Origin",   HeaderText = "Origin",    Width = colWidths[2] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Dest",     HeaderText = "Dest",      Width = colWidths[3] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Reg",      HeaderText = "Reg",       Width = colWidths[4] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "STD",      HeaderText = "STD (UTC)", Width = colWidths[5] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "STA",      HeaderText = "STA (UTC)", Width = colWidths[6] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Crew",     HeaderText = "Crew",      Width = colWidths[7] });
 			// Dock=Fill controls occupy remaining space in add order, so the grid must be
-			// added after the Top-docked bar.
+			// added after the Top-docked bars.
 			tabPage_FlightSchedule.Controls.Add(_fsDgv);
 		}
 
@@ -693,6 +712,30 @@ namespace ICAO_CSV
 				_fsCsvInfoLabel.Text = csvPath != null
 					? "CSV actif : " + Path.GetFileName(csvPath) + " (modifié " + File.GetLastWriteTime(csvPath).ToString("dd/MM HH:mm") + ")"
 					: "CSV actif : aucun";
+			}
+
+			FilterFsGrid();   // rows just got repopulated (and Visible reset) — reapply any active filters
+		}
+
+		// AND-combines every non-empty per-column filter textbox against that column's
+		// cell text (substring, case-insensitive) — a row must match ALL active filters
+		// to stay visible.
+		private void FilterFsGrid()
+		{
+			if (_fsDgv == null || _fsFilterBoxes == null) return;
+			foreach (DataGridViewRow row in _fsDgv.Rows)
+			{
+				if (row.IsNewRow) continue;
+				bool visible = true;
+				for (int i = 0; i < _fsFilterBoxes.Length; i++)
+				{
+					string filter = _fsFilterBoxes[i].Text.Trim();
+					if (filter == "") continue;
+					object val = row.Cells[i].Value;
+					string cellText = val != null ? val.ToString() : "";
+					if (cellText.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) { visible = false; break; }
+				}
+				row.Visible = visible;
 			}
 		}
 
