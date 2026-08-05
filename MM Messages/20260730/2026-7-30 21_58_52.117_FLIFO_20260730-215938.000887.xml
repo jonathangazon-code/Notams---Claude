@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-30T21:59:37Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>973</flightNumber>
+      <operationalSuffix>E</operationalSuffix>
+      <originDate>2026-08-01Z</originDate>
+      <departureAerodrome code="IATA">NWI</departureAerodrome>
+      <stationOccurrenceNumber>6001</stationOccurrenceNumber>
+      <flightDate>2026-08-01Z</flightDate>
+      <arrivalAerodrome code="IATA">LGG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-01T09:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-01T10:20:00Z</scheduledArrivalTime>
+      <serviceType code="IATA">P</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXW</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T23:00:20Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">SB</carrierCode>
+      <flightNumber>1</flightNumber>
+      <operationalSuffix>F</operationalSuffix>
+      <originDate>2026-07-29Z</originDate>
+      <departureAerodrome code="IATA">LGG</departureAerodrome>
+      <stationOccurrenceNumber>9066</stationOccurrenceNumber>
+      <flightDate>2026-07-29Z</flightDate>
+      <arrivalAerodrome code="IATA">LGG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-29T20:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-30T03:00:00Z</scheduledArrivalTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">ATR</aircraftSubtype>
+      <aircraftRegistration>EIHAB</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-03T08:45:08Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">PJ</carrierCode>
+      <flightNumber>637</flightNumber>
+      <originDate>2026-08-03Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>8019</stationOccurrenceNumber>
+      <flightDate>2026-08-03Z</flightDate>
+      <arrivalAerodrome code="IATA">FSP</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-03T14:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-03T20:30:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-03T14:00:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-03T14:10:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-03T19:47:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-03T19:52:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73W</aircraftSubtype>
+      <aircraftRegistration>FGZTP</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>120</expectedPassengers>
+   </flight>
+</flightInfo_V2>

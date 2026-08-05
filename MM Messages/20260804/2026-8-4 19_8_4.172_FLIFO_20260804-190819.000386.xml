@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-04T19:08:18Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4237</flightNumber>
+      <originDate>2026-08-04Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>9098</stationOccurrenceNumber>
+      <flightDate>2026-08-04Z</flightDate>
+      <arrivalAerodrome code="IATA">MLH</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-04T18:47:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-04T19:51:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-04T18:47:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-04T19:09:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-04T19:55:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-04T20:00:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXR</aircraftRegistration>
+      <actualOffBlockTime>2026-08-04T18:47:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-04T19:07:00Z</actualTakeOffTime>
+   </flight>
+</flightInfo_V2>

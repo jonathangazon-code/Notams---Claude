@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-30T12:29:46Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>222</flightNumber>
+      <operationalSuffix>P</operationalSuffix>
+      <originDate>2026-07-30Z</originDate>
+      <departureAerodrome code="IATA">SNN</departureAerodrome>
+      <stationOccurrenceNumber>413</stationOccurrenceNumber>
+      <flightDate>2026-07-30Z</flightDate>
+      <arrivalAerodrome code="IATA">LGG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-30T21:20:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-30T23:30:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-30T21:20:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-30T21:30:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-30T22:55:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-30T23:00:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">H</serviceType>
+      <aircraftSubtype code="IATA">73P</aircraftSubtype>
+      <aircraftRegistration>OEIBO</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

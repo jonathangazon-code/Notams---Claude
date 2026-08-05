@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-02T16:27:47Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4690</flightNumber>
+      <originDate>2026-08-02Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>6964</stationOccurrenceNumber>
+      <flightDate>2026-08-02Z</flightDate>
+      <arrivalAerodrome code="IATA">OTP</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-02T18:25:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-02T21:11:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-02T18:25:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-02T18:47:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-02T21:20:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-02T21:25:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIWB</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>1</expectedPassengers>
+   </flight>
+</flightInfo_V2>

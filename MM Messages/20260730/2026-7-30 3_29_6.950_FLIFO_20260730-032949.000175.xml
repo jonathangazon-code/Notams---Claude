@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-30T03:29:47Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4246</flightNumber>
+      <originDate>2026-07-30Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>1008</stationOccurrenceNumber>
+      <flightDate>2026-07-30Z</flightDate>
+      <arrivalAerodrome code="IATA">OPO</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>QRPA</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-30T03:06:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-30T05:15:00Z</scheduledArrivalTime>
+      <amendedDestination code="IATA">CDG</amendedDestination>
+      <estimatedOffblockTime>2026-07-30T03:06:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-30T03:16:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-30T03:25:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-30T03:30:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73P</aircraftSubtype>
+      <aircraftRegistration>FGZTJ</aircraftRegistration>
+      <actualOffBlockTime>2026-07-30T03:06:00Z</actualOffBlockTime>
+   </flight>
+</flightInfo_V2>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-03T10:04:46Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>401</flightNumber>
+      <originDate>2026-08-02Z</originDate>
+      <departureAerodrome code="IATA">LGG</departureAerodrome>
+      <stationOccurrenceNumber>6974</stationOccurrenceNumber>
+      <flightDate>2026-08-02Z</flightDate>
+      <arrivalAerodrome code="IATA">HKG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-02T22:30:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-03T10:50:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-02T22:30:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-02T22:45:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-03T10:04:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-03T10:14:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">74Y</aircraftSubtype>
+      <aircraftRegistration>OEIFK</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>3</expectedPassengers>
+      <gateInfo>
+         <departure/>
+      </gateInfo>
+      <actualOffBlockTime>2026-08-02T22:17:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-02T22:29:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-08-03T10:04:00Z</actualLandingTime>
+   </flight>
+</flightInfo_V2>

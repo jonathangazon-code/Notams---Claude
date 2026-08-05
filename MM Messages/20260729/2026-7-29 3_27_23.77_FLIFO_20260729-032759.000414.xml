@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-29T03:27:50Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">QY</carrierCode>
+      <flightNumber>5132</flightNumber>
+      <originDate>2026-07-29Z</originDate>
+      <departureAerodrome code="IATA">LEJ</departureAerodrome>
+      <stationOccurrenceNumber>9025</stationOccurrenceNumber>
+      <flightDate>2026-07-29Z</flightDate>
+      <arrivalAerodrome code="IATA">BUD</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-29T03:10:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-29T04:35:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-29T03:10:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-29T03:20:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-29T04:33:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-29T04:38:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">ABY</aircraftSubtype>
+      <aircraftRegistration>EILDH</aircraftRegistration>
+      <actualOffBlockTime>2026-07-29T03:15:00Z</actualOffBlockTime>
+   </flight>
+</flightInfo_V2>

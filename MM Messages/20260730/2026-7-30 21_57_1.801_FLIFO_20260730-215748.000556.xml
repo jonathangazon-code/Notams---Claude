@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-30T21:57:47Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5H</carrierCode>
+      <flightNumber>4543</flightNumber>
+      <originDate>2026-07-30Z</originDate>
+      <departureAerodrome code="IATA">NUE</departureAerodrome>
+      <stationOccurrenceNumber>587</stationOccurrenceNumber>
+      <flightDate>2026-07-30Z</flightDate>
+      <arrivalAerodrome code="IATA">LGG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-30T20:40:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-30T22:05:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-30T20:40:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-30T20:50:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-30T21:47:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-30T21:52:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">ATR</aircraftSubtype>
+      <aircraftRegistration>EIGUR</aircraftRegistration>
+      <actualOffBlockTime>2026-07-30T20:32:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-30T20:42:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-30T21:47:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-30T21:50:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

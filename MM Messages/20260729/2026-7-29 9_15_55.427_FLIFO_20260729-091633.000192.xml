@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-29T09:16:32Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">QY</carrierCode>
+      <flightNumber>1845</flightNumber>
+      <originDate>2026-07-29Z</originDate>
+      <departureAerodrome code="IATA">BOD</departureAerodrome>
+      <stationOccurrenceNumber>9029</stationOccurrenceNumber>
+      <flightDate>2026-07-29Z</flightDate>
+      <arrivalAerodrome code="IATA">CDG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-29T19:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-29T20:25:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-29T19:00:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-29T19:10:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-29T20:12:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-29T20:22:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">738</aircraftSubtype>
+      <aircraftRegistration>EIAZD</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

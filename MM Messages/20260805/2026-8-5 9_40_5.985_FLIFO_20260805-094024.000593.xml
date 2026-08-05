@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-05T09:40:23Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>401</flightNumber>
+      <originDate>2026-08-06Z</originDate>
+      <departureAerodrome code="IATA">LGG</departureAerodrome>
+      <stationOccurrenceNumber>1672</stationOccurrenceNumber>
+      <flightDate>2026-08-06Z</flightDate>
+      <arrivalAerodrome code="IATA">DWC</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-06T09:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-06T16:10:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-06T09:00:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-06T09:10:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-06T16:00:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-06T16:10:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">74Y</aircraftSubtype>
+      <aircraftRegistration>OEILC</aircraftRegistration>
+      <gateInfo>
+         <departure/>
+      </gateInfo>
+   </flight>
+</flightInfo_V2>

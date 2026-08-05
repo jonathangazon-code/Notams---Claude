@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-02T05:32:45Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5O</carrierCode>
+      <flightNumber>387</flightNumber>
+      <originDate>2026-08-02Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>7245</stationOccurrenceNumber>
+      <flightDate>2026-08-02Z</flightDate>
+      <arrivalAerodrome code="IATA">BJA</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-02T05:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-02T07:20:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-02T05:10:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-02T05:18:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-02T07:30:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-02T07:35:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73W</aircraftSubtype>
+      <aircraftRegistration>FGZTP</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>147</expectedPassengers>
+      <gateInfo>
+         <departure/>
+      </gateInfo>
+      <actualOffBlockTime>2026-08-02T05:21:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-02T05:29:00Z</actualTakeOffTime>
+   </flight>
+</flightInfo_V2>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T14:41:47Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5O</carrierCode>
+      <flightNumber>358</flightNumber>
+      <originDate>2026-07-28Z</originDate>
+      <departureAerodrome code="IATA">ORN</departureAerodrome>
+      <stationOccurrenceNumber>7774</stationOccurrenceNumber>
+      <flightDate>2026-07-28Z</flightDate>
+      <arrivalAerodrome code="IATA">LIL</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-28T15:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-28T17:40:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-28T15:50:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-28T16:00:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-28T18:28:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-28T18:33:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73H</aircraftSubtype>
+      <aircraftRegistration>FHIXD</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>181</expectedPassengers>
+   </flight>
+</flightInfo_V2>

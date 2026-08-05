@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T23:02:21Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4962</flightNumber>
+      <originDate>2026-07-28Z</originDate>
+      <departureAerodrome code="IATA">MLH</departureAerodrome>
+      <stationOccurrenceNumber>7243</stationOccurrenceNumber>
+      <flightDate>2026-07-28Z</flightDate>
+      <arrivalAerodrome code="IATA">LGG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-28T20:46:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-28T21:48:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-28T20:46:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-28T21:04:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-28T21:34:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-28T21:39:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXE</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>1</expectedPassengers>
+      <actualOffBlockTime>2026-07-28T20:42:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-28T20:53:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-28T21:34:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-28T21:37:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

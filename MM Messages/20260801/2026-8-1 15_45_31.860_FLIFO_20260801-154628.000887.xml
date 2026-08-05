@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-01T15:46:27Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">QY</carrierCode>
+      <flightNumber>517</flightNumber>
+      <originDate>2026-08-01Z</originDate>
+      <departureAerodrome code="IATA">HKG</departureAerodrome>
+      <stationOccurrenceNumber>6354</stationOccurrenceNumber>
+      <flightDate>2026-08-01Z</flightDate>
+      <arrivalAerodrome code="IATA">ALA</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-01T23:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-02T05:50:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-01T23:00:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-01T23:24:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-02T05:08:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-02T05:13:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">74Y</aircraftSubtype>
+      <aircraftRegistration>OEIFD</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>1</expectedPassengers>
+   </flight>
+</flightInfo_V2>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-05T00:08:21Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4335</flightNumber>
+      <originDate>2026-08-05Z</originDate>
+      <departureAerodrome code="IATA">AMS</departureAerodrome>
+      <stationOccurrenceNumber>257</stationOccurrenceNumber>
+      <flightDate>2026-08-05Z</flightDate>
+      <arrivalAerodrome code="IATA">CDG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-05T21:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-05T22:19:00Z</scheduledArrivalTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXB</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-04T00:04:59Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5O</carrierCode>
+      <flightNumber>5701</flightNumber>
+      <originDate>2026-08-03Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>7982</stationOccurrenceNumber>
+      <flightDate>2026-08-03Z</flightDate>
+      <arrivalAerodrome code="IATA">MRS</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-03T23:25:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-04T00:55:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-03T23:25:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-03T23:41:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-04T00:55:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-04T01:00:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73P</aircraftSubtype>
+      <aircraftRegistration>FGZTI</aircraftRegistration>
+      <gateInfo>
+         <departure/>
+      </gateInfo>
+      <actualOffBlockTime>2026-08-03T23:35:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-03T23:46:00Z</actualTakeOffTime>
+   </flight>
+</flightInfo_V2>

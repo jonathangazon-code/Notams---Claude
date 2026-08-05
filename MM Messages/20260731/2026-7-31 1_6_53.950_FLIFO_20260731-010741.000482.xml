@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-31T01:07:40Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5O</carrierCode>
+      <flightNumber>399</flightNumber>
+      <originDate>2026-07-31Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>5537</stationOccurrenceNumber>
+      <flightDate>2026-07-31Z</flightDate>
+      <arrivalAerodrome code="IATA">ALG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-31T06:55:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-31T09:30:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-31T06:55:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-31T07:11:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-31T09:18:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-31T09:23:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">H</serviceType>
+      <aircraftSubtype code="IATA">73P</aircraftSubtype>
+      <aircraftRegistration>FGZTI</aircraftRegistration>
+      <gateInfo>
+         <departure/>
+      </gateInfo>
+   </flight>
+</flightInfo_V2>

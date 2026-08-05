@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-04T03:32:48Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">AU</carrierCode>
+      <flightNumber>4815</flightNumber>
+      <originDate>2026-08-04Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>9252</stationOccurrenceNumber>
+      <flightDate>2026-08-04Z</flightDate>
+      <arrivalAerodrome code="IATA">EMA</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-04T01:48:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-04T03:08:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-04T01:48:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-04T01:58:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-04T03:24:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-04T03:29:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">738</aircraftSubtype>
+      <aircraftRegistration>GOHJK</aircraftRegistration>
+      <actualOffBlockTime>2026-08-04T01:59:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-04T02:25:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-08-04T03:15:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-08-04T03:19:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

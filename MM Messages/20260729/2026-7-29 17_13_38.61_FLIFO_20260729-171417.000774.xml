@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-29T17:14:16Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5O</carrierCode>
+      <flightNumber>723</flightNumber>
+      <originDate>2026-07-29Z</originDate>
+      <departureAerodrome code="IATA">JER</departureAerodrome>
+      <stationOccurrenceNumber>9395</stationOccurrenceNumber>
+      <flightDate>2026-07-29Z</flightDate>
+      <arrivalAerodrome code="IATA">FNC</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-29T09:15:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-29T12:35:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-29T09:15:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-29T09:25:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-29T12:33:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-29T12:38:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">C</serviceType>
+      <aircraftSubtype code="IATA">73W</aircraftSubtype>
+      <aircraftRegistration>FGZTP</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>148</expectedPassengers>
+      <actualOffBlockTime>2026-07-29T09:10:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-29T09:19:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-29T12:37:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-29T12:40:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

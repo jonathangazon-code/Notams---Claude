@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-30T10:22:25Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4834</flightNumber>
+      <originDate>2026-07-31Z</originDate>
+      <departureAerodrome code="IATA">LGG</departureAerodrome>
+      <stationOccurrenceNumber>4867</stationOccurrenceNumber>
+      <flightDate>2026-07-31Z</flightDate>
+      <arrivalAerodrome code="IATA">STN</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>RPL</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-31T01:51:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-31T02:52:00Z</scheduledArrivalTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXF</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

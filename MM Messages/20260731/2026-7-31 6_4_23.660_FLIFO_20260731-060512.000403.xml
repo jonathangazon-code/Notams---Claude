@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-31T06:05:10Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>400</flightNumber>
+      <originDate>2026-07-31Z</originDate>
+      <departureAerodrome code="IATA">HKG</departureAerodrome>
+      <stationOccurrenceNumber>4880</stationOccurrenceNumber>
+      <flightDate>2026-07-31Z</flightDate>
+      <arrivalAerodrome code="IATA">ALA</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-31T04:25:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-31T11:15:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-31T04:25:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-31T04:49:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-31T11:48:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-31T11:53:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">74Y</aircraftSubtype>
+      <aircraftRegistration>OEILC</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>1</expectedPassengers>
+      <actualOffBlockTime>2026-07-31T05:43:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-31T06:04:00Z</actualTakeOffTime>
+   </flight>
+</flightInfo_V2>

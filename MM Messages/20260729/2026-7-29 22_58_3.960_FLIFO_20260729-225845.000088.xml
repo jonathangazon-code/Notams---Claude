@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-29T22:58:43Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">FX</carrierCode>
+      <flightNumber>4797</flightNumber>
+      <originDate>2026-07-29Z</originDate>
+      <departureAerodrome code="IATA">SAW</departureAerodrome>
+      <stationOccurrenceNumber>8976</stationOccurrenceNumber>
+      <flightDate>2026-07-29Z</flightDate>
+      <arrivalAerodrome code="IATA">LGG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-29T19:30:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-29T23:09:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-29T19:30:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-29T19:45:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-29T22:46:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-29T22:51:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIMD</aircraftRegistration>
+      <actualOffBlockTime>2026-07-29T19:25:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-29T19:46:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-29T22:46:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-29T22:50:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

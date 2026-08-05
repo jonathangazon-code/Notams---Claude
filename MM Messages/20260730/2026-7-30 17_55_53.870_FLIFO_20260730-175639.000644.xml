@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-30T17:56:38Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4472</flightNumber>
+      <originDate>2026-07-31Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>4939</stationOccurrenceNumber>
+      <flightDate>2026-07-31Z</flightDate>
+      <arrivalAerodrome code="IATA">VIT</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>RPL</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-31T02:55:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-31T04:35:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-31T02:55:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-31T03:17:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-31T04:50:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-31T04:55:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXR</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>1</expectedPassengers>
+   </flight>
+</flightInfo_V2>

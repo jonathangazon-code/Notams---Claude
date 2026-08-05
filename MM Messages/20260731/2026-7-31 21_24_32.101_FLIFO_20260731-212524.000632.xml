@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-31T21:25:23Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>807</flightNumber>
+      <originDate>2026-07-31Z</originDate>
+      <departureAerodrome code="IATA">LGG</departureAerodrome>
+      <stationOccurrenceNumber>4865</stationOccurrenceNumber>
+      <flightDate>2026-07-31Z</flightDate>
+      <arrivalAerodrome code="IATA">KGF</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-31T23:35:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-01T06:35:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-31T23:35:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-31T23:45:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-01T06:07:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-01T06:12:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">74Y</aircraftSubtype>
+      <aircraftRegistration>OEIFB</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>1</expectedPassengers>
+      <gateInfo>
+         <departure/>
+      </gateInfo>
+   </flight>
+</flightInfo_V2>

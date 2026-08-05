@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T14:25:50Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">QY</carrierCode>
+      <flightNumber>2961</flightNumber>
+      <originDate>2026-07-28Z</originDate>
+      <departureAerodrome code="IATA">SNN</departureAerodrome>
+      <stationOccurrenceNumber>7289</stationOccurrenceNumber>
+      <flightDate>2026-07-28Z</flightDate>
+      <arrivalAerodrome code="IATA">LEJ</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-28T19:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-28T21:25:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-28T19:00:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-28T19:10:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-28T21:14:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-28T21:19:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">738</aircraftSubtype>
+      <aircraftRegistration>EIHRC</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

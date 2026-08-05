@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-05T04:38:06Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4038</flightNumber>
+      <originDate>2026-08-05Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>367</stationOccurrenceNumber>
+      <flightDate>2026-08-05Z</flightDate>
+      <arrivalAerodrome code="IATA">PRG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-05T02:19:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-05T04:02:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-05T02:19:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-05T02:41:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-05T04:28:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-05T04:33:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXJ</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>1</expectedPassengers>
+      <actualOffBlockTime>2026-08-05T02:27:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-05T03:10:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-08-05T04:28:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-08-05T04:34:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

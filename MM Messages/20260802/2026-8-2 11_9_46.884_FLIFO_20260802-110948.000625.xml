@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-02T11:09:47Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5O</carrierCode>
+      <flightNumber>198</flightNumber>
+      <originDate>2026-08-02Z</originDate>
+      <departureAerodrome code="IATA">CAI</departureAerodrome>
+      <stationOccurrenceNumber>7253</stationOccurrenceNumber>
+      <flightDate>2026-08-02Z</flightDate>
+      <arrivalAerodrome code="IATA">CDG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-02T13:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-02T17:45:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-02T13:00:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-02T13:10:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-02T17:29:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-02T17:39:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">P</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>FHIQF</aircraftRegistration>
+      <gateInfo>
+         <destination/>
+      </gateInfo>
+   </flight>
+</flightInfo_V2>

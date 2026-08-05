@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T21:02:47Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">AH</carrierCode>
+      <flightNumber>1139</flightNumber>
+      <originDate>2026-07-29Z</originDate>
+      <departureAerodrome code="IATA">LYS</departureAerodrome>
+      <stationOccurrenceNumber>9414</stationOccurrenceNumber>
+      <flightDate>2026-07-29Z</flightDate>
+      <arrivalAerodrome code="IATA">BJA</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>C</action>
+      <scheduledDepartureTime>2026-07-29T11:20:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-29T13:05:00Z</scheduledArrivalTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73H</aircraftSubtype>
+      <aircraftRegistration>FHIXA</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

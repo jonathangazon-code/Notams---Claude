@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-29T22:32:48Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">QY</carrierCode>
+      <flightNumber>406</flightNumber>
+      <originDate>2026-07-29Z</originDate>
+      <departureAerodrome code="IATA">MXP</departureAerodrome>
+      <stationOccurrenceNumber>9052</stationOccurrenceNumber>
+      <flightDate>2026-07-29Z</flightDate>
+      <arrivalAerodrome code="IATA">CGN</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-29T20:50:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-29T22:20:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-29T20:50:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-29T21:00:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-29T22:24:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-29T22:29:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">P</serviceType>
+      <aircraftSubtype code="IATA">738</aircraftSubtype>
+      <aircraftRegistration>EIHRE</aircraftRegistration>
+      <actualOffBlockTime>2026-07-29T21:05:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-29T21:13:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-29T22:24:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-29T22:30:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

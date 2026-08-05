@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-30T21:08:27Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4357</flightNumber>
+      <originDate>2026-07-30Z</originDate>
+      <departureAerodrome code="IATA">MLH</departureAerodrome>
+      <stationOccurrenceNumber>401</stationOccurrenceNumber>
+      <flightDate>2026-07-30Z</flightDate>
+      <arrivalAerodrome code="IATA">CDG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>RPL</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-30T20:50:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-30T22:05:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-30T20:50:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-30T21:08:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-30T22:08:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-30T22:18:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXS</aircraftRegistration>
+      <actualOffBlockTime>2026-07-30T20:59:00Z</actualOffBlockTime>
+   </flight>
+</flightInfo_V2>

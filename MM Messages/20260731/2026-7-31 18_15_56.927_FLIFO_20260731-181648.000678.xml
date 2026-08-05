@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-31T18:16:47Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4750</flightNumber>
+      <originDate>2026-07-31Z</originDate>
+      <departureAerodrome code="IATA">SOF</departureAerodrome>
+      <stationOccurrenceNumber>4890</stationOccurrenceNumber>
+      <flightDate>2026-07-31Z</flightDate>
+      <arrivalAerodrome code="IATA">OTP</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-31T17:30:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-31T18:21:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-31T17:30:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-31T17:46:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-31T18:02:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-31T18:07:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXV</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>1</expectedPassengers>
+      <actualOffBlockTime>2026-07-31T17:24:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-31T17:34:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-31T18:02:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-31T18:13:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

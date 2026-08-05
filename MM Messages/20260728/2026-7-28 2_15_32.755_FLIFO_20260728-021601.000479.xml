@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T02:16:00Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4823</flightNumber>
+      <originDate>2026-07-28Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>7206</stationOccurrenceNumber>
+      <flightDate>2026-07-28Z</flightDate>
+      <arrivalAerodrome code="IATA">HAJ</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-28T01:30:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-28T03:00:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-28T01:30:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-28T01:52:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-28T02:45:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-28T02:50:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OOIWD</aircraftRegistration>
+      <actualOffBlockTime>2026-07-28T01:27:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-28T01:39:00Z</actualTakeOffTime>
+   </flight>
+</flightInfo_V2>

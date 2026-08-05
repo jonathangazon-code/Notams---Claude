@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-29T19:57:54Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5O</carrierCode>
+      <flightNumber>534</flightNumber>
+      <originDate>2026-07-29Z</originDate>
+      <departureAerodrome code="IATA">ALG</departureAerodrome>
+      <stationOccurrenceNumber>9403</stationOccurrenceNumber>
+      <flightDate>2026-07-29Z</flightDate>
+      <arrivalAerodrome code="IATA">BSL</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-29T17:15:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-29T19:20:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-29T17:15:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-29T17:25:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-29T20:05:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-29T20:15:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73H</aircraftSubtype>
+      <aircraftRegistration>FGZHS</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>180</expectedPassengers>
+      <actualOffBlockTime>2026-07-29T18:05:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-29T18:20:00Z</actualTakeOffTime>
+   </flight>
+</flightInfo_V2>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-03T01:14:34Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">PH</carrierCode>
+      <flightNumber>72</flightNumber>
+      <originDate>2026-08-03Z</originDate>
+      <departureAerodrome code="IATA">CHC</departureAerodrome>
+      <stationOccurrenceNumber>7639</stationOccurrenceNumber>
+      <flightDate>2026-08-03Z</flightDate>
+      <arrivalAerodrome code="IATA">AKL</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-03T06:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-03T07:20:00Z</scheduledArrivalTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>VHRAN</aircraftRegistration>
+      <gateInfo>
+         <destination/>
+      </gateInfo>
+   </flight>
+</flightInfo_V2>

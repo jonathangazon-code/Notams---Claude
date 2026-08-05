@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-01T01:50:47Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5H</carrierCode>
+      <flightNumber>420</flightNumber>
+      <originDate>2026-07-31Z</originDate>
+      <departureAerodrome code="IATA">MXP</departureAerodrome>
+      <stationOccurrenceNumber>4970</stationOccurrenceNumber>
+      <flightDate>2026-07-31Z</flightDate>
+      <arrivalAerodrome code="IATA">BCN</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-31T23:30:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-01T01:10:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-31T23:55:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-01T00:05:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-01T01:30:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-01T01:35:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">738</aircraftSubtype>
+      <aircraftRegistration>EIAZB</aircraftRegistration>
+      <actualOffBlockTime>2026-08-01T01:00:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-01T05:01:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-08-01T01:30:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-08-01T01:38:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

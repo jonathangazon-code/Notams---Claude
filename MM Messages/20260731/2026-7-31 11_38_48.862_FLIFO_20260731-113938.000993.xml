@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-31T11:39:37Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4723</flightNumber>
+      <originDate>2026-07-31Z</originDate>
+      <departureAerodrome code="IATA">BER</departureAerodrome>
+      <stationOccurrenceNumber>4937</stationOccurrenceNumber>
+      <flightDate>2026-07-31Z</flightDate>
+      <arrivalAerodrome code="IATA">CDG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-31T20:16:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-31T22:05:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-31T20:16:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-31T20:43:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-31T22:08:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-31T22:18:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXP</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

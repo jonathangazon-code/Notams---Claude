@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-03T20:06:20Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">QF</carrierCode>
+      <flightNumber>7413</flightNumber>
+      <originDate>2026-08-03Z</originDate>
+      <departureAerodrome code="IATA">BNE</departureAerodrome>
+      <stationOccurrenceNumber>7647</stationOccurrenceNumber>
+      <flightDate>2026-08-03Z</flightDate>
+      <arrivalAerodrome code="IATA">ADL</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-03T15:25:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-03T18:25:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-03T16:40:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-03T16:50:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-03T20:06:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-03T20:11:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">143</aircraftSubtype>
+      <aircraftRegistration>VHSJE</aircraftRegistration>
+      <gateInfo>
+         <departure/>
+      </gateInfo>
+      <actualOffBlockTime>2026-08-03T16:52:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-03T17:12:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-08-03T20:06:00Z</actualLandingTime>
+   </flight>
+</flightInfo_V2>

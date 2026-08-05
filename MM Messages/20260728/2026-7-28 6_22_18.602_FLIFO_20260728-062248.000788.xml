@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T06:22:47Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4690</flightNumber>
+      <originDate>2026-07-28Z</originDate>
+      <departureAerodrome code="IATA">FRA</departureAerodrome>
+      <stationOccurrenceNumber>7175</stationOccurrenceNumber>
+      <flightDate>2026-07-28Z</flightDate>
+      <arrivalAerodrome code="IATA">STR</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-28T04:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-28T04:39:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-28T04:00:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-28T04:16:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-28T04:27:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-28T04:32:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIWB</aircraftRegistration>
+      <actualOffBlockTime>2026-07-28T03:56:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-28T04:06:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-28T04:27:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-28T04:34:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

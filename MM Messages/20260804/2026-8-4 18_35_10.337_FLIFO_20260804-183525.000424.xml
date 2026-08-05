@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-04T18:35:24Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4516</flightNumber>
+      <originDate>2026-08-04Z</originDate>
+      <departureAerodrome code="IATA">TKU</departureAerodrome>
+      <stationOccurrenceNumber>9162</stationOccurrenceNumber>
+      <flightDate>2026-08-04Z</flightDate>
+      <arrivalAerodrome code="IATA">CDG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>TIM</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-04T18:43:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-04T20:18:00Z</scheduledArrivalTime>
+      <amendedDestination code="IATA">WAW</amendedDestination>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXE</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

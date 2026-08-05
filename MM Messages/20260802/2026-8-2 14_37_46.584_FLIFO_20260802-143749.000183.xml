@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-02T14:37:47Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">AH</carrierCode>
+      <flightNumber>1020</flightNumber>
+      <originDate>2026-08-02Z</originDate>
+      <departureAerodrome code="IATA">ALG</departureAerodrome>
+      <stationOccurrenceNumber>7274</stationOccurrenceNumber>
+      <flightDate>2026-08-02Z</flightDate>
+      <arrivalAerodrome code="IATA">MRS</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-02T12:25:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-02T13:55:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-02T12:25:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-02T12:35:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-02T14:26:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-02T14:31:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73H</aircraftSubtype>
+      <aircraftRegistration>FHIXA</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>171</expectedPassengers>
+      <actualOffBlockTime>2026-08-02T12:59:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-02T13:10:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-08-02T14:26:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-08-02T14:30:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

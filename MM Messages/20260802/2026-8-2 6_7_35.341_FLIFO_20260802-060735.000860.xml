@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-02T06:07:34Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>1797</flightNumber>
+      <originDate>2026-07-27Z</originDate>
+      <departureAerodrome code="IATA">IAH</departureAerodrome>
+      <stationOccurrenceNumber>9182</stationOccurrenceNumber>
+      <flightDate>2026-07-27Z</flightDate>
+      <arrivalAerodrome code="IATA">LGG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-27T06:20:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-27T15:20:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-27T08:35:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-27T08:50:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-27T19:12:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-27T19:17:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">H</serviceType>
+      <aircraftSubtype code="IATA">74Y</aircraftSubtype>
+      <aircraftRegistration>OEIFB</aircraftRegistration>
+      <gateInfo>
+         <destination/>
+      </gateInfo>
+      <actualOffBlockTime>2026-07-27T09:28:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-27T09:46:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-27T19:12:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-27T19:19:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

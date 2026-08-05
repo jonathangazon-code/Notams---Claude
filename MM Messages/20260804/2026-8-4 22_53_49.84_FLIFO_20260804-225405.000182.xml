@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-04T22:54:04Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">AU</carrierCode>
+      <flightNumber>751</flightNumber>
+      <originDate>2026-08-05Z</originDate>
+      <departureAerodrome code="IATA">EMA</departureAerodrome>
+      <stationOccurrenceNumber>434</stationOccurrenceNumber>
+      <flightDate>2026-08-05Z</flightDate>
+      <arrivalAerodrome code="IATA">BFS</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-05T03:45:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-05T05:00:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-05T03:45:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-05T03:55:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-05T05:01:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-05T05:06:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">AT7</aircraftSubtype>
+      <aircraftRegistration>GOASB</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

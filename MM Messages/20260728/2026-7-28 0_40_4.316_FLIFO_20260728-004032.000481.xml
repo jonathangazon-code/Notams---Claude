@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T00:40:31Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5O</carrierCode>
+      <flightNumber>274</flightNumber>
+      <originDate>2026-07-27Z</originDate>
+      <departureAerodrome code="IATA">ALG</departureAerodrome>
+      <stationOccurrenceNumber>6296</stationOccurrenceNumber>
+      <flightDate>2026-07-27Z</flightDate>
+      <arrivalAerodrome code="IATA">LYS</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-27T09:30:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-27T11:20:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-27T11:10:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-27T11:20:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-27T12:19:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-27T12:24:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73H</aircraftSubtype>
+      <aircraftRegistration>FHIXD</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>122</expectedPassengers>
+      <actualOffBlockTime>2026-07-27T10:47:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-27T10:56:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-27T12:19:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-27T12:25:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

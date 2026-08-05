@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-03T21:11:51Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">AH</carrierCode>
+      <flightNumber>4037</flightNumber>
+      <originDate>2026-08-05Z</originDate>
+      <departureAerodrome code="IATA">CAI</departureAerodrome>
+      <stationOccurrenceNumber>968</stationOccurrenceNumber>
+      <flightDate>2026-08-05Z</flightDate>
+      <arrivalAerodrome code="IATA">ALG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>AUTO</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-05T00:30:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-05T04:40:00Z</scheduledArrivalTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73H</aircraftSubtype>
+      <aircraftRegistration>FHIXA</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>149</expectedPassengers>
+   </flight>
+</flightInfo_V2>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-31T19:01:47Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5O</carrierCode>
+      <flightNumber>4586</flightNumber>
+      <originDate>2026-07-31Z</originDate>
+      <departureAerodrome code="IATA">VIE</departureAerodrome>
+      <stationOccurrenceNumber>5484</stationOccurrenceNumber>
+      <flightDate>2026-07-31Z</flightDate>
+      <arrivalAerodrome code="IATA">CDG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-31T20:57:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-31T23:08:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-31T20:57:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-31T21:07:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-31T22:56:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-31T23:10:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>FHIQF</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

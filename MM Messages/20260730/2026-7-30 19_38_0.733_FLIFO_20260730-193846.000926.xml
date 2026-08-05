@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-30T19:38:45Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4563</flightNumber>
+      <originDate>2026-07-30Z</originDate>
+      <departureAerodrome code="IATA">KUN</departureAerodrome>
+      <stationOccurrenceNumber>1000</stationOccurrenceNumber>
+      <flightDate>2026-07-30Z</flightDate>
+      <arrivalAerodrome code="IATA">PRG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-30T18:15:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-30T19:45:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-30T18:15:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-30T18:25:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-30T19:32:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-30T19:37:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>FHIQE</aircraftRegistration>
+      <actualOffBlockTime>2026-07-30T18:11:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-30T18:16:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-30T19:32:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-30T19:36:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

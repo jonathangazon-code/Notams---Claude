@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T15:27:49Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">SH</carrierCode>
+      <flightNumber>4420</flightNumber>
+      <originDate>2026-07-28Z</originDate>
+      <departureAerodrome code="IATA">DWC</departureAerodrome>
+      <stationOccurrenceNumber>7450</stationOccurrenceNumber>
+      <flightDate>2026-07-28Z</flightDate>
+      <arrivalAerodrome code="IATA">NBO</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>AUTO</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-28T10:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-28T15:20:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-28T10:00:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-28T10:10:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-28T15:16:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-28T15:21:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">738</aircraftSubtype>
+      <aircraftRegistration>EIHRF</aircraftRegistration>
+      <actualOffBlockTime>2026-07-28T09:55:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-28T10:15:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-28T15:08:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-28T15:20:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

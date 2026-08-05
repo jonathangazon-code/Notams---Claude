@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-30T17:46:48Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">QY</carrierCode>
+      <flightNumber>1846</flightNumber>
+      <originDate>2026-07-30Z</originDate>
+      <departureAerodrome code="IATA">BRU</departureAerodrome>
+      <stationOccurrenceNumber>644</stationOccurrenceNumber>
+      <flightDate>2026-07-30Z</flightDate>
+      <arrivalAerodrome code="IATA">BOD</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-30T15:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-30T16:33:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-30T15:00:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-30T15:10:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-30T16:51:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-30T16:56:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">738</aircraftSubtype>
+      <aircraftRegistration>EIAZD</aircraftRegistration>
+      <actualOffBlockTime>2026-07-30T15:15:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-30T15:36:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-30T16:51:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-30T17:00:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

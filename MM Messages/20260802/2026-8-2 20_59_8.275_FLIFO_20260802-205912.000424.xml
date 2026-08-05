@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-02T20:59:11Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">AH</carrierCode>
+      <flightNumber>2056</flightNumber>
+      <originDate>2026-08-03Z</originDate>
+      <departureAerodrome code="IATA">ALG</departureAerodrome>
+      <stationOccurrenceNumber>3567</stationOccurrenceNumber>
+      <flightDate>2026-08-03Z</flightDate>
+      <arrivalAerodrome code="IATA">STN</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-03T10:15:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-03T13:25:00Z</scheduledArrivalTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73H</aircraftSubtype>
+      <aircraftRegistration>FHIXA</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>94</expectedPassengers>
+   </flight>
+</flightInfo_V2>

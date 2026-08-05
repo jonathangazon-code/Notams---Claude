@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-05T06:10:47Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">QY</carrierCode>
+      <flightNumber>5868</flightNumber>
+      <originDate>2026-08-05Z</originDate>
+      <departureAerodrome code="IATA">BUD</departureAerodrome>
+      <stationOccurrenceNumber>488</stationOccurrenceNumber>
+      <flightDate>2026-08-05Z</flightDate>
+      <arrivalAerodrome code="IATA">CLJ</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-05T05:45:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-05T06:50:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-05T06:10:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-05T06:20:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-05T06:57:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-05T07:02:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">738</aircraftSubtype>
+      <aircraftRegistration>EIHRE</aircraftRegistration>
+      <actualOffBlockTime>2026-08-05T06:04:00Z</actualOffBlockTime>
+   </flight>
+</flightInfo_V2>

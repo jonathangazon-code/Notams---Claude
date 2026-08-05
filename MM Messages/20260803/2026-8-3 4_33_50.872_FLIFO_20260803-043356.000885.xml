@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-03T04:33:55Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">PH</carrierCode>
+      <flightNumber>70</flightNumber>
+      <originDate>2026-08-03Z</originDate>
+      <departureAerodrome code="IATA">AKL</departureAerodrome>
+      <stationOccurrenceNumber>7637</stationOccurrenceNumber>
+      <flightDate>2026-08-03Z</flightDate>
+      <arrivalAerodrome code="IATA">SYD</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-03T08:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-03T11:35:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-03T08:00:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-03T08:10:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-03T11:20:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-03T11:25:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>VHCYK</aircraftRegistration>
+      <gateInfo>
+         <departure/>
+         <destination/>
+      </gateInfo>
+   </flight>
+</flightInfo_V2>

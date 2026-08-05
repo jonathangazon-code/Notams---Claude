@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-03T07:03:56Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4998</flightNumber>
+      <originDate>2026-08-03Z</originDate>
+      <departureAerodrome code="IATA">LGG</departureAerodrome>
+      <stationOccurrenceNumber>7581</stationOccurrenceNumber>
+      <flightDate>2026-08-03Z</flightDate>
+      <arrivalAerodrome code="IATA">KTW</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-03T17:30:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-03T19:30:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-03T17:30:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-03T17:52:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-03T19:26:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-03T19:31:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73P</aircraftSubtype>
+      <aircraftRegistration>OEIBO</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>1</expectedPassengers>
+      <gateInfo>
+         <departure/>
+      </gateInfo>
+   </flight>
+</flightInfo_V2>

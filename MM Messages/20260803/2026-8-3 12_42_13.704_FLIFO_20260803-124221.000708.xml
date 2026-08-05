@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-03T12:42:20Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>914</flightNumber>
+      <operationalSuffix>E</operationalSuffix>
+      <originDate>2026-08-03Z</originDate>
+      <departureAerodrome code="IATA">KGF</departureAerodrome>
+      <stationOccurrenceNumber>7520</stationOccurrenceNumber>
+      <flightDate>2026-08-03Z</flightDate>
+      <arrivalAerodrome code="IATA">HHN</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>DEL</originatingCause>
+      <userID>V1234</userID>
+      <action>C</action>
+      <scheduledDepartureTime>2026-08-03T15:30:00Z</scheduledDepartureTime>
+   </flight>
+</flightInfo_V2>

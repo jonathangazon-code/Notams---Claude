@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-02T17:42:51Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4006</flightNumber>
+      <originDate>2026-08-02Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>6971</stationOccurrenceNumber>
+      <flightDate>2026-08-02Z</flightDate>
+      <arrivalAerodrome code="IATA">KTW</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-02T17:34:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-02T19:45:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-02T17:34:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-02T17:56:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-02T19:19:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-02T19:24:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXR</aircraftRegistration>
+      <actualOffBlockTime>2026-08-02T17:29:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-02T17:41:00Z</actualTakeOffTime>
+   </flight>
+</flightInfo_V2>

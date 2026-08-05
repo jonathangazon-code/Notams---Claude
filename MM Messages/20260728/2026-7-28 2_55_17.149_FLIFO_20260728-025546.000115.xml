@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T02:55:44Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5H</carrierCode>
+      <flightNumber>4850</flightNumber>
+      <originDate>2026-07-28Z</originDate>
+      <departureAerodrome code="IATA">LGG</departureAerodrome>
+      <stationOccurrenceNumber>7299</stationOccurrenceNumber>
+      <flightDate>2026-07-28Z</flightDate>
+      <arrivalAerodrome code="IATA">PRG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-28T02:20:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-28T04:12:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-28T02:20:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-28T02:40:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-28T04:05:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-28T04:10:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">ATR</aircraftSubtype>
+      <aircraftRegistration>EIGUP</aircraftRegistration>
+      <actualOffBlockTime>2026-07-28T02:15:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-28T02:22:00Z</actualTakeOffTime>
+   </flight>
+</flightInfo_V2>

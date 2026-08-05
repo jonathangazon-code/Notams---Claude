@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-03T23:00:03Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5H</carrierCode>
+      <flightNumber>177</flightNumber>
+      <originDate>2026-08-03Z</originDate>
+      <departureAerodrome code="IATA">MXP</departureAerodrome>
+      <stationOccurrenceNumber>7589</stationOccurrenceNumber>
+      <flightDate>2026-08-03Z</flightDate>
+      <arrivalAerodrome code="IATA">LGG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-03T23:05:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-04T00:55:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-03T23:41:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-03T23:51:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-04T01:53:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-04T01:58:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">AT7</aircraftSubtype>
+      <aircraftRegistration>EIHAD</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

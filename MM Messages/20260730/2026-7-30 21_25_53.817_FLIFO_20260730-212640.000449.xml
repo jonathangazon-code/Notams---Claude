@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-30T21:26:39Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5O</carrierCode>
+      <flightNumber>4394</flightNumber>
+      <originDate>2026-07-30Z</originDate>
+      <departureAerodrome code="IATA">DUB</departureAerodrome>
+      <stationOccurrenceNumber>1034</stationOccurrenceNumber>
+      <flightDate>2026-07-30Z</flightDate>
+      <arrivalAerodrome code="IATA">CDG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-30T21:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-30T22:41:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-30T21:00:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-30T21:10:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-30T22:28:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-30T22:46:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>FHIQD</aircraftRegistration>
+      <actualOffBlockTime>2026-07-30T20:56:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-30T21:09:00Z</actualTakeOffTime>
+   </flight>
+</flightInfo_V2>

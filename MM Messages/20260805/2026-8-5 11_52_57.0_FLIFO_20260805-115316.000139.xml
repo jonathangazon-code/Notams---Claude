@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-05T11:53:14Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">TO</carrierCode>
+      <flightNumber>3614</flightNumber>
+      <originDate>2026-08-05Z</originDate>
+      <departureAerodrome code="IATA">ORY</departureAerodrome>
+      <stationOccurrenceNumber>1766</stationOccurrenceNumber>
+      <flightDate>2026-08-05Z</flightDate>
+      <arrivalAerodrome code="IATA">RHO</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-05T10:10:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-05T13:50:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-05T11:10:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-05T11:20:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-05T15:00:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-05T15:05:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73H</aircraftSubtype>
+      <aircraftRegistration>FHIXD</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>188</expectedPassengers>
+      <actualOffBlockTime>2026-08-05T11:29:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-05T11:41:00Z</actualTakeOffTime>
+   </flight>
+</flightInfo_V2>

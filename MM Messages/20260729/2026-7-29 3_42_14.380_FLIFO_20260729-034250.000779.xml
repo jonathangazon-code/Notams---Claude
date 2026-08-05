@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-29T03:42:49Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5H</carrierCode>
+      <flightNumber>4443</flightNumber>
+      <originDate>2026-07-29Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>8958</stationOccurrenceNumber>
+      <flightDate>2026-07-29Z</flightDate>
+      <arrivalAerodrome code="IATA">NUE</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-29T01:48:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-29T03:38:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-29T01:48:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-29T02:08:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-29T03:58:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-29T04:03:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">ATR</aircraftSubtype>
+      <aircraftRegistration>EIHAF</aircraftRegistration>
+      <actualOffBlockTime>2026-07-29T02:00:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-29T02:12:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-29T03:30:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-29T03:34:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

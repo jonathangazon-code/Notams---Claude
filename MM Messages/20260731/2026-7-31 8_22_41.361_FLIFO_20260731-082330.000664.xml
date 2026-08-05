@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-31T08:23:29Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4412</flightNumber>
+      <originDate>2026-07-12Z</originDate>
+      <departureAerodrome code="IATA">VIT</departureAerodrome>
+      <stationOccurrenceNumber>8425</stationOccurrenceNumber>
+      <flightDate>2026-07-12Z</flightDate>
+      <arrivalAerodrome code="IATA">VLC</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-12T18:06:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-12T19:16:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-12T18:06:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-12T18:19:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-12T20:41:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-12T20:46:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXM</aircraftRegistration>
+      <actualOffBlockTime>2026-07-12T19:52:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-12T19:58:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-12T20:41:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-12T20:45:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

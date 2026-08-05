@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-29T13:11:54Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">QF</carrierCode>
+      <flightNumber>7294</flightNumber>
+      <originDate>2026-07-29Z</originDate>
+      <departureAerodrome code="IATA">MEL</departureAerodrome>
+      <stationOccurrenceNumber>1960</stationOccurrenceNumber>
+      <flightDate>2026-07-29Z</flightDate>
+      <arrivalAerodrome code="IATA">WSI</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-29T15:00:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-29T16:25:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-29T15:45:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-29T15:55:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-29T17:00:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-29T17:10:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">H</serviceType>
+      <aircraftSubtype code="IATA">142</aircraftSubtype>
+      <aircraftRegistration>VHSFW</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

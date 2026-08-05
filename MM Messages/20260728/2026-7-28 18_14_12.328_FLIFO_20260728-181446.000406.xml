@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T18:14:45Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4537</flightNumber>
+      <originDate>2026-07-28Z</originDate>
+      <departureAerodrome code="IATA">CMN</departureAerodrome>
+      <stationOccurrenceNumber>7261</stationOccurrenceNumber>
+      <flightDate>2026-07-28Z</flightDate>
+      <arrivalAerodrome code="IATA">LIS</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-28T16:37:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-28T18:00:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-28T16:37:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-28T16:54:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-28T17:40:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-28T17:47:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73P</aircraftSubtype>
+      <aircraftRegistration>OEIAM</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>1</expectedPassengers>
+      <actualOffBlockTime>2026-07-28T16:36:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-28T16:43:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-28T17:40:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-28T17:44:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

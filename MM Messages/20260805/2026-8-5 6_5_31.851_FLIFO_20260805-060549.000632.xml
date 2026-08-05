@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-05T06:05:48Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">QY</carrierCode>
+      <flightNumber>1182</flightNumber>
+      <originDate>2026-08-05Z</originDate>
+      <departureAerodrome code="IATA">LEJ</departureAerodrome>
+      <stationOccurrenceNumber>474</stationOccurrenceNumber>
+      <flightDate>2026-08-05Z</flightDate>
+      <arrivalAerodrome code="IATA">LYS</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-05T02:15:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-05T03:50:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-05T04:30:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-05T04:40:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-05T05:52:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-05T05:57:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">ABY</aircraftSubtype>
+      <aircraftRegistration>EILDH</aircraftRegistration>
+      <actualOffBlockTime>2026-08-05T04:19:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-05T04:35:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-08-05T05:49:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-08-05T05:58:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

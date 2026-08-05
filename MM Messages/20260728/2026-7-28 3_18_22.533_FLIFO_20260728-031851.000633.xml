@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T03:18:48Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4815</flightNumber>
+      <originDate>2026-07-28Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>829</stationOccurrenceNumber>
+      <flightDate>2026-07-28Z</flightDate>
+      <arrivalAerodrome code="IATA">EMA</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-28T01:48:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-28T03:08:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-28T01:48:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-28T02:05:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-28T03:14:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-28T03:19:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">738</aircraftSubtype>
+      <aircraftRegistration>EIHRB</aircraftRegistration>
+      <actualOffBlockTime>2026-07-28T01:48:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-28T02:16:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-28T03:08:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-28T03:15:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

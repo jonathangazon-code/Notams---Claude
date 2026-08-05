@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T05:15:13Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4482</flightNumber>
+      <originDate>2026-07-28Z</originDate>
+      <departureAerodrome code="IATA">CDG</departureAerodrome>
+      <stationOccurrenceNumber>7237</stationOccurrenceNumber>
+      <flightDate>2026-07-28Z</flightDate>
+      <arrivalAerodrome code="IATA">OSL</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-28T02:50:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-28T05:07:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-28T02:50:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-28T03:12:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-28T04:53:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-28T04:58:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXO</aircraftRegistration>
+      <actualOffBlockTime>2026-07-28T02:49:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-28T02:59:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-28T04:53:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-07-28T04:56:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

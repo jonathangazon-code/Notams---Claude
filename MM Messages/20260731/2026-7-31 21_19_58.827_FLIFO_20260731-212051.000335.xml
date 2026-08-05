@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-31T21:20:50Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4346</flightNumber>
+      <originDate>2026-07-31Z</originDate>
+      <departureAerodrome code="IATA">OPO</departureAerodrome>
+      <stationOccurrenceNumber>4904</stationOccurrenceNumber>
+      <flightDate>2026-07-31Z</flightDate>
+      <arrivalAerodrome code="IATA">VIT</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-31T20:10:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-31T21:20:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-31T20:10:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-31T20:25:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-31T21:18:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-31T21:23:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>OEIXO</aircraftRegistration>
+      <actualOffBlockTime>2026-07-31T20:21:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-07-31T20:31:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-07-31T21:18:00Z</actualLandingTime>
+   </flight>
+</flightInfo_V2>

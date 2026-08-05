@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-04T14:05:23Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5O</carrierCode>
+      <flightNumber>4508</flightNumber>
+      <originDate>2026-08-04Z</originDate>
+      <departureAerodrome code="IATA">ORB</departureAerodrome>
+      <stationOccurrenceNumber>9734</stationOccurrenceNumber>
+      <flightDate>2026-08-04Z</flightDate>
+      <arrivalAerodrome code="IATA">CPH</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-04T18:39:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-04T19:37:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-04T18:39:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-04T18:49:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-04T19:43:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-04T19:48:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73K</aircraftSubtype>
+      <aircraftRegistration>FHIQB</aircraftRegistration>
+   </flight>
+</flightInfo_V2>

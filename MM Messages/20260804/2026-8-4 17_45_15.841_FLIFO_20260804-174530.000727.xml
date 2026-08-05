@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-04T17:45:29Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5H</carrierCode>
+      <flightNumber>4160</flightNumber>
+      <originDate>2026-08-04Z</originDate>
+      <departureAerodrome code="IATA">TLS</departureAerodrome>
+      <stationOccurrenceNumber>9243</stationOccurrenceNumber>
+      <flightDate>2026-08-04Z</flightDate>
+      <arrivalAerodrome code="IATA">NCE</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-04T16:20:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-04T17:50:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-04T17:00:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-04T17:08:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-04T17:48:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-04T17:53:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">ATR</aircraftSubtype>
+      <aircraftRegistration>EIGUO</aircraftRegistration>
+      <actualOffBlockTime>2026-08-04T16:20:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-04T16:34:00Z</actualTakeOffTime>
+   </flight>
+</flightInfo_V2>

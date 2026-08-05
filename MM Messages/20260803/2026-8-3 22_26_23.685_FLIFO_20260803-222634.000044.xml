@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-03T22:26:32Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4367</flightNumber>
+      <originDate>2026-08-03Z</originDate>
+      <departureAerodrome code="IATA">ARN</departureAerodrome>
+      <stationOccurrenceNumber>7552</stationOccurrenceNumber>
+      <flightDate>2026-08-03Z</flightDate>
+      <arrivalAerodrome code="IATA">CDG</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-03T19:15:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-03T21:55:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-03T19:15:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-03T19:33:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-03T21:47:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-03T21:57:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73P</aircraftSubtype>
+      <aircraftRegistration>OEIAM</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>1</expectedPassengers>
+      <actualOffBlockTime>2026-08-03T19:06:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-03T19:21:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-08-03T21:47:00Z</actualLandingTime>
+      <actualOnBlockTime>2026-08-03T21:58:00Z</actualOnBlockTime>
+   </flight>
+</flightInfo_V2>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-08-03T12:11:53Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">5O</carrierCode>
+      <flightNumber>172</flightNumber>
+      <originDate>2026-08-03Z</originDate>
+      <departureAerodrome code="IATA">ALG</departureAerodrome>
+      <stationOccurrenceNumber>7968</stationOccurrenceNumber>
+      <flightDate>2026-08-03Z</flightDate>
+      <arrivalAerodrome code="IATA">ORY</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause/>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-08-03T09:30:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-08-03T12:00:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-08-03T09:30:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-08-03T09:40:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-08-03T12:11:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-08-03T12:16:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">J</serviceType>
+      <aircraftSubtype code="IATA">73H</aircraftSubtype>
+      <aircraftRegistration>FGZHS</aircraftRegistration>
+      <paxMass unit="kg">0</paxMass>
+      <expectedPassengers>149</expectedPassengers>
+      <actualOffBlockTime>2026-08-03T10:13:00Z</actualOffBlockTime>
+      <actualTakeOffTime>2026-08-03T10:23:00Z</actualTakeOffTime>
+      <actualLandingTime>2026-08-03T12:11:00Z</actualLandingTime>
+   </flight>
+</flightInfo_V2>

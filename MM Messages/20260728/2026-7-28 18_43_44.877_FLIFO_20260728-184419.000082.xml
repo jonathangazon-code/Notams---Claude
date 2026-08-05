@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flightInfo_V2 xmlns="http://www.fwz.aero/Schemas/StandardInterfaces">
+   <transactionTimestamp>2026-07-28T18:44:17Z</transactionTimestamp>
+   <flight>
+      <carrierCode code="IATA">3V</carrierCode>
+      <flightNumber>4617</flightNumber>
+      <originDate>2026-07-29Z</originDate>
+      <departureAerodrome code="IATA">MME</departureAerodrome>
+      <stationOccurrenceNumber>8816</stationOccurrenceNumber>
+      <flightDate>2026-07-29Z</flightDate>
+      <arrivalAerodrome code="IATA">EDI</arrivalAerodrome>
+      <messageOriginator>Movement Manager</messageOriginator>
+      <originatingCause>SWAP</originatingCause>
+      <userID>V1234</userID>
+      <action>M</action>
+      <scheduledDepartureTime>2026-07-29T04:18:00Z</scheduledDepartureTime>
+      <scheduledArrivalTime>2026-07-29T05:04:00Z</scheduledArrivalTime>
+      <estimatedOffblockTime>2026-07-29T04:18:00Z</estimatedOffblockTime>
+      <estimatedAirborneTime>2026-07-29T04:33:00Z</estimatedAirborneTime>
+      <estimatedLandingTime>2026-07-29T05:02:00Z</estimatedLandingTime>
+      <estimatedOnblockTime>2026-07-29T05:07:00Z</estimatedOnblockTime>
+      <serviceType code="IATA">F</serviceType>
+      <aircraftSubtype code="IATA">73P</aircraftSubtype>
+      <aircraftRegistration>OEIBL</aircraftRegistration>
+   </flight>
+</flightInfo_V2>
