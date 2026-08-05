@@ -76,6 +76,36 @@ namespace ICAO_CSV
 			// along with them) were simply clipped, with no way to reach them regardless
 			// of window size. Dock=Fill makes the grid always occupy the full remaining
 			// client area and scroll internally once rows overflow it.
+			// Per-column filter row: a column-name label + textbox per column, positioned/
+			// sized to line up with the grid's own columns below (RowHeadersWidth +
+			// cumulative column widths), AND-combined across columns in FilterFsGrid. Built
+			// (and added to the tab) BEFORE topBar: WinForms stacks same-Dock=Top controls
+			// with the LAST one added ending up closest to the parent's top edge, so adding
+			// this first is what puts it BELOW the title bar rather than above it.
+			string[] colNames = { "Date", "Callsign", "Origin", "Dest", "Reg", "STD (UTC)", "STA (UTC)", "Crew" };
+			int[] colWidths   = { 90, 100, 70, 70, 80, 140, 140, 380 };
+			Panel filterRow = new Panel { Tag = "dispose", Dock = DockStyle.Top, Height = 42 };
+			_fsFilterBoxes = new TextBox[colWidths.Length];
+			int filterLeft = _fsDgvRowHeaderWidth;
+			for (int i = 0; i < colWidths.Length; i++)
+			{
+				Label colLbl = new Label { Top = 2, Left = filterLeft, Width = colWidths[i] - 3, AutoSize = false,
+					Font = new Font("Microsoft Sans Serif", 7.5f), ForeColor = Color.DimGray, Text = colNames[i] };
+				filterRow.Controls.Add(colLbl);
+				TextBox tb = new TextBox { Top = 18, Left = filterLeft, Width = colWidths[i] - 3 };
+				tb.TextChanged += delegate { FilterFsGrid(); };
+				filterRow.Controls.Add(tb);
+				_fsFilterBoxes[i] = tb;
+				filterLeft += colWidths[i];
+			}
+			tabPage_FlightSchedule.Controls.Add(filterRow);
+
+			// Fixed-height top bar (Dock=Top) + the grid filling everything below
+			// (Dock=Fill) — the grid previously sat at a hard-coded Top/Size, which meant
+			// rows past the tab's visible height (and the grid's own vertical scrollbar
+			// along with them) were simply clipped, with no way to reach them regardless
+			// of window size. Dock=Fill makes the grid always occupy the full remaining
+			// client area and scroll internally once rows overflow it.
 			Panel topBar = new Panel { Tag = "dispose", Dock = DockStyle.Top, Height = 50 };
 			Label hdr = new Label { Top = 14, Left = 20, AutoSize = true,
 				Font = new Font("Microsoft Sans Serif", 12f, FontStyle.Bold), Text = "Schedule next 14 days (UTC)" };
@@ -86,23 +116,6 @@ namespace ICAO_CSV
 			_fsCsvInfoLabel = new Label { Top = 18, Left = 500, AutoSize = true, ForeColor = Color.Gray, Text = "" };
 			topBar.Controls.Add(_fsCsvInfoLabel);
 			tabPage_FlightSchedule.Controls.Add(topBar);
-
-			// Per-column filter row: one textbox per column, positioned/sized to line up
-			// with the grid's own columns below (RowHeadersWidth + cumulative column
-			// widths), AND-combined across columns in FilterFsGrid.
-			int[] colWidths = { 90, 100, 70, 70, 80, 140, 140, 380 };
-			Panel filterRow = new Panel { Tag = "dispose", Dock = DockStyle.Top, Height = 26 };
-			_fsFilterBoxes = new TextBox[colWidths.Length];
-			int filterLeft = _fsDgvRowHeaderWidth;
-			for (int i = 0; i < colWidths.Length; i++)
-			{
-				TextBox tb = new TextBox { Top = 2, Left = filterLeft, Width = colWidths[i] - 3 };
-				tb.TextChanged += delegate { FilterFsGrid(); };
-				filterRow.Controls.Add(tb);
-				_fsFilterBoxes[i] = tb;
-				filterLeft += colWidths[i];
-			}
-			tabPage_FlightSchedule.Controls.Add(filterRow);
 
 			_fsDgv = new DataGridView { Tag = "dispose", Dock = DockStyle.Fill,
 				ReadOnly = true, AllowUserToAddRows = false, RowHeadersWidth = _fsDgvRowHeaderWidth, BackgroundColor = Color.White,
@@ -710,11 +723,16 @@ namespace ICAO_CSV
 			{
 				string csvPath = FindLatestFlightSchedCsv();
 				_fsCsvInfoLabel.Text = csvPath != null
-					? "CSV actif : " + Path.GetFileName(csvPath) + " (modifié " + File.GetLastWriteTime(csvPath).ToString("dd/MM HH:mm") + ")"
-					: "CSV actif : aucun";
+					? "Active CSV: " + Path.GetFileName(csvPath) + " (modified " + File.GetLastWriteTime(csvPath).ToString("dd/MM HH:mm") + ")"
+					: "Active CSV: none";
 			}
 
 			FilterFsGrid();   // rows just got repopulated (and Visible reset) — reapply any active filters
+
+			// Re-populating always leaves the grid scrolled to wherever it happened to be
+			// before (or fully scrolled if the previous load had more rows), which can read
+			// as the header row/first rows being clipped — pin the view back to the top.
+			if (_fsDgv.Rows.Count > 0) _fsDgv.FirstDisplayedScrollingRowIndex = 0;
 		}
 
 		// AND-combines every non-empty per-column filter textbox against that column's
