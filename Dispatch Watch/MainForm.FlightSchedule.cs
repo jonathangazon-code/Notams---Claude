@@ -150,13 +150,19 @@ namespace ICAO_CSV
 			return aerodrome != null ? El(aerodrome, FsNs + "iataID") : "";
 		}
 
-		// A flight's identity across both sources — same physical flight should carry the
-		// same Callsign+STD whether it comes from the webservice or the CSV fallback, so
-		// this is the key used to detect a CSV placeholder that has since "graduated" to
-		// a real webservice entry.
-		private static string MergeKey(string callsign, string std)
+		// A flight-leg's identity across all three sources (webservice/MM/CSV) — used to
+		// detect a lower-priority placeholder that has since "graduated" to a
+		// higher-priority source. Deliberately keyed by Callsign+Origin+Dest+day (not the
+		// exact STD): the same callsign can fly two different legs the same day (e.g.
+		// CDG-HEL then HEL-TLL), so Origin/Dest keeps those distinct, but a schedule
+		// revision of a few minutes between two updates for the *same* leg must NOT be
+		// read as a different flight — an earlier STD-based key caused exactly that: a
+		// stale MM/CSV placeholder never graduated because its STD differed by ~10min from
+		// the webservice's later, revised STD for the same leg, leaving both rows behind.
+		private static string MergeKey(string callsign, string origin, string dest, string fldt)
 		{
-			return (callsign ?? "").Trim().ToUpper() + "|" + (std ?? "").Trim();
+			return (callsign ?? "").Trim().ToUpper() + "|" + (origin ?? "").Trim().ToUpper() + "|" +
+				(dest ?? "").Trim().ToUpper() + "|" + (fldt ?? "").Trim().Substring(0, Math.Min(10, (fldt ?? "").Trim().Length));
 		}
 
 		private void FetchFlightSchedule(Action<int, string> onProgress)
@@ -231,7 +237,7 @@ namespace ICAO_CSV
 					string crew = string.Join(" / ", crewParts.ToArray());
 
 					flights.Add(new object[] { fltlegId, fldtVal, callsign, reg, std, crew, "WS", null, origin, dest });
-					wsKeys.Add(MergeKey(callsign, std));
+					wsKeys.Add(MergeKey(callsign, origin, dest, fldtVal));
 					wsIdsSeen.Add(fltlegId);
 				}
 			}
@@ -320,13 +326,15 @@ namespace ICAO_CSV
 			// otherwise sit alongside it as a duplicate) or ones simply no longer present
 			// in the latest CSV file (cancelled/dropped from the export).
 			List<int> toDrop = new List<int>();
-			OleDbDataReader csvRdr = new OleDbCommand("SELECT FltlegID, Callsign, STD FROM FlightSchedule WHERE Source='CSV'", wconn).ExecuteReader();
+			OleDbDataReader csvRdr = new OleDbCommand("SELECT FltlegID, Callsign, Origin, Dest, FLDt FROM FlightSchedule WHERE Source='CSV'", wconn).ExecuteReader();
 			while (csvRdr.Read())
 			{
 				int id = Convert.ToInt32(csvRdr.GetValue(0));
 				string csvCallsign = csvRdr.IsDBNull(1) ? "" : csvRdr.GetString(1);
-				string csvStd      = csvRdr.IsDBNull(2) ? "" : csvRdr.GetString(2);
-				if (wsKeys.Contains(MergeKey(csvCallsign, csvStd)) || !csvIdsSeen.Contains(id))
+				string csvOrigin   = csvRdr.IsDBNull(2) ? "" : csvRdr.GetString(2);
+				string csvDest     = csvRdr.IsDBNull(3) ? "" : csvRdr.GetString(3);
+				string csvFldt     = csvRdr.IsDBNull(4) ? "" : csvRdr.GetString(4);
+				if (wsKeys.Contains(MergeKey(csvCallsign, csvOrigin, csvDest, csvFldt)) || !csvIdsSeen.Contains(id))
 					toDrop.Add(id);
 			}
 			csvRdr.Close();
@@ -379,13 +387,15 @@ namespace ICAO_CSV
 			// (now in wsKeys) drops its MM placeholder, and a FltlegID (synthetic, MmSyntheticId)
 			// that this run's MM catch-up didn't (re)encounter — cancelled, or simply no
 			// longer within the message backlog window — is dropped too.
-			OleDbDataReader mmRdr = new OleDbCommand("SELECT FltlegID, Callsign, STD, Source FROM FlightSchedule WHERE Source='MM'", wconn).ExecuteReader();
+			OleDbDataReader mmRdr = new OleDbCommand("SELECT FltlegID, Callsign, Origin, Dest, FLDt FROM FlightSchedule WHERE Source='MM'", wconn).ExecuteReader();
 			while (mmRdr.Read())
 			{
 				int id = Convert.ToInt32(mmRdr.GetValue(0));
 				string mmCallsign = mmRdr.IsDBNull(1) ? "" : mmRdr.GetString(1);
-				string mmStd      = mmRdr.IsDBNull(2) ? "" : mmRdr.GetString(2);
-				if ((wsKeys.Contains(MergeKey(mmCallsign, mmStd)) || !mmIdsSeen.Contains(id)) && !toDrop.Contains(id))
+				string mmOrigin   = mmRdr.IsDBNull(2) ? "" : mmRdr.GetString(2);
+				string mmDest     = mmRdr.IsDBNull(3) ? "" : mmRdr.GetString(3);
+				string mmFldt     = mmRdr.IsDBNull(4) ? "" : mmRdr.GetString(4);
+				if ((wsKeys.Contains(MergeKey(mmCallsign, mmOrigin, mmDest, mmFldt)) || !mmIdsSeen.Contains(id)) && !toDrop.Contains(id))
 					toDrop.Add(id);
 			}
 			mmRdr.Close();
@@ -405,6 +415,49 @@ namespace ICAO_CSV
 					toDrop.Add(id);
 			}
 			pastRdr.Close();
+
+			// General duplicate cleanup, across ALL sources: rows that share the same
+			// flight-leg identity (Callsign+Origin+Dest+day) are the same physical flight
+			// no matter how they ended up duplicated (e.g. stale rows left over from
+			// before MergeKey was fixed to ignore exact STD, or a tactical-vs-real callsign
+			// mismatch that has since been corrected). Keep the single best row per
+			// identity — preferring a non-blank Crew, then Source priority WS > MM > CSV,
+			// then a non-blank STA — and drop the rest.
+			Dictionary<string, int[]> bestBySameLeg = new Dictionary<string, int[]>();   // key -> [bestId, bestScore]
+			OleDbDataReader dedupRdr = new OleDbCommand(
+				"SELECT FltlegID, Callsign, Origin, Dest, FLDt, Crew, Source, STA FROM FlightSchedule", wconn).ExecuteReader();
+			while (dedupRdr.Read())
+			{
+				int id           = Convert.ToInt32(dedupRdr.GetValue(0));
+				if (toDrop.Contains(id)) continue;   // already being dropped by an earlier pass
+				string callsign  = dedupRdr.IsDBNull(1) ? "" : dedupRdr.GetString(1);
+				string origin    = dedupRdr.IsDBNull(2) ? "" : dedupRdr.GetString(2);
+				string dest      = dedupRdr.IsDBNull(3) ? "" : dedupRdr.GetString(3);
+				string fldt      = dedupRdr.IsDBNull(4) ? "" : dedupRdr.GetString(4);
+				string crew      = dedupRdr.IsDBNull(5) ? "" : dedupRdr.GetString(5);
+				string source    = dedupRdr.IsDBNull(6) ? "" : dedupRdr.GetString(6);
+				string sta       = dedupRdr.IsDBNull(7) ? "" : dedupRdr.GetString(7);
+
+				string key = MergeKey(callsign, origin, dest, fldt);
+				int sourceScore = source == "WS" ? 2 : (source == "MM" ? 1 : 0);
+				int score = (crew != "" ? 100 : 0) + sourceScore * 10 + (sta != "" ? 1 : 0);
+
+				int[] best;
+				if (!bestBySameLeg.TryGetValue(key, out best))
+				{
+					bestBySameLeg[key] = new int[] { id, score };
+				}
+				else if (score > best[1])
+				{
+					toDrop.Add(best[0]);
+					bestBySameLeg[key] = new int[] { id, score };
+				}
+				else
+				{
+					toDrop.Add(id);
+				}
+			}
+			dedupRdr.Close();
 
 			foreach (int id in toDrop)
 			{
@@ -466,12 +519,12 @@ namespace ICAO_CSV
 				if (callsign == "" || std == "") continue;   // not enough to place it in the grid
 				if (origin == "" && dest == "") continue;   // same guard as the webservice path — no route, not a real flight
 
-				string mergeKey = MergeKey(callsign, std);
+				string fldt = stdDt.ToString("yyyy-MM-dd");
+				string mergeKey = MergeKey(callsign, origin, dest, fldt);
 				int fltlegId = -csvId;
 				csvIdsSeen.Add(fltlegId);
 				if (wsKeys.Contains(mergeKey) || mmKeys.Contains(mergeKey)) continue;   // already covered by a higher-priority source
 
-				string fldt = stdDt.ToString("yyyy-MM-dd");
 				result.Add(new object[] { fltlegId, fldt, callsign, reg, std, "", "CSV", sta, origin, dest });
 			}
 			return result;

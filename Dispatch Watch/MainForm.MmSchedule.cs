@@ -59,7 +59,6 @@ namespace ICAO_CSV
 		// One flight-instance's latest known state, keyed by carrierCode|flightNumber|originDate.
 		private class MmFlightState
 		{
-			public string Callsign = "";
 			public string Reg = "";
 			public string Std = "";
 			public string Sta = "";
@@ -133,8 +132,16 @@ namespace ICAO_CSV
 					try
 					{
 						XDocument doc = XDocument.Load(fileEntry.Value);
-						XElement flight = doc.Root != null ? doc.Root.Element(FsNs + "flight") : null;
-						if (flight != null)
+						// Most messages carry a single <flight>, but the twice-daily ACCLAIM
+						// batch files (~05:30/16:00, ~150-200KB) carry many sibling <flight>
+						// elements spanning several days each — the only real source of
+						// visibility beyond day+2, since the small per-flight delta messages
+						// are mostly near-term changes. Using Element() (first child only)
+						// here silently dropped ~99% of a batch file's content; Elements()
+						// walks all of them.
+						IEnumerable<XElement> flightsInFile = doc.Root != null
+							? doc.Root.Elements(FsNs + "flight") : new XElement[0];
+						foreach (XElement flight in flightsInFile)
 						{
 							string carrier      = El(flight, FsNs + "carrierCode");
 							string flightNumber = El(flight, FsNs + "flightNumber");
@@ -153,8 +160,6 @@ namespace ICAO_CSV
 								else
 								{
 									state.Cancelled = false;
-									string callsignTag = El(flight, FsNs + "callsign");
-									if (callsignTag != "") state.Callsign = callsignTag;
 									state.Reg    = El(flight, FsNs + "aircraftRegistration");
 									state.Std    = El(flight, FsNs + "scheduledDepartureTime");
 									state.Sta    = El(flight, FsNs + "scheduledArrivalTime");
@@ -181,13 +186,16 @@ namespace ICAO_CSV
 				string[] keyParts = kv.Key.Split('|');
 				string carrier = keyParts[0], flightNumber = keyParts[1];
 
-				string callsign = state.Callsign;
-				if (callsign == "")
-				{
-					string prefix;
-					if (!_mmCarrierPrefixMap.TryGetValue(carrier, out prefix)) continue;   // can't attribute — skip
-					callsign = prefix + flightNumber;
-				}
+				// Deliberately NOT using the message's own <callsign> here: it turns out to
+				// sometimes hold the tactical/rotation callsign (e.g. "TAY6BS") rather than
+				// the flight-number-based one the webservice uses (e.g. "TAY4337" for the
+				// exact same leg) — confirmed by cross-checking a live duplicate pair
+				// against the source XML. Using it created the same kind of duplicate the
+				// CSV's ATC-field callsign once did, so the callsign is always rebuilt from
+				// carrierCode + flightNumber via the operator map instead, for consistency.
+				string prefix;
+				if (!_mmCarrierPrefixMap.TryGetValue(carrier, out prefix)) continue;   // can't attribute — skip
+				string callsign = prefix + flightNumber;
 				if (!CallsignAllowed(callsign)) continue;
 
 				DateTime stdDt;
@@ -195,7 +203,7 @@ namespace ICAO_CSV
 					DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out stdDt)) continue;
 				if (stdDt < DateTime.UtcNow.Date || stdDt > windowEnd) continue;
 
-				string mergeKey = MergeKey(callsign, state.Std);
+				string mergeKey = MergeKey(callsign, state.Origin, state.Dest, state.FldT);
 				int fltlegId = MmSyntheticId(kv.Key);
 				mmIdsSeen.Add(fltlegId);
 				mmKeys.Add(mergeKey);
