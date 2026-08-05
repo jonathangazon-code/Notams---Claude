@@ -180,6 +180,7 @@ namespace ICAO_CSV
 			// since they have no real Fltleg_ID yet).
 			List<object[]> flights = new List<object[]>();
 			HashSet<string> wsKeys = new HashSet<string>();   // Callsign|STD already covered by the webservice
+			HashSet<int> wsIdsSeen = new HashSet<int>();      // FltlegIDs the webservice actually returned this run
 
 			for (int dayOffset = 0; dayOffset <= 7; dayOffset++)
 			{
@@ -231,6 +232,7 @@ namespace ICAO_CSV
 
 					flights.Add(new object[] { fltlegId, fldtVal, callsign, reg, std, crew, "WS", null, origin, dest });
 					wsKeys.Add(MergeKey(callsign, std));
+					wsIdsSeen.Add(fltlegId);
 				}
 			}
 
@@ -348,6 +350,38 @@ namespace ICAO_CSV
 				if (o == "" && d == "" && !toDrop.Contains(id)) toDrop.Add(id);
 			}
 			routeRdr.Close();
+
+			// Purge stale webservice rows: FPM sometimes reissues a new Fltleg_ID for a
+			// flight that already has a row from an earlier refresh (a crew update or a
+			// schedule shift of a few minutes), leaving the old ID's row behind forever —
+			// it never gets updated (different key) and nothing previously deleted it,
+			// producing duplicate-looking rows for the "same" flight. Any Source='WS' row
+			// whose FltlegID the webservice didn't return in *this* run's day+0..+7 window
+			// is either superseded or simply no longer scheduled, so it's dropped.
+			OleDbDataReader wsRdr = new OleDbCommand("SELECT FltlegID, Source FROM FlightSchedule", wconn).ExecuteReader();
+			while (wsRdr.Read())
+			{
+				int id = Convert.ToInt32(wsRdr.GetValue(0));
+				string source = wsRdr.IsDBNull(1) ? "" : wsRdr.GetString(1);
+				if (source != "CSV" && !wsIdsSeen.Contains(id) && !toDrop.Contains(id)) toDrop.Add(id);
+			}
+			wsRdr.Close();
+
+			// Purge flights whose STD has already passed — the grid should only ever show
+			// upcoming (or currently in-progress) flights.
+			DateTime nowUtc = DateTime.UtcNow;
+			OleDbDataReader pastRdr = new OleDbCommand("SELECT FltlegID, STD FROM FlightSchedule", wconn).ExecuteReader();
+			while (pastRdr.Read())
+			{
+				int id = Convert.ToInt32(pastRdr.GetValue(0));
+				string stdRaw = pastRdr.IsDBNull(1) ? "" : pastRdr.GetString(1);
+				DateTime stdDt;
+				if (DateTime.TryParse(stdRaw, CultureInfo.InvariantCulture,
+					DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out stdDt)
+					&& stdDt < nowUtc && !toDrop.Contains(id))
+					toDrop.Add(id);
+			}
+			pastRdr.Close();
 
 			foreach (int id in toDrop)
 			{

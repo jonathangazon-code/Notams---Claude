@@ -519,16 +519,38 @@ namespace ICAO_CSV
 
 		// Thresholds closed by THIS NOTAM (e.g. "RWY 09/27 CLSD. RWY 08/26 CLSD" -> 09,27,08,26).
 		// Only meaningful when the NOTAM actually contains a closure.
-		// Text window around a regex match, used to require CLSD/CLOSED to be near the
-		// specific runway mention rather than merely present anywhere in the NOTAM — a
-		// longer NOTAM can close a TAXIWAY and separately just mention a runway as a
-		// location reference (e.g. "TWY R1 BTN RWY16R/34L AND TWY G"), which must NOT be
-		// read as that runway being closed.
-		private static string ContextWindow(string U, int index, int length)
+		// Whether the runway mention at `index`/`length` in U is closed: requires
+		// CLSD/CLOSED to be the NEAREST status keyword to that specific mention, not just
+		// present anywhere within a ±20-char window — a longer NOTAM can close a TAXIWAY
+		// and separately just mention a runway as a location reference (e.g. "TWY R1 BTN
+		// RWY16R/34L AND TWY G"), or can close one runway pair and explicitly reopen
+		// another in the same sentence (e.g. "RWY 17L/35R CLSD DUE TO WIP RWY 17R/35L
+		// OPEN") — a plain "is CLSD anywhere in the window" check let the first clause's
+		// CLSD leak into the second, explicitly-OPEN runway's window and wrongly close it
+		// too. Picking whichever of CLSD/CLOSED vs OPEN is actually closest fixes both.
+		private static bool IsClosedNearby(string U, int index, int length)
 		{
 			int start = Math.Max(0, index - 20);
 			int end = Math.Min(U.Length, index + length + 20);
-			return U.Substring(start, end - start);
+			string window = U.Substring(start, end - start);
+			int matchPos = index - start;
+
+			int nearestClsd = -1, nearestOpen = -1;
+			foreach (System.Text.RegularExpressions.Match cm in
+				System.Text.RegularExpressions.Regex.Matches(window, @"\bCLSD\b|\bCLOSED\b"))
+			{
+				int dist = Math.Abs(cm.Index - matchPos);
+				if (nearestClsd == -1 || dist < nearestClsd) nearestClsd = dist;
+			}
+			foreach (System.Text.RegularExpressions.Match om in
+				System.Text.RegularExpressions.Regex.Matches(window, @"\bOPEN\b"))
+			{
+				int dist = Math.Abs(om.Index - matchPos);
+				if (nearestOpen == -1 || dist < nearestOpen) nearestOpen = dist;
+			}
+			if (nearestClsd == -1) return false;
+			if (nearestOpen == -1) return true;
+			return nearestClsd <= nearestOpen;
 		}
 
 		private static System.Collections.Generic.List<string> ClosedThresholds(string U)
@@ -541,18 +563,18 @@ namespace ICAO_CSV
 
 			// Runway mentions must carry the RWY/RUNWAY keyword themselves (a bare "16R/34L"
 			// with no RWY prefix is too easy to confuse with something else) AND have
-			// CLSD/CLOSED nearby — not just anywhere in the NOTAM.
+			// CLSD/CLOSED nearest — not just anywhere in the NOTAM.
 			foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(
 				U, @"R(?:WY|UNWAY)\s*(\d{1,2}[LCR]?)\s*/\s*(\d{1,2}[LCR]?)"))
 			{
-				if (!taxiOnly && !RegexAny(ContextWindow(U, m.Index, m.Length), @"\bCLSD", @"\bCLOSED")) continue;
+				if (!taxiOnly && !IsClosedNearby(U, m.Index, m.Length)) continue;
 				if (!set.Contains(m.Groups[1].Value)) set.Add(m.Groups[1].Value);
 				if (!set.Contains(m.Groups[2].Value)) set.Add(m.Groups[2].Value);
 			}
 			foreach (System.Text.RegularExpressions.Match m in
 				System.Text.RegularExpressions.Regex.Matches(U, @"R(?:WY|UNWAY)\s*(\d{1,2}[LCR]?)\b(?!\s*/)"))
 			{
-				if (!taxiOnly && !RegexAny(ContextWindow(U, m.Index, m.Length), @"\bCLSD", @"\bCLOSED")) continue;
+				if (!taxiOnly && !IsClosedNearby(U, m.Index, m.Length)) continue;
 				if (!set.Contains(m.Groups[1].Value)) set.Add(m.Groups[1].Value);
 			}
 			return set;
@@ -576,7 +598,8 @@ namespace ICAO_CSV
 			System.Collections.Generic.List<string> res = new System.Collections.Generic.List<string>();
 			bool lvpExc = RegexAny(U, @"(EXC|EXCEPT)\s+LVP");
 			bool dmeOnly = RegexAny(U, @"\bDME\b.{0,20}ASSOCIATED\s+WITH\s+ILS.{0,15}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE))");
-			bool ilsOutageText = !lvpExc && !dmeOnly && RegexAny(U, IlsOutagePattern);
+			bool markerOnly = RegexAny(U, @"\b(MIDDLE|OUTER)\s+MARKER\b.{0,20}\bILS\b", @"\bILS\b.{0,20}\b(MIDDLE|OUTER)\s+MARKER\b");
+			bool ilsOutageText = !lvpExc && !dmeOnly && !markerOnly && RegexAny(U, IlsOutagePattern);
 			if (!ilsOutageText) return res;
 			foreach (System.Text.RegularExpressions.Match m in
 				System.Text.RegularExpressions.Regex.Matches(U, @"RWY\s*(\d{1,2}[LCR]?)"))
@@ -592,6 +615,13 @@ namespace ICAO_CSV
 			ImpactSuggestion s = new ImpactSuggestion();
 			string U = notamText.ToUpper();
 
+			// A restriction explicitly scoped to aircraft types this operator doesn't fly
+			// (e.g. "FOR A388 AND B748 ACFT : ... CANNOT BE CHOSEN AS AN ALTERNATE") isn't
+			// relevant regardless of which impact keywords also appear in the text — bail
+			// out with an empty suggestion. List is intentionally small/extensible.
+			if (RegexAny(U, @"FOR\s+(A388|B748)(\s+AND\s+(A388|B748))?\s+ACFT\s*:"))
+				return s;
+
 			// SUP — independent. Require an actual "SUP nnn/yyyy" reference (same pattern as
 			// ExtractSupRef), not a bare substring match — plain U.Contains("SUP") was a false
 			// positive on any word containing "SUP", e.g. "SECONDARY POWER SUPPLY".
@@ -601,15 +631,22 @@ namespace ICAO_CSV
 			s.Fuel = RegexAny(U, @"FUEL.{0,20}(NOT\s+AVBL|U/S|NIL|UNAVAIL)", @"NO\s+FUEL", @"FUEL\s+DISRUPTION");
 
 			// Not as alternate / PPR / delay (7/7 on sample).
-			// \bPPR\b excludes two common false-positive shapes seen on NAVAID/TWY NOTAMs:
+			// \bPPR\b excludes three common false-positive shapes seen on NAVAID/TWY NOTAMs:
 			// a directly-following phone number ("PPR 617-561-1919" — a ground-ops contact for
-			// taxi/parking access) or a short duration ("AVBL PPR 10MIN" — a prior-notice
-			// window for using degraded equipment, not a restriction on using the airport as
-			// an alternate). "EXCEPT ALTN"/"EXC ALTN" explicitly says the airport IS still
-			// usable as an alternate despite the restriction (e.g. "NOT AVBL FOR LANDING,
-			// EXCEPT ALTN") — that carve-out suppresses the whole flag.
+			// taxi/parking access), a short duration ("AVBL PPR 10MIN" — a prior-notice
+			// window for using degraded equipment), or a VHF frequency ("PPR 131.1" — a
+			// contact frequency, e.g. "RWY 09/27 CLSD EXC TAX 30MIN PPR 131.1") — none of
+			// these are a restriction on using the airport as an alternate. "EXCEPT ALTN"/
+			// "EXC ALTN" explicitly says the airport IS still usable as an alternate despite
+			// the restriction (e.g. "NOT AVBL FOR LANDING, EXCEPT ALTN") — that carve-out
+			// suppresses the whole flag. A bare "PPR ONLY" in the context of airspace/
+			// opening-hours activation (e.g. "CTA/CTR/ATZ ACTIVATED. AD/ATS OPR HR EXTENDED.
+			// PPR ONLY.") is prior permission to enter/operate during that window, not a
+			// diversion-suitability restriction — also excluded.
 			bool exceptAltn = RegexAny(U, @"(EXC|EXCEPT)\s+ALTN");
-			s.NotAltn = !exceptAltn && RegexAny(U, @"\bPPR\b(?!\s*\d[\d\-]{5,})(?!\s*\d{1,3}\s*MIN\b)", @"PRIOR\s+PERMISSION", @"CANNOT\s+BE\s+CHOSEN\s+AS",
+			bool hoursActivation = RegexAny(U, @"OPR\s*HR", @"OPERATING\s+HOURS", @"\b(ATZ|CTR|CTA)\s+ACTIVAT");
+			s.NotAltn = !exceptAltn && !hoursActivation && RegexAny(U,
+				@"\bPPR\b(?!\s*\d[\d\-]{5,})(?!\s*\d{1,3}\s*MIN\b)(?!\s*\d{2,3}\.\d)", @"PRIOR\s+PERMISSION", @"CANNOT\s+BE\s+CHOSEN\s+AS",
 				@"NOT.{0,12}ALTERNATE", @"NOT\s+AVBL\s+AS\s+ALTN", @"\bDIVERSION", @"SUBJ.{0,10}DLA",
 				@"EXPECT\s+DELAY", @"DELAY\s+EXPECTED", @"\bO/R\s+ONLY", @"NOT\s+AVBL\s+FOR\s+LANDING");
 
@@ -620,15 +657,20 @@ namespace ICAO_CSV
 			// (LOC/GP) — losing it doesn't take the ILS approach out of service.
 			bool dmeOnly = RegexAny(U, @"\bDME\b.{0,20}ASSOCIATED\s+WITH\s+ILS.{0,15}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE))");
 
+			// A middle/outer marker beacon is a supporting component of the ILS, not the
+			// localizer/glideslope itself (same idea as the DME exclusion above) — losing it
+			// doesn't take the ILS approach out of service.
+			bool markerOnly = RegexAny(U, @"\b(MIDDLE|OUTER)\s+MARKER\b.{0,20}\bILS\b", @"\bILS\b.{0,20}\b(MIDDLE|OUTER)\s+MARKER\b");
+
 			// No ILS (2/2): ILS unserviceable, unless it is only an LVP-only restriction, a
-			// DME-only outage (see above), OR another runway at the airport still has a
+			// DME/marker-only outage (see above), OR another runway at the airport still has a
 			// working ILS (mirrors the APT CLSD "all runways closed" check below) — losing
 			// the ILS on one runway shouldn't flag "No ILS" airport-wide when a
 			// parallel/other runway remains ILS-equipped. extraIlsDownRwys folds in ILS
 			// outages reported by OTHER simultaneous NOTAMs at the same airport (e.g. two
 			// separate NOTAMs, one per runway end, both saying "ILS ... ON TEST") so the
 			// combined effect is recognised even though each NOTAM only mentions its own end.
-			bool ilsOutageText = !lvpExc && !dmeOnly && RegexAny(U, IlsOutagePattern);
+			bool ilsOutageText = !lvpExc && !dmeOnly && !markerOnly && RegexAny(U, IlsOutagePattern);
 			s.NoILS = ilsOutageText;
 			s.IlsOutage = ilsOutageText;
 			if (ilsOutageText && runways.Count > 0)
@@ -637,12 +679,20 @@ namespace ICAO_CSV
 				if (extraIlsDownRwys != null)
 					foreach (string rw in extraIlsDownRwys) if (!affectedRwys.Contains(rw)) affectedRwys.Add(rw);
 
+				// The airport isn't left with zero instrument-approach capability when
+				// another runway/direction still has a working ILS — but it's still a real
+				// degradation (the affected runway/direction has none), so downgrade the
+				// suggestion to CAT I instead of suppressing it to nothing.
 				foreach (RwyInfo r in runways)
-					if (r.CatMax >= 1 && !affectedRwys.Contains(r.Desig.ToUpper())) { s.NoILS = false; break; }
+					if (r.CatMax >= 1 && !affectedRwys.Contains(r.Desig.ToUpper())) { s.NoILS = false; s.CatI = true; break; }
 			}
 
-			// CAT I (3/6): CAT II/III lost, or downgrade to CAT I, or ILS U/S except LVP
-			s.CatI = RegexAny(U, @"CAT\s*(II|III|2|3)\b.{0,28}(NOT\s+(AUTH|AVBL|AVAILABLE)|U/S|UNSERVICEABLE|DOWNGRAD)",
+			// CAT I (3/6): CAT II/III lost, or downgrade to CAT I, or ILS U/S except LVP.
+			// Matches either word order — "CAT II ... NOT AVAILABLE" or the reversed
+			// "NOT AVAILABLE: ... ILS CAT II" (both seen in real NOTAMs).
+			s.CatI = s.CatI || RegexAny(U,
+				@"CAT\s*(II|III|2|3)\b.{0,28}(NOT\s+(AUTH|AVBL|AVAILABLE)|U/S|UNSERVICEABLE|DOWNGRAD)",
+				@"(NOT\s+(AUTH|AVBL|AVAILABLE)|U/S|UNSERVICEABLE).{0,40}CAT\s*(II|III|2|3)\b",
 				@"DOWNGRAD.{0,15}CAT\s*(I|1)\b")
 				|| (lvpExc && RegexAny(U, @"ILS.{0,20}U/S"));
 
@@ -1224,15 +1274,18 @@ namespace ICAO_CSV
 			if (impactOn || supStored)
 			{
 				int rowLeft = areaLeft, rowTop = Top + 94, rowW = areaW, gap = 8;
+				// Fuel/MISC default to the FULL NOTAM text rather than the first-line/dates
+				// default every other impact uses.
+				string effectiveDefault = (Impact == "F" || Impact == "M") ? notamText.Trim() : remarkDefault;
 				if (impactOn && supStored)
 				{
 					AddStationRemark(parent, notam_ID, false, rowLeft, rowTop, rowW * 2 / 3,
-						storedRemark != "" ? storedRemark : remarkDefault);
+						storedRemark != "" ? storedRemark : effectiveDefault);
 					AddStationRemark(parent, notam_ID, true, rowLeft + rowW * 2 / 3 + gap, rowTop, rowW / 3 - gap, storedSupRef);
 				}
 				else if (impactOn)
 					AddStationRemark(parent, notam_ID, false, rowLeft, rowTop, rowW,
-						storedRemark != "" ? storedRemark : remarkDefault);
+						storedRemark != "" ? storedRemark : effectiveDefault);
 				else
 					AddStationRemark(parent, notam_ID, true, rowLeft, rowTop, rowW, storedSupRef);
 			}
@@ -1513,9 +1566,14 @@ namespace ICAO_CSV
 			Panel remarkRow = new Panel { Tag="dispose", Top=Top+94, Left=areaLeft, Width=areaW, Height=26 };
 			tabPage1.Controls.Add(remarkRow);
 
-			// Impact remark textbox: stored remark > impact first-line > empty
+			// Impact remark textbox: stored remark > impact first-line > empty. Fuel/MISC
+			// (the only auto-suggestible one of the two is Fuel — MISC is never suggested
+			// by the engine) default to the FULL NOTAM text instead of the first-line/dates
+			// default every other impact uses, since a fuel restriction's actual detail is
+			// usually further down in the text.
 			string remarkInit;
 			if (stored) remarkInit = storedRemark;
+			else if (sugCode == "F" || sugCode == "M") remarkInit = notamText.Trim();
 			else if (sugCode != "") remarkInit = remarkDefault;
 			else remarkInit = "";
 			TextBox remark = new TextBox { Top=0, Left=0, Size=new Size(250,24), Text=remarkInit };
@@ -1602,11 +1660,15 @@ namespace ICAO_CSV
 				for (int i = 0; i < chks.Length; i++)
 					if (i != idx && chks[i].Checked) chks[i].Checked = false;
 
-				// Pre-fill remark with first line of NOTAM text if empty
-				if (_pendRemark.ContainsKey(notam_ID) && _pendRemark[notam_ID].Text.Trim() == "" &&
-				    _pendRemarkDefault.ContainsKey(notam_ID))
+				// Pre-fill remark with first line of NOTAM text if empty — except Fuel/MISC,
+				// which get the FULL NOTAM text instead (see AddFilterCheckboxes).
+				if (_pendRemark.ContainsKey(notam_ID) && _pendRemark[notam_ID].Text.Trim() == "")
 				{
-					_pendRemark[notam_ID].Text = _pendRemarkDefault[notam_ID];
+					string code = _impactOrder[idx];
+					if (code == "F" || code == "M")
+						_pendRemark[notam_ID].Text = notamText.Trim();
+					else if (_pendRemarkDefault.ContainsKey(notam_ID))
+						_pendRemark[notam_ID].Text = _pendRemarkDefault[notam_ID];
 				}
 			}
 			for (int i = 0; i < chks.Length; i++) StyleChk(chks[i], _impactOrder[i]);
