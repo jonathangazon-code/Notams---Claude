@@ -4,6 +4,7 @@ using System.Data.OleDb;
 using System.Drawing;
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace ICAO_CSV
 {
@@ -99,9 +100,9 @@ namespace ICAO_CSV
 
 					foreach (FsFlight f in flights)
 					{
-						if (f.Origin == iata && f.HasStd && f.Std <= windowEnd && Overlaps(notamStart, notamEnd, f.Std))
+						if (f.Origin == iata && f.HasStd && f.Std <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, f.Std))
 							matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — origin — STD " + FormatUtc(f.Std) + "Z");
-						if (f.Dest == iata && f.HasSta && f.Sta <= windowEnd && Overlaps(notamStart, notamEnd, f.Sta))
+						if (f.Dest == iata && f.HasSta && f.Sta <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, f.Sta))
 							matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — destination — STA " + FormatUtc(f.Sta) + "Z");
 					}
 					if (matches.Count == 0) continue;   // no conflict — nothing to show for this NOTAM
@@ -165,6 +166,108 @@ namespace ICAO_CSV
 			DateTime winStart = flightTime.AddHours(-_conflictWindowHours);
 			DateTime winEnd   = flightTime.AddHours(_conflictWindowHours);
 			return notamStart <= winEnd && notamEnd >= winStart;
+		}
+
+		private static readonly string[] _dayTokens = { "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN" };
+		private static readonly DayOfWeek[] _dayOfWeekByToken =
+			{ DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday };
+
+		private static int DayTokenIndex(string token)
+		{
+			for (int i = 0; i < _dayTokens.Length; i++) if (_dayTokens[i] == token.ToUpper()) return i;
+			return -1;
+		}
+
+		private struct ScheduleEntry
+		{
+			public bool Daily;
+			public HashSet<DayOfWeek> Days;
+			public int StartMin, EndMin;   // minutes since local midnight, from HHMM
+		}
+
+		private static readonly Regex _dayItemRe = new Regex(
+			@"\b(MON|TUE|WED|THU|FRI|SAT|SUN)\b(?:\s*-\s*\b(MON|TUE|WED|THU|FRI|SAT|SUN)\b)?\s+(\d{4})\s*-\s*(\d{4})",
+			RegexOptions.IgnoreCase);
+		private static readonly Regex _dailyRe = new Regex(@"\bDAILY\b\s+(\d{4})\s*-\s*(\d{4})", RegexOptions.IgnoreCase);
+
+		// Extracts recurring D)-item closure schedules ("DAILY 2230-0330", "MON 0500-2359,
+		// TUE 0000-0100", "MON-FRI 0600-1800", ...) out of the NOTAM's raw free text, and
+		// expands them into concrete UTC occurrence intervals across [notamStart, notamEnd].
+		// Returns null when nothing recognizable is found — the caller then falls back to
+		// treating the whole validity window as active (today's behavior), so an exotic or
+		// unparseable schedule never silently hides a real conflict.
+		private static List<Tuple<DateTime, DateTime>> ParseNotamActiveWindows(string text, DateTime notamStart, DateTime notamEnd)
+		{
+			text = text ?? "";
+			List<ScheduleEntry> entries = new List<ScheduleEntry>();
+
+			MatchCollection dayMatches = _dayItemRe.Matches(text);
+			if (dayMatches.Count > 0)
+			{
+				foreach (Match m in dayMatches)
+				{
+					int fromIdx = DayTokenIndex(m.Groups[1].Value);
+					int toIdx = m.Groups[2].Success ? DayTokenIndex(m.Groups[2].Value) : fromIdx;
+					if (fromIdx < 0 || toIdx < 0 || toIdx < fromIdx) continue;   // wraparound ranges (e.g. FRI-MON) unsupported — skip this entry
+					int startMin, endMin;
+					if (!TryHhmm(m.Groups[3].Value, out startMin) || !TryHhmm(m.Groups[4].Value, out endMin)) continue;
+
+					HashSet<DayOfWeek> days = new HashSet<DayOfWeek>();
+					for (int i = fromIdx; i <= toIdx; i++) days.Add(_dayOfWeekByToken[i]);
+					entries.Add(new ScheduleEntry { Daily = false, Days = days, StartMin = startMin, EndMin = endMin });
+				}
+			}
+			else
+			{
+				Match d = _dailyRe.Match(text);
+				if (d.Success)
+				{
+					int startMin, endMin;
+					if (TryHhmm(d.Groups[1].Value, out startMin) && TryHhmm(d.Groups[2].Value, out endMin))
+						entries.Add(new ScheduleEntry { Daily = true, Days = null, StartMin = startMin, EndMin = endMin });
+				}
+			}
+
+			if (entries.Count == 0) return null;
+
+			List<Tuple<DateTime, DateTime>> occurrences = new List<Tuple<DateTime, DateTime>>();
+			for (DateTime d = notamStart.Date; d <= notamEnd.Date; d = d.AddDays(1))
+			{
+				foreach (ScheduleEntry entry in entries)
+				{
+					if (!entry.Daily && !entry.Days.Contains(d.DayOfWeek)) continue;
+
+					DateTime occStart = d.AddMinutes(entry.StartMin);
+					DateTime occEnd = entry.EndMin > entry.StartMin ? d.AddMinutes(entry.EndMin) : d.AddDays(1).AddMinutes(entry.EndMin);
+
+					DateTime clippedStart = occStart < notamStart ? notamStart : occStart;
+					DateTime clippedEnd = occEnd > notamEnd ? notamEnd : occEnd;
+					if (clippedStart < clippedEnd) occurrences.Add(new Tuple<DateTime, DateTime>(clippedStart, clippedEnd));
+				}
+			}
+			return occurrences;
+		}
+
+		private static bool TryHhmm(string hhmm, out int minutesSinceMidnight)
+		{
+			minutesSinceMidnight = 0;
+			int hour, minute;
+			if (hhmm.Length != 4 || !int.TryParse(hhmm.Substring(0, 2), out hour) || !int.TryParse(hhmm.Substring(2, 2), out minute)) return false;
+			if (hour > 24 || minute > 59) return false;
+			minutesSinceMidnight = hour * 60 + minute;
+			return true;
+		}
+
+		// Flight-time-vs-NOTAM match that honors a recurring D)-item schedule when one can be
+		// recognized in the NOTAM text, instead of always treating the whole validity window
+		// as active — fixes false conflicts like a Wednesday flight against a NOTAM only
+		// closing "MON 0500-2359, TUE 0000-0100".
+		private bool OverlapsSchedule(DateTime notamStart, DateTime notamEnd, string notamText, DateTime flightTime)
+		{
+			List<Tuple<DateTime, DateTime>> windows = ParseNotamActiveWindows(notamText, notamStart, notamEnd);
+			if (windows == null) return Overlaps(notamStart, notamEnd, flightTime);
+			foreach (Tuple<DateTime, DateTime> w in windows) if (Overlaps(w.Item1, w.Item2, flightTime)) return true;
+			return false;
 		}
 
 		private static string FormatUtc(DateTime dt) { return dt.ToString("dd/MM HH:mm"); }
