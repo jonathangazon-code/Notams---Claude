@@ -763,6 +763,7 @@ namespace ICAO_CSV
 			_pendRemark.Clear();
 			_pendSupRemark.Clear();
 			_pendRemarkDefault.Clear();
+			_pendSnapshot.Clear();
 
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
@@ -999,6 +1000,14 @@ namespace ICAO_CSV
 					string remarkDefault = NotamRemarkDefault(notam_text, fromDate, tillDate);
 					AddFilterCheckboxes(notam_ID, Impact, stored, sugCode,
 						supStored, sug.Sup, notam_text, remarkDefault, Remark, storedSupRef, Top, ctrlLeft, ctrlW);
+
+					// Snapshot what the engine suggested here so Btn_submitNotamsClick can
+					// compare it against the dispatcher's final answer and log a correction.
+					_pendSnapshot[notam_ID] = new NotamSnapshot
+					{
+						Icao = AP, Key = notam_key, NotamText = notam_text, Runways = runways,
+						SuggestedImpact = sugCode, SuggestedSup = sug.Sup
+					};
 				}
 
 				// Push the background panels behind all content added above
@@ -1069,6 +1078,7 @@ namespace ICAO_CSV
 			while (OCCreader.Read())
 				if (!OCCreader.IsDBNull(6)) RWYs = OCCreader.GetString(6);
 			connOCC.Close();
+			System.Collections.Generic.List<RwyInfo> runways = ParseRunways(RWYs);
 
 			// Airport card into the shared header (below the top bar)
 			int headerHeight;
@@ -1166,7 +1176,8 @@ namespace ICAO_CSV
 
 				if (kept)
 					AddStationChips(tabPage1, notam_ID, Impact, supStored, notam_text,
-						NotamRemarkDefault(notam_text, fromDate, tillDate), Remark, storedSupRef, Top, ctrlLeft, ctrlW);
+						NotamRemarkDefault(notam_text, fromDate, tillDate), Remark, storedSupRef, Top, ctrlLeft, ctrlW,
+						runways, AP, notam_key);
 
 				if (ctrlBox != null) ctrlBox.SendToBack();
 				card.SendToBack();
@@ -1184,7 +1195,8 @@ namespace ICAO_CSV
 		// Stations-tab impact chips — immediate write (no SUBMIT). Assigning an impact also
 		// keeps the NOTAM; clearing it leaves the impact blank.
 		private void AddStationChips(Control parent, int notam_ID, string Impact, bool supStored, string notamText,
-			string remarkDefault, string storedRemark, string storedSupRef, int Top, int ctrlLeft, int ctrlW)
+			string remarkDefault, string storedRemark, string storedSupRef, int Top, int ctrlLeft, int ctrlW,
+			System.Collections.Generic.List<RwyInfo> runways, string icao, string key)
 		{
 			string[] labels = { "APT CLSD", "CAT I", "No ILS", "Not ALTN", "Fuel", "MISC", "RWY" };
 			int pad = 10, areaLeft = ctrlLeft + pad, areaW = ctrlW - 2 * pad;
@@ -1197,13 +1209,14 @@ namespace ICAO_CSV
 				string code = _impactOrder[i];
 				CheckBox chk = CreateChip(parent, labels[i], cols[i], tops[i], chipW, Impact == code, code);
 				int id = notam_ID; string c = code; CheckBox cb = chk;
-				chk.CheckedChanged += (s, e) => StationImpactSet(id, c, cb.Checked);
+				string txtI = notamText;
+				chk.CheckedChanged += (s, e) => StationImpactSet(id, c, cb.Checked, txtI, runways, icao, key);
 			}
 
 			// SUP — independent, immediate write
 			CheckBox sup = CreateChip(parent, "SUP", colX[3], Top+44, chipW, supStored, "AS");
 			int sid = notam_ID; string txt = notamText; CheckBox sb = sup;
-			sup.CheckedChanged += (s, e) => StationSupSet(sid, txt, sb.Checked);
+			sup.CheckedChanged += (s, e) => StationSupSet(sid, txt, sb.Checked, runways, icao, key);
 
 			// Remark textfields shown when impact / SUP is set (immediate save on leave).
 			// "AS" is the legacy SUP-as-impact code — it is SUP, not an impact remark.
@@ -1249,7 +1262,8 @@ namespace ICAO_CSV
 		}
 
 		// Toggle an impact for a Stations-tab NOTAM and reload.
-		void StationImpactSet(int notam_ID, string code, bool on)
+		void StationImpactSet(int notam_ID, string code, bool on, string notamText,
+			System.Collections.Generic.List<RwyInfo> runways, string icao, string key)
 		{
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
@@ -1269,11 +1283,20 @@ namespace ICAO_CSV
 			}
 			u.ExecuteNonQuery();
 			conn.Close();
+
+			// Log a correction whenever the dispatcher's final impact for this NOTAM
+			// disagrees with what the engine would suggest — covers both "picked a
+			// different code" and "cleared the engine's bogus suggestion" (e.g. Not ALTN).
+			ImpactSuggestion sug = SuggestImpacts(notamText, runways, new System.Collections.Generic.List<string>(), null);
+			string sugCode = SuggestedSingleCode(sug);
+			LogImpactCorrection(icao, key, notamText, runways, sugCode, on ? code : "", sug.Sup, sug.Sup);
+
 			ICAO_Notams();
 		}
 
 		// Toggle SUP for a Stations-tab NOTAM (independent of impact) and reload.
-		void StationSupSet(int notam_ID, string notamText, bool on)
+		void StationSupSet(int notam_ID, string notamText, bool on,
+			System.Collections.Generic.List<RwyInfo> runways, string icao, string key)
 		{
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
@@ -1291,6 +1314,12 @@ namespace ICAO_CSV
 			}
 			u.ExecuteNonQuery();
 			conn.Close();
+
+			// SUP is independent of Impact — log with the impact fields held constant so
+			// only a genuine Sup-suggestion mismatch triggers a row.
+			ImpactSuggestion sug = SuggestImpacts(notamText, runways, new System.Collections.Generic.List<string>(), null);
+			LogImpactCorrection(icao, key, notamText, runways, "", "", sug.Sup, on);
+
 			ICAO_Notams();
 		}
 
@@ -1309,6 +1338,51 @@ namespace ICAO_CSV
 		void Ignore_Notam(int notam_ID)
 		{
 			_autoKeepSkip.Add(notam_ID);   // don't auto-re-keep a NOTAM the dispatcher ignored
+
+			// If this NOTAM was only Kept because the engine auto-suggested it (RwyClosure/
+			// IlsOutage/an impact — see the Auto-Keep pre-pass), rejecting it outright via
+			// Ignore is itself a correction of a bogus suggestion, even though no Impact
+			// chip is being toggled. Fetch what's needed to log that before the row's
+			// AutoKept flag gets cleared below.
+			OleDbConnection rconn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+			rconn.Open();
+			OleDbCommand qry = new OleDbCommand("SELECT * FROM filteredNotams_table WHERE ID=?", rconn);
+			qry.Parameters.AddWithValue("?", notam_ID);
+			OleDbDataReader r = qry.ExecuteReader();
+			bool wasAutoKept = false;
+			string icao = "", notamText = "", key = "";
+			if (r.Read())
+			{
+				int ordAutoKept = r.GetOrdinal("AutoKept");
+				int ordAll      = r.GetOrdinal("all");
+				int ordLocation = r.GetOrdinal("location");
+				int ordKey      = r.GetOrdinal("key");
+				wasAutoKept = !r.IsDBNull(ordAutoKept) && r.GetString(ordAutoKept) == "Y";
+				notamText   = !r.IsDBNull(ordAll) ? r.GetString(ordAll) : "";
+				icao        = !r.IsDBNull(ordLocation) ? r.GetString(ordLocation) : "";
+				key         = !r.IsDBNull(ordKey) ? r.GetString(ordKey) : "";
+			}
+			rconn.Close();
+
+			if (wasAutoKept)
+			{
+				OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+				connOCC.Open();
+				OleDbCommand cmdOCC = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?", connOCC);
+				cmdOCC.Parameters.AddWithValue("?", icao);
+				OleDbDataReader OCCreader = cmdOCC.ExecuteReader();
+				string RWYs = "";
+				while (OCCreader.Read())
+					if (!OCCreader.IsDBNull(6)) RWYs = OCCreader.GetString(6);
+				connOCC.Close();
+				System.Collections.Generic.List<RwyInfo> runways = ParseRunways(RWYs);
+
+				ImpactSuggestion sug = SuggestImpacts(notamText, runways, new System.Collections.Generic.List<string>(), null);
+				string sugCode = SuggestedSingleCode(sug);
+				if (sugCode != "" || sug.Sup || sug.RwyClosure || sug.IlsOutage)
+					LogImpactCorrection(icao, key, notamText, runways, sugCode, "(ignored)", sug.Sup, sug.Sup);
+			}
+
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbCommand cmd = new OleDbCommand("UPDATE filteredNotams_table SET Status='', AutoKept='' WHERE ID=?", conn);
@@ -1387,6 +1461,13 @@ namespace ICAO_CSV
 				u.Parameters.AddWithValue("?", supRef);
 				u.Parameters.AddWithValue("?", id);
 				u.ExecuteNonQuery();
+
+				if (_pendSnapshot.ContainsKey(id))
+				{
+					NotamSnapshot snap = _pendSnapshot[id];
+					LogImpactCorrection(snap.Icao, snap.Key, snap.NotamText, snap.Runways,
+						snap.SuggestedImpact, code, snap.SuggestedSup, supOn);
+				}
 			}
 
 			OleDbCommand cmd = new OleDbCommand(
