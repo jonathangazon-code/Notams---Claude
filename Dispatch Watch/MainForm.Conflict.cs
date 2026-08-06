@@ -28,14 +28,28 @@ namespace ICAO_CSV
 		// full NOTAM text for every conflict found; SUP is out of scope for this tab.
 		void Build_Conflict_Report()
 		{
-			Web_Conflict.DocumentText = BuildConflictReportHtml();
+			Dictionary<string, string> unused;
+			Web_Conflict.DocumentText = BuildConflictReportHtml(false, false, out unused);
 		}
 
 		// Builds the full Conflict-report HTML document — used both to populate the Conflict
 		// tab's WebBrowser and as the Send Reports email body (MainForm.Email.cs), so the two
 		// stay identical rather than drifting into two separately-maintained renderings.
-		public string BuildConflictReportHtml()
+		//
+		// rasterDiagrams/cidImages control how the runway diagrams (normally VML, only
+		// understood by this app's own IE7-mode WebBrowser control) are embedded:
+		//   - rasterDiagrams=false: VML, as before (live Conflict tab).
+		//   - rasterDiagrams=true, cidImages=false: PNG as a data-URI <img> (safe for
+		//     wkhtmltopdf/WebKit, not used by this method's own callers today but mirrors
+		//     the NOTAM Report tab's usage of BuildAirportHeaderHtml).
+		//   - rasterDiagrams=true, cidImages=true: PNG written to a temp file and embedded as
+		//     <img src="cid:...">, the only image form Outlook's Word engine actually renders
+		//     in an HTML email body — inlineImages (cid -> temp file path) is what
+		//     MainForm.Email.cs attaches to the mail item after building the body.
+		public string BuildConflictReportHtml(bool rasterDiagrams, bool cidImages, out Dictionary<string, string> inlineImages)
 		{
+			inlineImages = new Dictionary<string, string>();
+
 			EnsureArchiveConfig();
 			List<FsFlight> flights = LoadFsFlights();
 
@@ -50,7 +64,7 @@ namespace ICAO_CSV
 			List<string> impactOrder = new List<string> { "A", "N", "C", "F", "D" };
 			StringBuilder body = new StringBuilder();
 
-			body.Append("<p class=\"introLine\">Below is a summary of operational impacts on the network over the next 7 days, cross-referenced against your flight schedule.</p>");
+			body.Append("<p class=\"introLine\">Below is a summary of operational impacts on the network over the next 7 days, cross-referenced against the flight schedule.</p>");
 
 			if (flights.Count == 0)
 				body.Append(
@@ -120,7 +134,7 @@ namespace ICAO_CSV
 					if (matches.Count == 0) continue;   // no conflict — nothing to show for this NOTAM
 				}
 
-				cardsByImpact[impact].Add(BuildConflictCardHtml(location, key, all, remark, matches));
+				cardsByImpact[impact].Add(BuildConflictCardHtml(location, key, all, remark, matches, rasterDiagrams, cidImages, inlineImages));
 			}
 			conn.Close();
 
@@ -337,7 +351,8 @@ namespace ICAO_CSV
 		// BuildAirportCardHtml (which returns a whole standalone document sized for the
 		// Filter tab's WebBrowser) since this fragment gets concatenated into one big
 		// Conflict report page instead of living in its own WebBrowser control.
-		private string BuildConflictCardHtml(string AP, string key, string notamText, string remark, List<string> matches)
+		private string BuildConflictCardHtml(string AP, string key, string notamText, string remark, List<string> matches,
+			bool rasterDiagram, bool cidImages, Dictionary<string, string> inlineImages)
 		{
 			string flightChips = "";
 			foreach (string m in matches) flightChips += "<span class=\"flightChip\">" + m + "</span>";
@@ -347,7 +362,7 @@ namespace ICAO_CSV
 
 			return
 				"<div class=\"card\">" +
-				BuildAirportHeaderHtml(AP) +
+				BuildAirportHeaderHtml(AP, rasterDiagram, cidImages, inlineImages) +
 				"<div class=\"body\">" +
 				flightChips +
 				remarkLine +
@@ -361,7 +376,10 @@ namespace ICAO_CSV
 		// shared between the Conflict card above and the per-airport detail sections the NOTAM
 		// Report tab links a NOTAM key into (MainForm.Reports.cs) — pulled out so both stay
 		// backed by the same RWY/geo-loading logic instead of two copies drifting apart.
-		public string BuildAirportHeaderHtml(string AP)
+		//
+		// rasterDiagram/cidImages/inlineImages: see BuildConflictReportHtml's header comment.
+		// inlineImages may be null when cidImages is false (data-URI/VML paths never touch it).
+		public string BuildAirportHeaderHtml(string AP, bool rasterDiagram, bool cidImages, Dictionary<string, string> inlineImages)
 		{
 			string iata = GetIATA(AP);
 			string name = GetAirportName(AP);
@@ -380,7 +398,9 @@ namespace ICAO_CSV
 			foreach (string rl in rwyLines) if (rl.Trim() != "") rwyClean.Add(rl.Trim());
 
 			List<RwyGeo> geo = LoadRwyGeo(AP);
-			string rwySvg = HasGeo(geo) ? BuildRwySvgGeo(geo) : BuildRwySvg(rwyClean);
+			string rwySvg = rasterDiagram
+				? BuildRwyDiagramImageTag(AP, geo, rwyClean, cidImages, inlineImages)
+				: (HasGeo(geo) ? BuildRwySvgGeo(geo) : BuildRwySvg(rwyClean));
 
 			string iataLine = (iata != "" && iata != AP) ? "<div class=\"sub\">IATA: " + iata + "</div>" : "";
 			string nameLine = name != "" ? "<div class=\"apname\">" + name.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
@@ -400,6 +420,30 @@ namespace ICAO_CSV
 				"<td class=\"blk\">" + leftCol + "</td><td class=\"blk\">" + rightCol + "</td>" +
 				"</tr></table>" +
 				"</div>";
+		}
+
+		// Renders the runway diagram as an <img> instead of VML (BuildRwyImage/BuildRwyImageGeo,
+		// MainForm.NotamFilter.cs). cidImages=false embeds a data-URI (fine for wkhtmltopdf);
+		// cidImages=true writes the PNG to a temp file once per airport and returns a
+		// <img src="cid:..."> reference — the form Outlook's Word engine actually renders in an
+		// HTML email body — recording (cid -> temp path) in inlineImages so MainForm.Email.cs
+		// can attach it after the body is built.
+		private static string BuildRwyDiagramImageTag(string AP, List<RwyGeo> geo, List<string> rwyClean, bool cidImages, Dictionary<string, string> inlineImages)
+		{
+			byte[] png = HasGeo(geo) ? BuildRwyImageGeo(geo) : BuildRwyImage(rwyClean);
+			if (png == null || png.Length == 0) return "";
+
+			if (!cidImages)
+				return "<img width=\"130\" height=\"110\" src=\"data:image/png;base64," + Convert.ToBase64String(png) + "\">";
+
+			string cid = "rwy_" + AP;
+			if (!inlineImages.ContainsKey(cid))
+			{
+				string tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), cid + ".png");
+				System.IO.File.WriteAllBytes(tempPath, png);
+				inlineImages[cid] = tempPath;
+			}
+			return "<img width=\"130\" height=\"110\" src=\"cid:" + cid + "\">";
 		}
 	}
 }

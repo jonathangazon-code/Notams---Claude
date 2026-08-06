@@ -174,8 +174,12 @@ namespace ICAO_CSV
 
 			// The email body is the Conflict tab's own report (MainForm.Conflict.cs), so the
 			// two never drift apart — same intro sentence, same impact sections/colors/badges,
-			// just prefixed with a note about the three attached PDFs.
-			string bodyHtml = BuildConflictReportHtml();
+			// just prefixed with a note about the three attached PDFs. Runway diagrams are
+			// rasterized (rasterDiagrams=true, unlike the live tab's VML) and embedded as
+			// cid: references (cidImages=true) rather than data-URIs — Outlook's Word engine
+			// doesn't render data-URI images in an HTML body, only CID-attached ones.
+			Dictionary<string, string> inlineImages;
+			string bodyHtml = BuildConflictReportHtml(true, true, out inlineImages);
 			string attachmentNote =
 				"<p style=\"font-family:'Segoe UI',Arial,sans-serif;font-size:13px;color:#455a64;margin:16px 0 0 0\">" +
 				"Attached: the full NOTAMs Report, AIP SUP List, and Flight Schedule (next 7 days) for " + titleDate + ".</p>";
@@ -242,6 +246,22 @@ namespace ICAO_CSV
 				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { fsPdf });
 				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { supPdf });
 
+				// Runway-diagram PNGs: attached as hidden files whose PR_ATTACH_CONTENT_ID
+				// matches the "cid:..." reference BuildConflictReportHtml embedded in the body
+				// — the standard way to inline an image in an HTML email via Outlook COM.
+				step = "InlineImages";
+				foreach (KeyValuePair<string, string> kv in inlineImages)
+				{
+					object img = at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { kv.Value });
+					Type imgType = img.GetType();
+					object pa = imgType.InvokeMember("PropertyAccessor", BindingFlags.GetProperty, null, img, null);
+					Type pat = pa.GetType();
+					pat.InvokeMember("SetProperty", BindingFlags.InvokeMethod, null, pa,
+						new object[] { "http://schemas.microsoft.com/mapi/proptag/0x3712001E", kv.Key });
+					pat.InvokeMember("SetProperty", BindingFlags.InvokeMethod, null, pa,
+						new object[] { "http://schemas.microsoft.com/mapi/proptag/0x7FFE000B", true });
+				}
+
 				step = "Send";
 				mt.InvokeMember("Send", BindingFlags.InvokeMethod, null, mail, null);
 
@@ -251,6 +271,11 @@ namespace ICAO_CSV
 			{
 				string msg = (ex.InnerException != null) ? ex.InnerException.Message : ex.Message;
 				MessageBox.Show("Failed to send via Outlook (step: " + step + "):\n" + msg, "Send Reports", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				foreach (string tempPath in inlineImages.Values)
+					try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
 			}
 		}
 	}

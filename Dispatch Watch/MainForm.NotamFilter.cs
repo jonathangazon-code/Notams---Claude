@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Windows.Forms;
 using System.Data.OleDb;
 
@@ -383,6 +386,188 @@ namespace ICAO_CSV
 			}
 			return "<div style=\"position:relative;width:" + W + "px;height:" + H + "px\">" +
 				shapes.ToString() + labels.ToString() + "</div>";
+		}
+
+		// Raster twins of BuildRwySvg/BuildRwySvgGeo — VML (<v:line>) only renders inside this
+		// app's own IE7-mode WebBrowser control; neither wkhtmltopdf (WebKit, PDF export) nor
+		// Outlook (Word engine, email body) understands it, so the runway lines were simply
+		// invisible there (only the plain-<div> QFU labels showed, and even those drifted
+		// since their absolute positioning assumed the VML lines occupied real layout space).
+		// These draw the identical geometry directly onto a bitmap (lines AND labels) so the
+		// result is one self-contained <img>, immune to CSS/positioning differences between
+		// renderers. Geometry math is duplicated from BuildRwySvg/BuildRwySvgGeo rather than
+		// factored out, so the proven-working VML renderer used by the Filter tab can't be
+		// affected by a mistake here.
+		private static byte[] BuildRwyImage(List<string> rwyClean)
+		{
+			int W = 130, H = 110, cx = 65, cy = 55, maxHalf = 40;
+
+			List<int>    headings = new List<int>();
+			List<double> lengths  = new List<double>();
+			List<string> end1     = new List<string>();
+			List<string> end2     = new List<string>();
+
+			for (int i = 0; i < rwyClean.Count; i += 2)
+			{
+				string d1 = ParseDesignator(rwyClean[i]);
+				string d2 = (i + 1 < rwyClean.Count) ? ParseDesignator(rwyClean[i + 1]) : "";
+				int hdg = ParseHeading(d1);
+				if (hdg < 0) continue;
+				double len = ParseLength(rwyClean[i]);
+				headings.Add(hdg);
+				lengths.Add(len);
+				end1.Add(d1);
+				end2.Add(d2);
+			}
+
+			if (headings.Count == 0) return null;
+
+			double maxLen = 0;
+			foreach (double l in lengths) if (l > maxLen) maxLen = l;
+			if (maxLen <= 0) maxLen = 1;
+
+			List<double[]> segs = new List<double[]>();
+			List<object[]> ends = new List<object[]>();
+
+			double spacing = 11;
+			for (int i = 0; i < headings.Count; i++)
+			{
+				double half = maxHalf * (lengths[i] > 0 ? lengths[i] / maxLen : 1.0);
+				if (half < 12) half = 12;
+				double rad = headings[i] * Math.PI / 180.0;
+				double dx = Math.Sin(rad) * half;
+				double dy = -Math.Cos(rad) * half;
+
+				int parallelIdx = 0;
+				for (int k = 0; k < i; k++) if (headings[k] == headings[i]) parallelIdx++;
+				double offMag = parallelIdx * spacing;
+				double ocx = cx + Math.Cos(rad) * offMag;
+				double ocy = cy + Math.Sin(rad) * offMag;
+
+				double x1 = ocx - dx, y1 = ocy - dy;
+				double x2 = ocx + dx, y2 = ocy + dy;
+
+				segs.Add(new double[] { x1, y1, x2, y2 });
+				ends.Add(new object[] { end1[i], x1, y1, ocx, ocy });
+				if (end2[i] != "") ends.Add(new object[] { end2[i], x2, y2, ocx, ocy });
+			}
+
+			return RenderRwyDiagramPng(W, H, segs, ends);
+		}
+
+		private static byte[] BuildRwyImageGeo(List<RwyGeo> rs)
+		{
+			int W = 130, H = 110, pad = 16;
+			int n = rs.Count;
+			double lat0 = 0, lon0 = 0; int cnt = 0;
+			for (int i = 0; i < n; i++) if (HasCoords(rs[i])) { lat0 += rs[i].Lat; lon0 += rs[i].Lon; cnt++; }
+			if (cnt == 0) return null;
+			lat0 /= cnt; lon0 /= cnt;
+			double cosLat = Math.Cos(lat0 * Math.PI / 180.0);
+
+			List<double[]> rawSegs = new List<double[]>();
+			List<object[]> rawEnds = new List<object[]>();
+			for (int i = 0; i < n; i += 2)
+			{
+				RwyGeo a = rs[i];
+				bool hasB = (i + 1 < n);
+				RwyGeo b = hasB ? rs[i + 1] : new RwyGeo();
+				bool aOk = HasCoords(a), bOk = hasB && HasCoords(b);
+				if (!aOk && !bOk) continue;
+
+				double ax, ay, bx, by; string aq = a.Qfu, bq = hasB ? b.Qfu : "";
+				if (aOk) { ax = (a.Lon - lon0) * cosLat; ay = -(a.Lat - lat0); }
+				else     { ax = 0; ay = 0; }
+				if (bOk) { bx = (b.Lon - lon0) * cosLat; by = -(b.Lat - lat0); }
+				else     { bx = 0; by = 0; }
+
+				if (aOk && !bOk)
+				{
+					double L = a.DistM / 111320.0, rad = a.Hdg * Math.PI / 180.0;
+					bx = ax + Math.Sin(rad) * L; by = ay - Math.Cos(rad) * L;
+					if (!hasB) bq = "";
+				}
+				else if (bOk && !aOk)
+				{
+					double L = b.DistM / 111320.0, rad = b.Hdg * Math.PI / 180.0;
+					ax = bx + Math.Sin(rad) * L; ay = by - Math.Cos(rad) * L;
+				}
+
+				rawSegs.Add(new double[] { ax, ay, bx, by });
+				rawEnds.Add(new object[] { aq, ax, ay });
+				if (bq != "") rawEnds.Add(new object[] { bq, bx, by });
+			}
+			if (rawSegs.Count == 0) return null;
+
+			double minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+			foreach (double[] s in rawSegs)
+			{
+				minX = Math.Min(minX, Math.Min(s[0], s[2])); maxX = Math.Max(maxX, Math.Max(s[0], s[2]));
+				minY = Math.Min(minY, Math.Min(s[1], s[3])); maxY = Math.Max(maxY, Math.Max(s[1], s[3]));
+			}
+			double spanX = Math.Max(maxX - minX, 1e-6), spanY = Math.Max(maxY - minY, 1e-6);
+			double scale = Math.Min((W - 2.0 * pad) / spanX, (H - 2.0 * pad) / spanY);
+			double offX = (W - spanX * scale) / 2.0, offY = (H - spanY * scale) / 2.0;
+
+			List<double[]> segs = new List<double[]>();
+			List<object[]> ends = new List<object[]>();
+			foreach (double[] s in rawSegs)
+			{
+				double x1 = offX + (s[0] - minX) * scale, y1 = offY + (s[1] - minY) * scale;
+				double x2 = offX + (s[2] - minX) * scale, y2 = offY + (s[3] - minY) * scale;
+				segs.Add(new double[] { x1, y1, x2, y2 });
+			}
+			foreach (object[] e in rawEnds)
+			{
+				double x = offX + ((double)e[1] - minX) * scale, y = offY + ((double)e[2] - minY) * scale;
+				ends.Add(new object[] { (string)e[0], x, y, W / 2.0, H / 2.0 });
+			}
+
+			return RenderRwyDiagramPng(W, H, segs, ends);
+		}
+
+		// Shared bitmap renderer for both BuildRwyImage/BuildRwyImageGeo — segs is a list of
+		// {x1,y1,x2,y2} line endpoints, ends is a list of {label(string), x, y, refCx, refCy}
+		// (refCx/refCy is the point the label is nudged away from, matching RwyLabel's offset
+		// logic). Background matches the ".ahead" dark card so the PNG blends in seamlessly.
+		private static byte[] RenderRwyDiagramPng(int W, int H, List<double[]> segs, List<object[]> ends)
+		{
+			using (Bitmap bmp = new Bitmap(W, H))
+			using (Graphics g = Graphics.FromImage(bmp))
+			{
+				g.SmoothingMode = SmoothingMode.AntiAlias;
+				g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+				g.Clear(ColorTranslator.FromHtml("#263238"));
+
+				using (Pen thick = new Pen(ColorTranslator.FromHtml("#607d8b"), 7f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+				using (Pen thin = new Pen(ColorTranslator.FromHtml("#cfd8dc"), 1f) { DashStyle = DashStyle.Dash })
+				{
+					foreach (double[] s in segs)
+					{
+						g.DrawLine(thick, (float)s[0], (float)s[1], (float)s[2], (float)s[3]);
+						g.DrawLine(thin, (float)s[0], (float)s[1], (float)s[2], (float)s[3]);
+					}
+				}
+
+				using (Font font = new Font("Consolas", 8.5f, System.Drawing.FontStyle.Bold))
+				using (Brush brush = new SolidBrush(ColorTranslator.FromHtml("#b0bec5")))
+				using (StringFormat fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+				{
+					foreach (object[] e in ends)
+					{
+						string text = (string)e[0];
+						double x = (double)e[1], y = (double)e[2], refCx = (double)e[3], refCy = (double)e[4];
+						double ox = (x - refCx) * 0.22, oy = (y - refCy) * 0.22;
+						g.DrawString(text, font, brush, (float)(x + ox), (float)(y + oy), fmt);
+					}
+				}
+
+				using (MemoryStream ms = new MemoryStream())
+				{
+					bmp.Save(ms, ImageFormat.Png);
+					return ms.ToArray();
+				}
+			}
 		}
 
 		private static string ParseDesignator(string line)

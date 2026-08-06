@@ -41,12 +41,17 @@ namespace ICAO_CSV
 			if (radBtn_7days.Checked)   { todayInt = Int32.Parse(todayStr); endWindowInt = Int32.Parse(sevenDaysStr); }
 			if (radBtn_31days.Checked)  { todayInt = Int32.Parse(todayStr); endWindowInt = Int32.Parse(thirtyOneDaysStr); }
 
-			// Airports referenced by at least one summary row, in first-seen order — each gets
-			// a detail section (airport card + Kept NOTAMs) appended below the summary table,
-			// and the row's NOTAM key links to it.
-			HashSet<string> seenIcaos = new HashSet<string>();
+			// Every station on the Airport List tab, alphabetically by ICAO — each gets a
+			// detail section (airport card + Kept NOTAMs) appended below the summary table
+			// (stations with none fall back to a "No Kept NOTAMs" placeholder, already handled
+			// by BuildAirportDetailSectionsHtml), and every NOTAM key link in the summary
+			// resolves to one since the full list is covered, not just referenced airports.
 			List<string> orderedIcaos = new List<string>();
-			HashSet<string> knownImpactCodes = new HashSet<string> { "A", "R", "C", "N", "D", "F", "M" };
+			OleDbConnection connApt = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			connApt.Open();
+			OleDbDataReader aptReader = new OleDbCommand("SELECT ICAO FROM Stations_ICAO_IATA ORDER BY ICAO", connApt).ExecuteReader();
+			while (aptReader.Read()) if (!aptReader.IsDBNull(0)) orderedIcaos.Add(aptReader.GetString(0));
+			connApt.Close();
 
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
@@ -75,10 +80,6 @@ namespace ICAO_CSV
 				string lhColor  = "RoyalBlue";
 				string shColor  = "#663399";
 				string chColor  = "SeaGreen";
-
-				bool anyOp = IsOpsType("LH", ICAO) == "Yes" || IsOpsType("FedEx", ICAO) == "Yes" || IsOpsType("Charters", ICAO) == "Yes";
-				if (anyOp && ICAO != "" && knownImpactCodes.Contains(Impact) && seenIcaos.Add(ICAO))
-					orderedIcaos.Add(ICAO);
 
 				if (IsOpsType("LH", ICAO) == "Yes")
 				{
@@ -217,7 +218,7 @@ namespace ICAO_CSV
 			foreach (string icao in icaos)
 			{
 				sb.Append("<div id=\"ap-" + icao + "\" class=\"apSection\">");
-				sb.Append(BuildAirportHeaderHtml(icao));
+				sb.Append(BuildAirportHeaderHtml(icao, /*rasterDiagram*/true, /*cidImages*/false, null));
 				sb.Append("<div class=\"keptWrap\">");
 
 				List<string> keptCards = new List<string>();
