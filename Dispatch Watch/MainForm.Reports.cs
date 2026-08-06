@@ -235,17 +235,38 @@ namespace ICAO_CSV
 			}
 			conn.Close();
 
-			// Save report to OCC.mdb (SQL concatenation kept here as the column names are dynamic fields)
+			// Save report to OCC.mdb. Parameterized (not string-concatenated) — the row HTML
+			// can contain single quotes (e.g. interactiveLinks' onclick="...OpenIcao('ICAO')"),
+			// which broke a naively-concatenated SQL string literal.
 			OleDbConnection conn2 = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
 			conn2.Open();
 			string update = "UPDATE Notams_ICAO_CSV SET " +
-				"APClsdLH='" + APClsdLH + "',RWYClsdLH='" + RWYClsdLH + "',CatILH='" + CatILH + "'," +
-				"NilsLH='" + NilsLH + "',NoAltnLH='" + NoAltnLH + "',FuelLH='" + FuelLH + "',MiscLH='" + MiscLH + "'," +
-				"APClsdSH='" + APClsdSH + "',RWYClsdSH='" + RWYClsdSH + "',CatISH='" + CatISH + "'," +
-				"NilsSH='" + NilsSH + "',NoAltnSH='" + NoAltnSH + "',FuelSH='" + FuelSH + "',MiscSH='" + MiscSH + "'," +
-				"APClsdCharters='" + APClsdC + "',RWYClsdCharters='" + RWYClsdC + "',CatICharters='" + CatIC + "'," +
-				"NilsCharters='" + NilsC + "',NoAltnCharters='" + NoAltnC + "',FuelCharters='" + FuelC + "',MiscCharters='" + MiscC + "' WHERE ID=1";
-			new OleDbCommand(update, conn2).ExecuteNonQuery();
+				"APClsdLH=?,RWYClsdLH=?,CatILH=?,NilsLH=?,NoAltnLH=?,FuelLH=?,MiscLH=?," +
+				"APClsdSH=?,RWYClsdSH=?,CatISH=?,NilsSH=?,NoAltnSH=?,FuelSH=?,MiscSH=?," +
+				"APClsdCharters=?,RWYClsdCharters=?,CatICharters=?,NilsCharters=?,NoAltnCharters=?,FuelCharters=?,MiscCharters=? WHERE ID=1";
+			OleDbCommand cmdUpdate = new OleDbCommand(update, conn2);
+			cmdUpdate.Parameters.AddWithValue("?", APClsdLH);
+			cmdUpdate.Parameters.AddWithValue("?", RWYClsdLH);
+			cmdUpdate.Parameters.AddWithValue("?", CatILH);
+			cmdUpdate.Parameters.AddWithValue("?", NilsLH);
+			cmdUpdate.Parameters.AddWithValue("?", NoAltnLH);
+			cmdUpdate.Parameters.AddWithValue("?", FuelLH);
+			cmdUpdate.Parameters.AddWithValue("?", MiscLH);
+			cmdUpdate.Parameters.AddWithValue("?", APClsdSH);
+			cmdUpdate.Parameters.AddWithValue("?", RWYClsdSH);
+			cmdUpdate.Parameters.AddWithValue("?", CatISH);
+			cmdUpdate.Parameters.AddWithValue("?", NilsSH);
+			cmdUpdate.Parameters.AddWithValue("?", NoAltnSH);
+			cmdUpdate.Parameters.AddWithValue("?", FuelSH);
+			cmdUpdate.Parameters.AddWithValue("?", MiscSH);
+			cmdUpdate.Parameters.AddWithValue("?", APClsdC);
+			cmdUpdate.Parameters.AddWithValue("?", RWYClsdC);
+			cmdUpdate.Parameters.AddWithValue("?", CatIC);
+			cmdUpdate.Parameters.AddWithValue("?", NilsC);
+			cmdUpdate.Parameters.AddWithValue("?", NoAltnC);
+			cmdUpdate.Parameters.AddWithValue("?", FuelC);
+			cmdUpdate.Parameters.AddWithValue("?", MiscC);
+			cmdUpdate.ExecuteNonQuery();
 			conn2.Close();
 
 			return
