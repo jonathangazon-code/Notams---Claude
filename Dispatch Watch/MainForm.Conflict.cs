@@ -385,7 +385,7 @@ namespace ICAO_CSV
 			string name = GetAirportName(AP);
 
 			string RWYs = "";
-			OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			connOCC.Open();
 			OleDbCommand cmdOCC = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?", connOCC);
 			cmdOCC.Parameters.AddWithValue("?", AP);

@@ -24,6 +24,12 @@ namespace ICAO_CSV
 			}
 			catch { /* icon optional */ }
 
+			// One-time OCC.mdb -> ICAO_storedNotams.mdb migration, run against the shared V:
+			// files directly (not wherever this process happens to be running from) so it
+			// takes effect exactly once regardless of who launches first — must run before
+			// EnsureLocalInstall(), which may relocate this process off V: and never return.
+			EnsureOccMigrated();
+
 			// Deployment: install-to-local-folder/auto-update may relaunch and Environment.Exit
 			// before returning, so it runs before anything else touches the DB. User identity
 			// and the Writer/Reader lock both need to be resolved before StartApp()'s download —

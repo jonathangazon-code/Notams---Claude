@@ -15,14 +15,14 @@ namespace ICAO_CSV
 		private DataGridView _rwyDgv;
 
 		// ── Schema ───────────────────────────────────────────────────────────
-		// Structured runway table in OCC.mdb (one row per threshold). The legacy
+		// Structured runway table (one row per threshold). The legacy
 		// Stations_ICAO_IATA.RWYs memo is regenerated from it so ParseRunways /
 		// BuildRwySvg / the airport card keep working unchanged.
 		public void EnsureRunwaysTable()
 		{
 			try
 			{
-				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 				conn.Open();
 				try { new OleDbCommand("CREATE TABLE Runways ([ICAO] TEXT(4), [QFU] TEXT(8), [Cat] TEXT(30), [DistM] LONG, [Hdg] DOUBLE, [ThrLat] DOUBLE, [ThrLon] DOUBLE, [Ord] LONG)", conn).ExecuteNonQuery(); }
 				catch { /* already exists */ }
@@ -162,7 +162,7 @@ namespace ICAO_CSV
 			if (icao == "") return 0;
 			EnsureCsvGeoLoaded();          // occasional (add/re-import): block until the index is ready
 			List<RwyGeo> geo = CsvGeoFor(icao);
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbCommand del = new OleDbCommand("DELETE FROM Runways WHERE ICAO=?", conn);
 			del.Parameters.AddWithValue("?", icao); del.ExecuteNonQuery();
@@ -179,7 +179,7 @@ namespace ICAO_CSV
 			Dictionary<string, RwyGeo> byQfu = new Dictionary<string, RwyGeo>(StringComparer.OrdinalIgnoreCase);
 			foreach (RwyGeo g in CsvGeoFor(icao)) byQfu[g.Qfu] = g;
 
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbCommand del = new OleDbCommand("DELETE FROM Runways WHERE ICAO=?", conn);
 			del.Parameters.AddWithValue("?", icao); del.ExecuteNonQuery();
@@ -206,7 +206,7 @@ namespace ICAO_CSV
 		{
 			_geoCache.Remove(icao);   // runways changed -> drop cached diagram geometry
 			System.Text.StringBuilder sb = new System.Text.StringBuilder();
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbCommand q = new OleDbCommand("SELECT QFU, Cat, DistM FROM Runways WHERE ICAO=? ORDER BY Ord", conn);
 			q.Parameters.AddWithValue("?", icao);
@@ -238,7 +238,7 @@ namespace ICAO_CSV
 			tabPage5.Controls.Add(hdr);
 
 			_rwyCmb = new ComboBox { Tag = "dispose", Top = 50, Left = 20, Width = 160, DropDownStyle = ComboBoxStyle.DropDownList };
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbDataReader r = new OleDbCommand("SELECT ICAO FROM Stations_ICAO_IATA ORDER BY ICAO", conn).ExecuteReader();
 			while (r.Read()) if (!r.IsDBNull(0)) _rwyCmb.Items.Add(r.GetString(0));
@@ -286,7 +286,7 @@ namespace ICAO_CSV
 			// Auto-populate the structured table on first view: migrate the legacy memo
 			// (keeps the manual CAT) if present, otherwise import fresh from the CSV.
 			int count = 0;
-			OleDbConnection c1 = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection c1 = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			c1.Open();
 			OleDbCommand cc = new OleDbCommand("SELECT COUNT(*) FROM Runways WHERE ICAO=?", c1);
 			cc.Parameters.AddWithValue("?", icao);
@@ -307,7 +307,7 @@ namespace ICAO_CSV
 				RegenerateRwyMemo(icao);
 			}
 
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbCommand q = new OleDbCommand("SELECT QFU, Cat, DistM, Hdg, ThrLat, ThrLon FROM Runways WHERE ICAO=? ORDER BY Ord", conn);
 			q.Parameters.AddWithValue("?", icao);
@@ -328,7 +328,7 @@ namespace ICAO_CSV
 
 		void RwySaveGrid(string icao)
 		{
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbCommand del = new OleDbCommand("DELETE FROM Runways WHERE ICAO=?", conn);
 			del.Parameters.AddWithValue("?", icao);

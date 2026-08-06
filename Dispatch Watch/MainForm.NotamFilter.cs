@@ -270,7 +270,7 @@ namespace ICAO_CSV
 			System.Collections.Generic.List<RwyGeo> list = new System.Collections.Generic.List<RwyGeo>();
 			try
 			{
-				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 				conn.Open();
 				OleDbCommand q = new OleDbCommand("SELECT QFU, Hdg, DistM, ThrLat, ThrLon FROM Runways WHERE ICAO=? ORDER BY Ord", conn);
 				q.Parameters.AddWithValue("?", icao);
@@ -1053,7 +1053,7 @@ namespace ICAO_CSV
 			}
 			Btn_submitNotams.Visible = true;
 
-			OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			connOCC.Open();
 			OleDbCommand cmdOCC = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?", connOCC);
 			cmdOCC.Parameters.AddWithValue("?", AP);
@@ -1329,7 +1329,7 @@ namespace ICAO_CSV
 
 			string AP = TxtBox_ICAO.Text.Trim().ToUpper();
 
-			OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			connOCC.Open();
 			OleDbCommand cmdOCC = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?", connOCC);
 			cmdOCC.Parameters.AddWithValue("?", AP);
@@ -1634,7 +1634,7 @@ namespace ICAO_CSV
 
 			if (wasAutoKept)
 			{
-				OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+				OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 				connOCC.Open();
 				OleDbCommand cmdOCC = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?", connOCC);
 				cmdOCC.Parameters.AddWithValue("?", icao);

@@ -20,7 +20,11 @@ namespace ICAO_CSV
 
 		// Files that are per-machine/per-session state, not app binaries — never copied by
 		// the install/update flow (a stale local ArchiveConfig.xml or lock file would be
-		// actively wrong to overwrite, and the .mdb files have their own StartApp/EndApp sync).
+		// actively wrong to overwrite, and .mdb has its own StartApp/EndApp sync). Everything
+		// now lives in the single ICAO_storedNotams.mdb (see EnsureOccMigrated below) — there
+		// used to be a second OCC.mdb with no sync of its own at all, which is what caused a
+		// fresh local install to crash on startup ("Could not find file ...\OCC.mdb"); merging
+		// the two removed that whole class of problem rather than patching around it.
 		private static readonly string[] _deployExcludeExtensions = { ".mdb", ".lock" };
 		private static readonly string[] _deployExcludeFiles =
 			{ "ArchiveConfig.xml", "last_db_update.txt", "MmScheduleCursor.txt", "wkhtmltopdf_log.txt", "_export_temp.html" };
@@ -106,6 +110,63 @@ namespace ICAO_CSV
 						if (string.Equals(f, name, StringComparison.OrdinalIgnoreCase)) { excluded = true; break; }
 				if (excluded) continue;
 				File.Copy(file, Path.Combine(destDir, name), true);
+			}
+		}
+
+		// One-time migration: OCC.mdb used to hold Stations_ICAO_IATA/Runways/Notams_ICAO_CSV
+		// in a second Access file with no sync of its own (unlike ICAO_storedNotams.mdb's
+		// StartApp/EndApp), which is what left a fresh local install missing it entirely.
+		// Folding those tables into ICAO_storedNotams.mdb removes the second file altogether —
+		// everything now travels with the one DB that's already synced for every dispatcher.
+		// Runs against the shared V: files directly (not Application.StartupPath) so it takes
+		// effect exactly once for everyone regardless of which dispatcher happens to launch
+		// first or from where — idempotent (checks whether Runways already exists in the
+		// target before doing anything), so it's safe to leave this call in permanently rather
+		// than removing it after the first successful run. Uses Jet's cross-database
+		// "IN 'path'" SQL to import each table's structure and data in one statement rather
+		// than hand-rebuilding schemas.
+		public void EnsureOccMigrated()
+		{
+			string vDb = Path.Combine(VAppFolder, "ICAO_storedNotams.mdb");
+			string occDb = Path.Combine(VAppFolder, "OCC.mdb");
+			if (!File.Exists(vDb) || !File.Exists(occDb)) return;   // V: unreachable, or already merged (OCC.mdb removed once confirmed migrated)
+
+			OleDbConnection conn = null;
+			try
+			{
+				conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= " + vDb);
+				conn.Open();
+
+				try
+				{
+					new OleDbCommand("SELECT TOP 1 * FROM Runways", conn).ExecuteReader().Close();
+					LogDeploy("EnsureOccMigrated: Runways already present in ICAO_storedNotams.mdb — skipping.");
+					return;   // already migrated
+				}
+				catch { /* table doesn't exist yet — proceed with the migration below */ }
+
+				string[] tables = { "Stations_ICAO_IATA", "Runways", "Notams_ICAO_CSV" };
+				foreach (string table in tables)
+				{
+					try
+					{
+						new OleDbCommand("SELECT * INTO [" + table + "] FROM [" + table + "] IN '" + occDb + "'", conn).ExecuteNonQuery();
+						LogDeploy("EnsureOccMigrated: imported table " + table + ".");
+					}
+					catch (Exception ex)
+					{
+						LogDeploy("EnsureOccMigrated: FAILED importing " + table + ": " + ex.Message);
+					}
+				}
+				LogDeploy("EnsureOccMigrated: done.");
+			}
+			catch (Exception ex)
+			{
+				LogDeploy("EnsureOccMigrated: EXCEPTION: " + ex);
+			}
+			finally
+			{
+				if (conn != null) conn.Close();
 			}
 		}
 

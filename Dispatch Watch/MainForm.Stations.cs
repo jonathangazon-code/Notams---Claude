@@ -11,7 +11,7 @@ namespace ICAO_CSV
 		public static void LoadStationsCache()
 		{
 			_stationsCache = new Dictionary<string, string[]>(System.StringComparer.OrdinalIgnoreCase);
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbDataReader reader = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA", conn).ExecuteReader();
 			int nameOrd = reader.GetOrdinal("Name");

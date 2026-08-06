@@ -71,13 +71,13 @@ namespace ICAO_CSV
 			return _airportNames.ContainsKey(icao) ? _airportNames[icao] : "";
 		}
 
-		// Persistent Name column on Stations_ICAO_IATA (OCC.mdb), idempotent like the other
+		// Persistent Name column on Stations_ICAO_IATA, idempotent like the other
 		// EnsureXxx schema helpers.
 		public void EnsureAirportNameColumn()
 		{
 			try
 			{
-				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 				conn.Open();
 				try { new OleDbCommand("ALTER TABLE Stations_ICAO_IATA ADD COLUMN Name TEXT(100)", conn).ExecuteNonQuery(); }
 				catch { /* already exists */ }
@@ -158,7 +158,7 @@ namespace ICAO_CSV
 			// a second pass below, since an UPDATE can't run while this reader is open.
 			Dictionary<int, string> toBackfill = new Dictionary<int, string>();
 
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbDataReader reader = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA ORDER BY ICAO", conn).ExecuteReader();
 			int nameOrd = reader.GetOrdinal("Name");
@@ -186,7 +186,7 @@ namespace ICAO_CSV
 
 			if (toBackfill.Count > 0)
 			{
-				OleDbConnection uconn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+				OleDbConnection uconn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 				uconn.Open();
 				foreach (KeyValuePair<int, string> kv in toBackfill)
 				{
@@ -281,7 +281,7 @@ namespace ICAO_CSV
 				}
 			}
 
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 
 			if (isNew)
@@ -334,7 +334,7 @@ namespace ICAO_CSV
 			if (MessageBox.Show("Delete " + icao + " ?", "Delete Airport", MessageBoxButtons.YesNo) != DialogResult.Yes)
 				return;
 
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbCommand cmd = new OleDbCommand("DELETE From Stations_ICAO_IATA WHERE ID=?", conn);
 			cmd.Parameters.AddWithValue("?", (int)row.Tag);

@@ -147,7 +147,7 @@ namespace ICAO_CSV
 			string summaryTable = BuildSummaryHtml(todayInt, endWindowInt, tomorrowInt, /*interactiveLinks*/false);
 
 			List<string> orderedIcaos = new List<string>();
-			OleDbConnection connApt = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection connApt = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			connApt.Open();
 			OleDbDataReader aptReader = new OleDbCommand("SELECT ICAO FROM Stations_ICAO_IATA ORDER BY ICAO", connApt).ExecuteReader();
 			while (aptReader.Read()) if (!aptReader.IsDBNull(0)) orderedIcaos.Add(aptReader.GetString(0));
@@ -235,10 +235,10 @@ namespace ICAO_CSV
 			}
 			conn.Close();
 
-			// Save report to OCC.mdb. Parameterized (not string-concatenated) — the row HTML
+			// Save report to Notams_ICAO_CSV. Parameterized (not string-concatenated) — the row HTML
 			// can contain single quotes (e.g. interactiveLinks' onclick="...OpenIcao('ICAO')"),
 			// which broke a naively-concatenated SQL string literal.
-			OleDbConnection conn2 = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= OCC.mdb");
+			OleDbConnection conn2 = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn2.Open();
 			string update = "UPDATE Notams_ICAO_CSV SET " +
 				"APClsdLH=?,RWYClsdLH=?,CatILH=?,NilsLH=?,NoAltnLH=?,FuelLH=?,MiscLH=?," +
