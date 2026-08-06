@@ -120,11 +120,15 @@ namespace ICAO_CSV
 		// everything now travels with the one DB that's already synced for every dispatcher.
 		// Runs against the shared V: files directly (not Application.StartupPath) so it takes
 		// effect exactly once for everyone regardless of which dispatcher happens to launch
-		// first or from where — idempotent (checks whether Runways already exists in the
-		// target before doing anything), so it's safe to leave this call in permanently rather
-		// than removing it after the first successful run. Uses Jet's cross-database
-		// "IN 'path'" SQL to import each table's structure and data in one statement rather
-		// than hand-rebuilding schemas.
+		// first or from where — idempotent per table (each of the three is checked and
+		// imported independently, not gated behind a single existence check), so it's safe to
+		// leave this call in permanently rather than removing it after the first successful
+		// run, AND self-healing if an earlier attempt partially failed (e.g. network hiccup
+		// mid-import left Runways created but Stations_ICAO_IATA missing — a single "does
+		// Runways exist" gate would have skipped the whole migration forever after that,
+		// permanently missing Stations_ICAO_IATA). Uses Jet's cross-database "IN 'path'" SQL
+		// to import each table's structure and data in one statement rather than
+		// hand-rebuilding schemas.
 		public void EnsureOccMigrated()
 		{
 			string vDb = Path.Combine(VAppFolder, "ICAO_storedNotams.mdb");
@@ -137,17 +141,23 @@ namespace ICAO_CSV
 				conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= " + vDb);
 				conn.Open();
 
-				try
-				{
-					new OleDbCommand("SELECT TOP 1 * FROM Runways", conn).ExecuteReader().Close();
-					LogDeploy("EnsureOccMigrated: Runways already present in ICAO_storedNotams.mdb — skipping.");
-					return;   // already migrated
-				}
-				catch { /* table doesn't exist yet — proceed with the migration below */ }
-
 				string[] tables = { "Stations_ICAO_IATA", "Runways", "Notams_ICAO_CSV" };
 				foreach (string table in tables)
 				{
+					bool exists;
+					try
+					{
+						new OleDbCommand("SELECT TOP 1 * FROM [" + table + "]", conn).ExecuteReader().Close();
+						exists = true;
+					}
+					catch { exists = false; }
+
+					if (exists)
+					{
+						LogDeploy("EnsureOccMigrated: " + table + " already present — skipping.");
+						continue;
+					}
+
 					try
 					{
 						new OleDbCommand("SELECT * INTO [" + table + "] FROM [" + table + "] IN '" + occDb + "'", conn).ExecuteNonQuery();
