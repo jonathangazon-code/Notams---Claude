@@ -827,20 +827,28 @@ namespace ICAO_CSV
 			// suppresses the whole flag. A bare "PPR ONLY" in the context of airspace/
 			// opening-hours activation (e.g. "CTA/CTR/ATZ ACTIVATED. AD/ATS OPR HR EXTENDED.
 			// PPR ONLY.") is prior permission to enter/operate during that window, not a
-			// diversion-suitability restriction — also excluded.
+			// diversion-suitability restriction — also excluded. "NOT AVBL FOR LANDING" directly
+			// followed by "TRAFFIC" (e.g. "MIDGU M717 NOT AVBL FOR LANDING TRAFFIC TO MUSCAT...")
+			// is an en-route ATS-route/traffic-flow restriction on a point along an airway, not
+			// a statement that the destination airport itself can't be used — also excluded.
 			bool exceptAltn = RegexAny(U, @"(EXC|EXCEPT)\s+ALTN");
 			bool hoursActivation = RegexAny(U, @"OPR\s*HR", @"OPERATING\s+HOURS", @"\b(ATZ|CTR|CTA)\s+ACTIVAT");
 			s.NotAltn = !exceptAltn && !hoursActivation && RegexAny(U,
 				@"\bPPR\b(?!\s*\d[\d\-]{5,})(?!\s*\d{1,3}\s*MIN\b)(?!\s*\d{2,3}\.\d)", @"PRIOR\s+PERMISSION", @"CANNOT\s+BE\s+CHOSEN\s+AS",
 				@"NOT.{0,12}ALTERNATE", @"NOT\s+AVBL\s+AS\s+ALTN", @"\bDIVERSION", @"SUBJ.{0,10}DLA",
-				@"EXPECT\s+DELAY", @"DELAY\s+EXPECTED", @"\bO/R\s+ONLY", @"NOT\s+AVBL\s+FOR\s+LANDING");
+				@"EXPECT\s+DELAY", @"DELAY\s+EXPECTED", @"\bO/R\s+ONLY", @"NOT\s+AVBL\s+FOR\s+LANDING\b(?!\s+TRAFFIC)");
 
 			// LVP exception => ILS available except in low-vis => CAT I, not "No ILS"
 			bool lvpExc = RegexAny(U, @"(EXC|EXCEPT)\s+LVP");
 
 			// A DME "associated with" the ILS is a supporting component, not the ILS itself
-			// (LOC/GP) — losing it doesn't take the ILS approach out of service.
-			bool dmeOnly = RegexAny(U, @"\bDME\b.{0,20}ASSOCIATED\s+WITH\s+ILS.{0,15}(U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE))");
+			// (LOC/GP) — losing it doesn't take the ILS approach out of service. Outcome-word
+			// alternation mirrors IlsOutagePattern's full set (a real EDDC NOTAM phrased this as
+			// "ASSOCIATED WITH ILS RWY 22 ON MAINT. DO NOT USE" — the original narrower
+			// U/S|UNSERVICEABLE|NOT AVBL/AVAILABLE list missed "ON MAINT"/"DO NOT USE" entirely,
+			// so the DME-only outage was wrongly treated as a real ILS outage).
+			bool dmeOnly = RegexAny(U, @"\bDME\b.{0,20}ASSOCIATED\s+WITH\s+ILS.{0,15}(" +
+				@"U/S|UNSERVICEABLE|NOT\s+AV(BL|AILABLE)|NOT\s+USABLE|ON\s+TEST|ON\s+(FLT|FLIGHT)\s+CALIBRATION|ON\s+MAINT|DO\s+NOT\s+USE)");
 
 			// A middle/outer marker beacon is a supporting component of the ILS, not the
 			// localizer/glideslope itself (same idea as the DME exclusion above) — losing it
@@ -864,12 +872,21 @@ namespace ICAO_CSV
 				if (extraIlsDownRwys != null)
 					foreach (string rw in extraIlsDownRwys) if (!affectedRwys.Contains(rw)) affectedRwys.Add(rw);
 
-				// The airport isn't left with zero instrument-approach capability when
-				// another runway/direction still has a working ILS — but it's still a real
-				// degradation (the affected runway/direction has none), so downgrade the
-				// suggestion to CAT I instead of suppressing it to nothing.
+				// The airport isn't left with zero instrument-approach capability when another
+				// runway/direction still has a working ILS. Whether that's worth downgrading to
+				// a CAT I suggestion (rather than suppressing the whole thing) depends on HOW
+				// good that other capability is: 5 independent dispatcher corrections (LEMD,
+				// LEST, PANC x2, EPWA) rejected a "C" suggestion every time another runway was
+				// actually CAT II/III — a much better runway remaining elsewhere isn't a
+				// CAT-I-level event worth flagging at all. Only escalate to CAT I when the best
+				// surviving runway is exactly CAT I; a CAT II/III survivor suppresses to nothing
+				// (still not "No ILS" — the airport plainly isn't without instrument capability);
+				// if no other runway has any CAT at all, NoILS stays true (set above).
+				int bestOtherCat = 0;
 				foreach (RwyInfo r in runways)
-					if (r.CatMax >= 1 && !affectedRwys.Contains(r.Desig.ToUpper())) { s.NoILS = false; s.CatI = true; break; }
+					if (!affectedRwys.Contains(r.Desig.ToUpper())) bestOtherCat = Math.Max(bestOtherCat, r.CatMax);
+				if (bestOtherCat == 1) { s.NoILS = false; s.CatI = true; }
+				else if (bestOtherCat >= 2) { s.NoILS = false; }
 			}
 
 			// CAT I (3/6): CAT II/III lost, or downgrade to CAT I, or ILS U/S except LVP.
