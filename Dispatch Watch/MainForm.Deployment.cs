@@ -33,6 +33,19 @@ namespace ICAO_CSV
 		// from the local folder — check whether V: has a newer build and, if so, update and
 		// relaunch. Either branch that finds work to do calls Environment.Exit and never
 		// returns to the caller.
+		// Writes to deploy_log.txt next to the exe — EnsureLocalInstall's own Environment.Exit
+		// calls bypass Program.cs's crash logger entirely (Exit terminates immediately, no
+		// exception involved), so a silent-exit bug in here would otherwise leave zero trace.
+		private static void LogDeploy(string message)
+		{
+			try
+			{
+				File.AppendAllText(Path.Combine(Application.StartupPath, "deploy_log.txt"),
+					DateTime.Now.ToString("s") + " " + message + "\r\n");
+			}
+			catch { }
+		}
+
 		public void EnsureLocalInstall()
 		{
 			try
@@ -46,22 +59,38 @@ namespace ICAO_CSV
 					Path.GetFullPath(localFolder).TrimEnd('\\'),
 					StringComparison.OrdinalIgnoreCase);
 
+				LogDeploy("EnsureLocalInstall: StartupPath=" + Application.StartupPath + " localFolder=" + localFolder +
+					" alreadyLocal=" + alreadyLocal + " vExeExists=" + File.Exists(vExe));
+
 				if (!alreadyLocal)
 				{
-					if (!File.Exists(vExe)) return;   // V: not reachable right now — just run from wherever we are
+					if (!File.Exists(vExe)) { LogDeploy("V: exe not reachable — running as-is."); return; }
+					LogDeploy("First run for this folder — installing to " + localFolder);
 					CopyAppFiles(Application.StartupPath, localFolder);
 					CreateDesktopShortcut(localExe, localFolder);
-					Process.Start(localExe);
+					LogDeploy("Install copy done — relaunching from " + localExe);
+					Process.Start(new ProcessStartInfo { FileName = localExe, WorkingDirectory = localFolder });
 					Environment.Exit(0);
 				}
 				else if (File.Exists(vExe) && File.GetLastWriteTime(vExe) > File.GetLastWriteTime(localExe))
 				{
+					LogDeploy("V: exe newer (V:=" + File.GetLastWriteTime(vExe).ToString("s") +
+						" local=" + File.GetLastWriteTime(localExe).ToString("s") + ") — updating.");
 					CopyAppFiles(VAppFolder, localFolder);
-					Process.Start(localExe);
+					LogDeploy("Update copy done — relaunching from " + localExe);
+					Process.Start(new ProcessStartInfo { FileName = localExe, WorkingDirectory = localFolder });
 					Environment.Exit(0);
 				}
+				else
+				{
+					LogDeploy("Already local and up to date — continuing normal startup.");
+				}
 			}
-			catch { /* deployment/update check is best-effort — must never block the app from starting */ }
+			catch (Exception ex)
+			{
+				LogDeploy("EXCEPTION: " + ex);
+				// deployment/update check is best-effort — must never block the app from starting
+			}
 		}
 
 		private static void CopyAppFiles(string sourceDir, string destDir)
