@@ -13,3 +13,96 @@ System.Data.OleDb.OleDbException (0x80004005): Could not find file 'C:\Users\jga
    at ICAO_CSV.MainForm..ctor() in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\MainForm.cs:line 50
    at ICAO_CSV.Program.Main(String[] args) in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\Program.cs:line 46
 
+=== 2026-08-06T16:54:07 ===
+System.Data.OleDb.OleDbException (0x80004005): Could not find file 'C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch\OCC.mdb'.
+   at System.Data.OleDb.OleDbConnectionInternal..ctor(OleDbConnectionString constr, OleDbConnection connection)
+   at System.Data.OleDb.OleDbConnectionFactory.CreateConnection(DbConnectionOptions options, DbConnectionPoolKey poolKey, Object poolGroupProviderInfo, DbConnectionPool pool, DbConnection owningObject)
+   at System.Data.ProviderBase.DbConnectionFactory.CreateConnection(DbConnectionOptions options, DbConnectionPoolKey poolKey, Object poolGroupProviderInfo, DbConnectionPool pool, DbConnection owningConnection, DbConnectionOptions userOptions)
+   at System.Data.ProviderBase.DbConnectionFactory.CreateNonPooledConnection(DbConnection owningConnection, DbConnectionPoolGroup poolGroup, DbConnectionOptions userOptions)
+   at System.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at System.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.ProviderBase.DbConnectionClosed.TryOpenConnection(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at System.Data.ProviderBase.DbConnectionInternal.OpenConnection(DbConnection outerConnection, DbConnectionFactory connectionFactory)
+   at System.Data.OleDb.OleDbConnection.Open()
+   at ICAO_CSV.MainForm.LoadStationsCache() in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\MainForm.Stations.cs:line 15
+   at ICAO_CSV.MainForm..ctor() in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\MainForm.cs:line 50
+   at ICAO_CSV.Program.Main(String[] args) in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\Program.cs:line 46
+
+=== 2026-08-06T16:55:01 ===
+System.Data.OleDb.OleDbException (0x80040E37): The Microsoft Jet database engine cannot find the input table or query 'Stations_ICAO_IATA'.  Make sure it exists and that its name is spelled correctly.
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextErrorHandling(OleDbHResult hr)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextForSingleResult(tagDBPARAMS dbParams, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandText(Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommand(CommandBehavior behavior, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteReaderInternal(CommandBehavior behavior, String method)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader(CommandBehavior behavior)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader()
+   at ICAO_CSV.MainForm.LoadStationsCache() in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\MainForm.Stations.cs:line 16
+   at ICAO_CSV.MainForm..ctor() in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\MainForm.cs:line 56
+   at ICAO_CSV.Program.Main(String[] args) in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\Program.cs:line 46
+
+=== 2026-08-06T16:56:17 ===
+System.Data.OleDb.OleDbException (0x80040E37): The Microsoft Jet database engine cannot find the input table or query 'Stations_ICAO_IATA'.  Make sure it exists and that its name is spelled correctly.
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextErrorHandling(OleDbHResult hr)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextForSingleResult(tagDBPARAMS dbParams, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandText(Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommand(CommandBehavior behavior, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteReaderInternal(CommandBehavior behavior, String method)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader(CommandBehavior behavior)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader()
+   at ICAO_CSV.MainForm.LoadStationsCache()
+   at ICAO_CSV.MainForm..ctor()
+   at ICAO_CSV.Program.Main(String[] args)
+
+=== 2026-08-06T16:57:01 ===
+System.Data.OleDb.OleDbException (0x80040E37): The Microsoft Jet database engine cannot find the input table or query 'Stations_ICAO_IATA'.  Make sure it exists and that its name is spelled correctly.
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextErrorHandling(OleDbHResult hr)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextForSingleResult(tagDBPARAMS dbParams, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandText(Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommand(CommandBehavior behavior, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteReaderInternal(CommandBehavior behavior, String method)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader(CommandBehavior behavior)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader()
+   at ICAO_CSV.MainForm.LoadStationsCache()
+   at ICAO_CSV.MainForm..ctor()
+   at ICAO_CSV.Program.Main(String[] args)
+
+=== 2026-08-06T17:01:30 ===
+System.Data.OleDb.OleDbException (0x80040E37): The Microsoft Jet database engine cannot find the input table or query 'Stations_ICAO_IATA'.  Make sure it exists and that its name is spelled correctly.
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextErrorHandling(OleDbHResult hr)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextForSingleResult(tagDBPARAMS dbParams, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandText(Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommand(CommandBehavior behavior, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteReaderInternal(CommandBehavior behavior, String method)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader(CommandBehavior behavior)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader()
+   at ICAO_CSV.MainForm.LoadStationsCache() in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\MainForm.Stations.cs:line 16
+   at ICAO_CSV.MainForm..ctor() in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\MainForm.cs:line 56
+   at ICAO_CSV.Program.Main(String[] args) in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\Program.cs:line 46
+
+=== 2026-08-06T17:02:47 ===
+System.Data.OleDb.OleDbException (0x80040E37): The Microsoft Jet database engine cannot find the input table or query 'Stations_ICAO_IATA'.  Make sure it exists and that its name is spelled correctly.
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextErrorHandling(OleDbHResult hr)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextForSingleResult(tagDBPARAMS dbParams, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandText(Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommand(CommandBehavior behavior, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteReaderInternal(CommandBehavior behavior, String method)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader(CommandBehavior behavior)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader()
+   at ICAO_CSV.MainForm.LoadStationsCache()
+   at ICAO_CSV.MainForm..ctor()
+   at ICAO_CSV.Program.Main(String[] args)
+
+=== 2026-08-06T17:05:19 ===
+System.Data.OleDb.OleDbException (0x80040E37): The Microsoft Jet database engine cannot find the input table or query 'Stations_ICAO_IATA'.  Make sure it exists and that its name is spelled correctly.
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextErrorHandling(OleDbHResult hr)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextForSingleResult(tagDBPARAMS dbParams, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandText(Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommand(CommandBehavior behavior, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteReaderInternal(CommandBehavior behavior, String method)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader(CommandBehavior behavior)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader()
+   at ICAO_CSV.MainForm.LoadStationsCache()
+   at ICAO_CSV.MainForm..ctor()
+   at ICAO_CSV.Program.Main(String[] args)
+

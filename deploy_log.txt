@@ -12,4 +12,15 @@
 2026-08-06T17:02:26 EnsureOccMigrated: done.
 2026-08-06T17:02:27 EnsureLocalInstall: StartupPath=V:\TAY Ops Control Centre\Flight Dispatch\AIP SUP -  Notams report\NOTAMS APP localFolder=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch alreadyLocal=False vExeExists=True
 2026-08-06T17:02:27 First run for this folder — installing to C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch
-2026-08-06T17:02:41 Install copy done — relaunching from C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch\Dispatch Watch.exe
+2026-08-06T17:02:43 EnsureOccMigrated: Stations_ICAO_IATA already present — skipping.
+2026-08-06T17:02:43 EnsureOccMigrated: Runways already present — skipping.
+2026-08-06T17:02:43 EnsureOccMigrated: Notams_ICAO_CSV already present — skipping.
+2026-08-06T17:02:43 EnsureOccMigrated: done.
+2026-08-06T17:02:43 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch localFolder=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch alreadyLocal=True vExeExists=True
+2026-08-06T17:02:43 Already local and up to date — continuing normal startup.
+2026-08-06T17:05:02 EnsureOccMigrated: Stations_ICAO_IATA already present — skipping.
+2026-08-06T17:05:02 EnsureOccMigrated: Runways already present — skipping.
+2026-08-06T17:05:02 EnsureOccMigrated: Notams_ICAO_CSV already present — skipping.
+2026-08-06T17:05:02 EnsureOccMigrated: done.
+2026-08-06T17:05:03 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch localFolder=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch alreadyLocal=True vExeExists=True
+2026-08-06T17:05:03 Already local and up to date — continuing normal startup.
