@@ -47,8 +47,22 @@ namespace ICAO_CSV
 				proc.StartInfo.Arguments       = "--enable-local-file-access --dpi 96 --disable-smart-shrinking --image-quality 100 \"" + tempHtml + "\" \"" + pdfPath + "\"";
 				proc.StartInfo.UseShellExecute = false;
 				proc.StartInfo.CreateNoWindow  = true;
+				// The runway-diagram PNGs still aren't showing in exported PDFs despite the
+				// file:// URI fix and --enable-local-file-access (the sibling airportDocu
+				// project hit the exact same wall with its ASL-logo image), and guessing a
+				// third fix blind isn't productive — wkhtmltopdf normally prints exactly why a
+				// resource failed to load on stderr, but that was being silently discarded
+				// (CreateNoWindow with no redirection). Logging it next to the exe surfaces the
+				// real reason.
+				proc.StartInfo.RedirectStandardError  = true;
+				proc.StartInfo.RedirectStandardOutput = true;
 				proc.Start();
+				string stderrOutput = proc.StandardError.ReadToEnd();
+				string stdoutOutput = proc.StandardOutput.ReadToEnd();
 				proc.WaitForExit();
+
+				string logPath = Path.Combine(Application.StartupPath, "wkhtmltopdf_log.txt");
+				File.WriteAllText(logPath, "=== stdout ===\r\n" + stdoutOutput + "\r\n=== stderr ===\r\n" + stderrOutput);
 
 				File.Delete(tempHtml);
 
