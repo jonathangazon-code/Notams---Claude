@@ -51,10 +51,13 @@ namespace ICAO_CSV
 		}
 
 		// Where the dispatcher drops the FPM "Refuel EU" CSV export as a stand-in for
-		// flights the FlightScheduleService.svc feed doesn't expose yet. Created next to
-		// the exe so it's obvious where to put the file; the exact filename doesn't
-		// matter, the most recently modified *.csv in the folder is used.
-		private static string FlightSchedCsvFolder { get { return Path.Combine(Application.StartupPath, "FlightSched"); } }
+		// flights the FlightScheduleService.svc feed doesn't expose yet. A shared V:
+		// location (Admin-tab editable, _flightSchedCsvPath in MainForm.Admin.cs) — not
+		// Application.StartupPath-relative, since each dispatcher now runs their own local
+		// install (MainForm.Deployment.cs) and a CSV dropped into a local folder would only
+		// ever be visible to that one dispatcher. The exact filename doesn't matter, the most
+		// recently modified *.csv in the folder is used.
+		private static string FlightSchedCsvFolder { get { return _flightSchedCsvPath; } }
 
 		public void EnsureFlightSchedFolder()
 		{

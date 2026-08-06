@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml.Linq;
 
@@ -19,7 +20,12 @@ namespace ICAO_CSV
 			{ "3V", "TAY" }, { "QY", "BCS" }, { "5O", "FPO" }, { "5H", "ABR" }, { "FX", "FDX" }
 		};
 
-		private static string MmScheduleCursorPath { get { return Path.Combine(Application.StartupPath, "MmScheduleCursor.txt"); } }
+		// Shared on V: (VAppFolder, MainForm.Deployment.cs), not Application.StartupPath-relative:
+		// RefreshFlightSchedule only ever runs as Writer (EnsureWriterOrWarn — one instance at a
+		// time), so there's no write-contention risk, and sharing it means whichever dispatcher
+		// is Writer today resumes from wherever the previous Writer actually left off instead of
+		// a cold per-machine cursor forcing a full backlog re-scan.
+		private static string MmScheduleCursorPath { get { return Path.Combine(VAppFolder, "MmScheduleCursor.txt"); } }
 
 		private struct MmCursor { public DateTime FolderDate; public DateTime FileTime; }
 
@@ -98,18 +104,16 @@ namespace ICAO_CSV
 			MmCursor newCursor = cursor;
 			DateTime windowEnd = DateTime.UtcNow.Date.AddDays(7);
 
-			string[] dayDirs;
-			try { dayDirs = Directory.GetDirectories(_mmMessagesPath); } catch { return result; }
-
+			// Probing candidate day-folder names directly (cursor.FolderDate .. today) instead
+			// of Directory.GetDirectories(_mmMessagesPath) — the latter lists the share's
+			// *entire* archived history over the network just to filter it down to the last
+			// few days client-side, which dominated the 4+ minute stalls seen in practice.
 			List<KeyValuePair<DateTime, string>> dayFolders = new List<KeyValuePair<DateTime, string>>();
-			foreach (string dir in dayDirs)
+			for (DateTime d = cursor.FolderDate; d <= DateTime.UtcNow.Date; d = d.AddDays(1))
 			{
-				DateTime folderDate;
-				if (DateTime.TryParseExact(Path.GetFileName(dir), "yyyyMMdd", CultureInfo.InvariantCulture,
-					DateTimeStyles.None, out folderDate) && folderDate >= cursor.FolderDate)
-					dayFolders.Add(new KeyValuePair<DateTime, string>(folderDate, dir));
+				string candidate = Path.Combine(_mmMessagesPath, d.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
+				if (Directory.Exists(candidate)) dayFolders.Add(new KeyValuePair<DateTime, string>(d, candidate));
 			}
-			dayFolders.Sort((a, b) => a.Key.CompareTo(b.Key));
 
 			foreach (KeyValuePair<DateTime, string> dayFolder in dayFolders)
 			{
@@ -126,12 +130,22 @@ namespace ICAO_CSV
 					ordered.Add(new KeyValuePair<DateTime, string>(wt, f));
 				}
 				ordered.Sort((a, b) => a.Key.CompareTo(b.Key));
+				if (ordered.Count == 0) continue;
 
-				foreach (KeyValuePair<DateTime, string> fileEntry in ordered)
+				// Each file's XDocument.Load is an independent UNC round-trip — the dominant
+				// cost during a catch-up is network latency, not parsing, so reading files
+				// concurrently (bounded) cuts wall-clock time roughly by the parallelism
+				// factor instead of paying every round-trip one at a time. The parsed <flight>
+				// elements are only collected here, not applied to the shared byKey dictionary
+				// — that happens in a second, sequential pass below, in write-time order, so
+				// "the latest message per key wins" stays deterministic regardless of which
+				// parallel read happens to finish first.
+				List<XElement>[] parsedPerFile = new List<XElement>[ordered.Count];
+				Parallel.For(0, ordered.Count, new ParallelOptions { MaxDegreeOfParallelism = 8 }, i =>
 				{
 					try
 					{
-						XDocument doc = XDocument.Load(fileEntry.Value);
+						XDocument doc = XDocument.Load(ordered[i].Value);
 						// Most messages carry a single <flight>, but the twice-daily ACCLAIM
 						// batch files (~05:30/16:00, ~150-200KB) carry many sibling <flight>
 						// elements spanning several days each — the only real source of
@@ -139,40 +153,45 @@ namespace ICAO_CSV
 						// are mostly near-term changes. Using Element() (first child only)
 						// here silently dropped ~99% of a batch file's content; Elements()
 						// walks all of them.
-						IEnumerable<XElement> flightsInFile = doc.Root != null
-							? doc.Root.Elements(FsNs + "flight") : new XElement[0];
-						foreach (XElement flight in flightsInFile)
+						parsedPerFile[i] = doc.Root != null
+							? new List<XElement>(doc.Root.Elements(FsNs + "flight"))
+							: new List<XElement>();
+					}
+					catch { parsedPerFile[i] = new List<XElement>(); }   // one bad/partial file shouldn't abort the whole catch-up
+				});
+
+				for (int i = 0; i < ordered.Count; i++)
+				{
+					foreach (XElement flight in parsedPerFile[i])
+					{
+						string carrier      = El(flight, FsNs + "carrierCode");
+						string flightNumber = El(flight, FsNs + "flightNumber");
+						string originDate   = El(flight, FsNs + "originDate").TrimEnd('Z');
+
+						if (carrier != "" && flightNumber != "" && originDate != "")
 						{
-							string carrier      = El(flight, FsNs + "carrierCode");
-							string flightNumber = El(flight, FsNs + "flightNumber");
-							string originDate   = El(flight, FsNs + "originDate").TrimEnd('Z');
+							string key = carrier + "|" + flightNumber + "|" + originDate;
+							MmFlightState state;
+							if (!byKey.TryGetValue(key, out state)) { state = new MmFlightState(); byKey[key] = state; }
 
-							if (carrier != "" && flightNumber != "" && originDate != "")
+							if (El(flight, FsNs + "action") == "C")
 							{
-								string key = carrier + "|" + flightNumber + "|" + originDate;
-								MmFlightState state;
-								if (!byKey.TryGetValue(key, out state)) { state = new MmFlightState(); byKey[key] = state; }
-
-								if (El(flight, FsNs + "action") == "C")
-								{
-									state.Cancelled = true;
-								}
-								else
-								{
-									state.Cancelled = false;
-									state.Reg    = El(flight, FsNs + "aircraftRegistration");
-									state.Std    = El(flight, FsNs + "scheduledDepartureTime");
-									state.Sta    = El(flight, FsNs + "scheduledArrivalTime");
-									state.Origin = NormalizeIata(El(flight, FsNs + "departureAerodrome"));
-									state.Dest   = NormalizeIata(El(flight, FsNs + "arrivalAerodrome"));
-									state.FldT   = originDate;
-								}
+								state.Cancelled = true;
+							}
+							else
+							{
+								state.Cancelled = false;
+								state.Reg    = El(flight, FsNs + "aircraftRegistration");
+								state.Std    = El(flight, FsNs + "scheduledDepartureTime");
+								state.Sta    = El(flight, FsNs + "scheduledArrivalTime");
+								state.Origin = NormalizeIata(El(flight, FsNs + "departureAerodrome"));
+								state.Dest   = NormalizeIata(El(flight, FsNs + "arrivalAerodrome"));
+								state.FldT   = originDate;
 							}
 						}
-						newCursor.FolderDate = folderDate;
-						newCursor.FileTime = fileEntry.Key;
 					}
-					catch { /* one bad/partial file shouldn't abort the whole catch-up */ }
+					newCursor.FolderDate = folderDate;
+					newCursor.FileTime = ordered[i].Key;
 				}
 			}
 

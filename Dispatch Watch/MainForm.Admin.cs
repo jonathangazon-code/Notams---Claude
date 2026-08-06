@@ -27,6 +27,13 @@ namespace ICAO_CSV
 		// MainForm.MmSchedule.cs) — a network share in production. Editable here in case
 		// the path changes.
 		private static string _mmMessagesPath = @"\\PRODWFPMFLS.aslairlines.com\CaeFpmProd\Archive\INTERFACING\SCHEDULE\IN";
+		// FlightSched CSV fallback folder (MainForm.FlightSchedule.cs) — must be a shared V:
+		// location, not a per-dispatcher local folder: since the multi-user deployment
+		// (MainForm.Deployment.cs) gives every dispatcher their own local install, a CSV
+		// dropped into an Application.StartupPath-relative folder would only ever be visible
+		// to that one dispatcher's own instance.
+		private static string _flightSchedCsvPath =
+			@"V:\TAY Ops Control Centre\Flight Dispatch\AIP SUP -  Notams report\NOTAMS APP\FlightSched";
 		private static bool   _archiveConfigLoaded;
 
 		private TextBox _adminFlightScheduleUrl;
@@ -34,6 +41,7 @@ namespace ICAO_CSV
 		private TextBox _adminCallsignPrefixes;
 		private TextBox _adminConflictWindow;
 		private TextBox _adminMmMessagesPath;
+		private TextBox _adminFlightSchedCsvPath;
 		private Label   _adminStatus;
 
 		private static string ArchiveConfigPath { get { return Path.Combine(Application.StartupPath, "ArchiveConfig.xml"); } }
@@ -52,10 +60,12 @@ namespace ICAO_CSV
 					XElement cs = root.Element("CallsignPrefixes");
 					XElement cw = root.Element("ConflictWindowHours");
 					XElement mm = root.Element("MmMessagesPath");
+					XElement fc = root.Element("FlightSchedCsvPath");
 					if (fs != null && !string.IsNullOrEmpty(fs.Value)) _flightScheduleBaseUrl = fs.Value;
 					if (br != null && !string.IsNullOrEmpty(br.Value)) _briefingBaseUrl = br.Value;
 					if (cs != null && !string.IsNullOrEmpty(cs.Value)) _callsignPrefixFilters = ParsePrefixes(cs.Value);
 					if (mm != null && !string.IsNullOrEmpty(mm.Value)) _mmMessagesPath = mm.Value;
+					if (fc != null && !string.IsNullOrEmpty(fc.Value)) _flightSchedCsvPath = fc.Value;
 					int parsedWindow;
 					if (cw != null && int.TryParse(cw.Value, out parsedWindow) && parsedWindow > 0) _conflictWindowHours = parsedWindow;
 				}
@@ -78,7 +88,8 @@ namespace ICAO_CSV
 						new XElement("BriefingServiceUrl", _briefingBaseUrl),
 						new XElement("CallsignPrefixes", string.Join(",", _callsignPrefixFilters.ToArray())),
 						new XElement("ConflictWindowHours", _conflictWindowHours),
-						new XElement("MmMessagesPath", _mmMessagesPath)));
+						new XElement("MmMessagesPath", _mmMessagesPath),
+						new XElement("FlightSchedCsvPath", _flightSchedCsvPath)));
 				doc.Save(ArchiveConfigPath);
 			}
 			catch { }
@@ -152,7 +163,13 @@ namespace ICAO_CSV
 			_adminMmMessagesPath = new TextBox { Tag = "dispose", Top = 314, Left = 20, Width = 520, Text = _mmMessagesPath };
 			tabPage_Admin.Controls.Add(_adminMmMessagesPath);
 
-			Button save = new Button { Tag = "dispose", Top = 350, Left = 20, Width = 100, Height = 30, Text = "Save" };
+			Label lbl6 = new Label { Tag = "dispose", Top = 350, Left = 20, AutoSize = true,
+				Text = "Flight Sched CSV folder (shared — every dispatcher's fallback CSV drop)" };
+			tabPage_Admin.Controls.Add(lbl6);
+			_adminFlightSchedCsvPath = new TextBox { Tag = "dispose", Top = 372, Left = 20, Width = 520, Text = _flightSchedCsvPath };
+			tabPage_Admin.Controls.Add(_adminFlightSchedCsvPath);
+
+			Button save = new Button { Tag = "dispose", Top = 408, Left = 20, Width = 100, Height = 30, Text = "Save" };
 			save.Click += delegate
 			{
 				if (!EnsureWriterOrWarn()) return;
@@ -160,15 +177,17 @@ namespace ICAO_CSV
 				_briefingBaseUrl         = _adminBriefingUrl.Text.Trim();
 				_callsignPrefixFilters   = ParsePrefixes(_adminCallsignPrefixes.Text);
 				_mmMessagesPath          = _adminMmMessagesPath.Text.Trim();
+				_flightSchedCsvPath      = _adminFlightSchedCsvPath.Text.Trim();
 				int parsedWindow;
 				if (int.TryParse(_adminConflictWindow.Text.Trim(), out parsedWindow) && parsedWindow > 0)
 					_conflictWindowHours = parsedWindow;
 				SaveArchiveConfig();
+				EnsureFlightSchedFolder();
 				_adminStatus.Text = "Saved.";
 			};
 			tabPage_Admin.Controls.Add(save);
 
-			_adminStatus = new Label { Tag = "dispose", Top = 358, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
+			_adminStatus = new Label { Tag = "dispose", Top = 416, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
 			tabPage_Admin.Controls.Add(_adminStatus);
 		}
 	}
