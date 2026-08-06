@@ -440,27 +440,36 @@ namespace ICAO_CSV
 		}
 
 		// Renders the runway diagram as an <img> instead of VML (BuildRwyImage/BuildRwyImageGeo,
-		// MainForm.NotamFilter.cs). cidImages=false embeds a data-URI (fine for wkhtmltopdf);
-		// cidImages=true writes the PNG to a temp file once per airport and returns a
-		// <img src="cid:..."> reference — the form Outlook's Word engine actually renders in an
-		// HTML email body — recording (cid -> temp path) in inlineImages so MainForm.Email.cs
-		// can attach it after the body is built.
+		// MainForm.NotamFilter.cs). Always writes the PNG to a stable per-airport temp file
+		// (deterministic name, overwritten each run — its content is a pure function of the
+		// airport's RWY data, so reuse across runs is harmless) rather than embedding it as a
+		// data-URI: wkhtmltopdf's (dated, Qt-WebKit-based) data-URI <img> support turned out to
+		// be unreliable in practice (only the top few PNG rows would render), and a real
+		// file:// reference is far more universally supported. cidImages=false (NOTAM Report
+		// PDF export + its live WebBrowser preview) embeds a <img src="file:///..."> reference;
+		// cidImages=true (email) embeds <img src="cid:..."> instead — the only form Outlook's
+		// Word engine renders in an HTML body — recording (cid -> temp path) in inlineImages so
+		// MainForm.Email.cs can attach it after the body is built.
 		private static string BuildRwyDiagramImageTag(string AP, List<RwyGeo> geo, List<string> rwyClean, bool cidImages, Dictionary<string, string> inlineImages)
 		{
 			byte[] png = HasGeo(geo) ? BuildRwyImageGeo(geo) : BuildRwyImage(rwyClean);
 			if (png == null || png.Length == 0) return "";
 
-			if (!cidImages)
-				return "<img width=\"130\" height=\"110\" src=\"data:image/png;base64," + Convert.ToBase64String(png) + "\">";
-
 			string cid = "rwy_" + AP;
-			if (!inlineImages.ContainsKey(cid))
+			string tempPath;
+			if (inlineImages != null && inlineImages.ContainsKey(cid))
 			{
-				string tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), cid + ".png");
-				System.IO.File.WriteAllBytes(tempPath, png);
-				inlineImages[cid] = tempPath;
+				tempPath = inlineImages[cid];
 			}
-			return "<img width=\"130\" height=\"110\" src=\"cid:" + cid + "\">";
+			else
+			{
+				tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), cid + ".png");
+				System.IO.File.WriteAllBytes(tempPath, png);
+				if (inlineImages != null) inlineImages[cid] = tempPath;
+			}
+
+			string src = cidImages ? "cid:" + cid : new Uri(tempPath).AbsoluteUri;
+			return "<img width=\"130\" height=\"110\" src=\"" + src + "\">";
 		}
 	}
 }

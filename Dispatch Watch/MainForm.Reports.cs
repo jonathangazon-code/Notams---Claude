@@ -225,11 +225,16 @@ namespace ICAO_CSV
 		// station, styled like RenderKeptCard's WinForms layout in the NOTAM Filter tab.
 		private string BuildAirportDetailSectionsHtml(List<string> icaos)
 		{
+			// Passed through to BuildAirportHeaderHtml so each airport's runway-diagram temp
+			// file (MainForm.Conflict.cs's BuildRwyDiagramImageTag) is written once and reused
+			// if it were to appear more than once — harmless either way since it's a stable,
+			// deterministic filename, but avoids redundant disk writes within a single run.
+			Dictionary<string, string> images = new Dictionary<string, string>();
 			StringBuilder sb = new StringBuilder();
 			foreach (string icao in icaos)
 			{
 				sb.Append("<div id=\"ap-" + icao + "\" class=\"apSection\">");
-				sb.Append(BuildAirportHeaderHtml(icao, /*rasterDiagram*/true, /*cidImages*/false, null));
+				sb.Append(BuildAirportHeaderHtml(icao, /*rasterDiagram*/true, /*cidImages*/false, images));
 				sb.Append("<div class=\"keptWrap\">");
 
 				List<string> keptCards = new List<string>();
