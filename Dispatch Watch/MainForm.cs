@@ -96,19 +96,25 @@ namespace ICAO_CSV
 			{
 				if (!File.Exists(sourcePath))
 				{
+					LogDeploy("StartApp: source not found: " + sourcePath);
 					MessageBox.Show("Fichier source introuvable :\n" + sourcePath, "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
 					return;
 				}
-				if (File.Exists(destPath) && File.GetLastWriteTime(destPath) >= File.GetLastWriteTime(sourcePath))
+				bool destExists = File.Exists(destPath);
+				DateTime destTime = destExists ? File.GetLastWriteTime(destPath) : DateTime.MinValue;
+				DateTime sourceTime = File.GetLastWriteTime(sourcePath);
+				LogDeploy("StartApp: destExists=" + destExists + " destTime=" + destTime.ToString("o") + " sourceTime=" + sourceTime.ToString("o"));
+				if (destExists && destTime >= sourceTime)
 				{
-					MessageBox.Show("Local DB already up to date.\n\nNo download needed.", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					LogDeploy("StartApp: local DB considered up to date — no download.");
 					return;
 				}
 				File.Copy(sourcePath, destPath, true);
-				MessageBox.Show("DB Downloaded\n\nSaved to:\n" + destPath, "OK", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				LogDeploy("StartApp: downloaded DB to " + destPath + " (new local write time=" + File.GetLastWriteTime(destPath).ToString("o") + ")");
 			}
 			catch (Exception ex)
 			{
+				LogDeploy("StartApp: EXCEPTION: " + ex);
 				MessageBox.Show("Erreur lors de la copie :\n" + ex.Message, "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}

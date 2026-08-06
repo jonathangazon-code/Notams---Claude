@@ -54,7 +54,16 @@ namespace ICAO_CSV
 		{
 			try
 			{
-				string localFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Dispatch Watch");
+				// LocalApplicationData (%LOCALAPPDATA%), not MyDocuments: on this fleet, Documents
+				// is OneDrive-redirected (Known Folder Move) — OneDrive's sync client is known to
+				// touch local files' LastWriteTime independently of real writes, which silently
+				// broke StartApp()'s "is the local copy newer-or-equal than V:?" check (it kept
+				// seeing a pre-OCC-migration local ICAO_storedNotams.mdb as "up to date" and never
+				// re-downloaded the real one, crashing on the missing Stations_ICAO_IATA table).
+				// %LOCALAPPDATA% is explicitly meant for non-roaming, machine-local app data and
+				// is never OneDrive-synced, which sidesteps the whole class of problem for a
+				// frequently-rewritten binary Access file.
+				string localFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Dispatch Watch");
 				string localExe = Path.Combine(localFolder, AppExeName);
 				string vExe = Path.Combine(VAppFolder, AppExeName);
 
