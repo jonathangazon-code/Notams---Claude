@@ -9,6 +9,16 @@ namespace ICAO_CSV
 {
 	public partial class MainForm
 	{
+		// The exact HTML string built by the last Report() run, kept so Btn_exportReportClick
+		// (MainForm.cs) can export it directly instead of reading it back from
+		// Web_report.DocumentText — the WebBrowser control's IE7-mode MSHTML DOM silently
+		// truncates very long attribute values (a long-standing Trident limitation: URLs/attrs
+		// past roughly 2083 characters), which corrupts the base64 data-URI runway-diagram
+		// images (BuildAirportHeaderHtml, MainForm.Conflict.cs) on the DocumentText round-trip
+		// — only the first few decoded scanlines (where the QFU label happens to sit) would
+		// render, leaving the runway-line strokes further down the image missing entirely.
+		private string _lastReportHtml;
+
 		// The report auto-loads when the tab is selected (TabPage.Enter fires whenever this
 		// page becomes the active tab), and re-runs whenever the dispatcher changes the
 		// time-window filter — there's no "Report !" button anymore.
@@ -137,6 +147,7 @@ namespace ICAO_CSV
 			new OleDbCommand(update, conn2).ExecuteNonQuery();
 			conn2.Close();
 
+			_lastReportHtml = report;
 			Web_report.DocumentText = report;
 			string dir = @"V:\TAY Ops Control Centre\Flight Dispatch\AIP SUP -  Notams report\Reports";
 			Directory.CreateDirectory(dir);

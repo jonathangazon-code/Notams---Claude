@@ -398,9 +398,6 @@ namespace ICAO_CSV
 			foreach (string rl in rwyLines) if (rl.Trim() != "") rwyClean.Add(rl.Trim());
 
 			List<RwyGeo> geo = LoadRwyGeo(AP);
-			string rwySvg = rasterDiagram
-				? BuildRwyDiagramImageTag(AP, geo, rwyClean, cidImages, inlineImages)
-				: (HasGeo(geo) ? BuildRwySvgGeo(geo) : BuildRwySvg(rwyClean));
 
 			string iataLine = (iata != "" && iata != AP) ? "<div class=\"sub\">IATA: " + iata + "</div>" : "";
 			string nameLine = name != "" ? "<div class=\"apname\">" + name.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
@@ -410,14 +407,34 @@ namespace ICAO_CSV
 				string cell = "<div class=\"rwyline\">" + rwyClean[i].Replace("&", "&amp;").Replace("<", "&lt;") + "</div>";
 				if (i % 2 == 0) leftCol += cell; else rightCol += cell;
 			}
-
-			return
-				"<div class=\"ahead\">" +
-				"<div class=\"diagram\">" + rwySvg + "</div>" +
+			string textBlock =
 				"<div class=\"icao\">" + AP + "</div>" +
 				iataLine + nameLine +
 				"<table class=\"rwytable\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
 				"<td class=\"blk\">" + leftCol + "</td><td class=\"blk\">" + rightCol + "</td>" +
+				"</tr></table>";
+
+			if (!rasterDiagram)
+			{
+				string rwySvg = HasGeo(geo) ? BuildRwySvgGeo(geo) : BuildRwySvg(rwyClean);
+				return
+					"<div class=\"ahead\">" +
+					"<div class=\"diagram\">" + rwySvg + "</div>" +
+					textBlock +
+					"</div>";
+			}
+
+			// Outlook's Word rendering engine doesn't reliably honor "position:absolute;
+			// right:..." (the VML/live-tab layout above) — the diagram ends up flush left
+			// instead of on the right. A table-based two-column layout is the standard
+			// Outlook-safe workaround, and renders identically in wkhtmltopdf too, so this path
+			// is used for both the NOTAM Report PDF and the email.
+			string img = BuildRwyDiagramImageTag(AP, geo, rwyClean, cidImages, inlineImages);
+			return
+				"<div class=\"ahead\">" +
+				"<table class=\"aheadTable\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
+				"<td valign=\"top\">" + textBlock + "</td>" +
+				"<td valign=\"top\" align=\"right\" width=\"140\">" + img + "</td>" +
 				"</tr></table>" +
 				"</div>";
 		}
