@@ -1,0 +1,4 @@
+2026-08-06T16:40:34 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\bin\Debug localFolder=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch alreadyLocal=False vExeExists=True
+2026-08-06T16:40:34 First run for this folder — installing to C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch
+2026-08-06T16:40:35 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch localFolder=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch alreadyLocal=True vExeExists=True
+2026-08-06T16:40:35 Already local and up to date — continuing normal startup.
