@@ -39,7 +39,12 @@ namespace ICAO_CSV
 				// (text, table borders, the AIP SUP checkboxes) tiny and blurry on the page —
 				// text in a PDF is vector-drawn regardless of DPI, so a plain 96 DPI (the
 				// default wkhtmltopdf/browser assumption) renders crisp at any zoom level.
-				proc.StartInfo.Arguments       = "--dpi 96 --disable-smart-shrinking --image-quality 100 \"" + tempHtml + "\" \"" + pdfPath + "\"";
+				// --enable-local-file-access: newer wkhtmltopdf builds refuse to load local
+				// file:// subresources (e.g. the runway-diagram PNGs in %TEMP%, MainForm.Conflict.cs's
+				// BuildRwyDiagramImageTag) that live outside the source HTML's own directory
+				// (_export_temp.html is next to the exe) — without this flag they render as
+				// blank/broken images.
+				proc.StartInfo.Arguments       = "--enable-local-file-access --dpi 96 --disable-smart-shrinking --image-quality 100 \"" + tempHtml + "\" \"" + pdfPath + "\"";
 				proc.StartInfo.UseShellExecute = false;
 				proc.StartInfo.CreateNoWindow  = true;
 				proc.Start();
