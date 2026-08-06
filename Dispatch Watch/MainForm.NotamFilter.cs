@@ -1136,17 +1136,25 @@ namespace ICAO_CSV
 				if (!kept && signal) toKeep.Add(sid);
 				else if (kept && !signal) toUnKeep.Add(sid);
 			}
-			foreach (int kid in toKeep)
+			// Reader mode must never write, including this automatic pre-pass — it runs on
+			// every render (tab enter, resize, etc.), not just in response to a dispatcher
+			// action, so it can't go through EnsureWriterOrWarn()'s popup without spamming one
+			// on every view. Silently skip the writes; the rest of Filter_Notams (rendering)
+			// still runs normally so a Reader can still see the current state.
+			if (IsWriter)
 			{
-				OleDbCommand uk = new OleDbCommand("UPDATE filteredNotams_table SET Status='K', AutoKept='Y' WHERE ID=?", conn);
-				uk.Parameters.AddWithValue("?", kid);
-				uk.ExecuteNonQuery();
-			}
-			foreach (int uid in toUnKeep)
-			{
-				OleDbCommand un = new OleDbCommand("UPDATE filteredNotams_table SET Status='', AutoKept='' WHERE ID=?", conn);
-				un.Parameters.AddWithValue("?", uid);
-				un.ExecuteNonQuery();
+				foreach (int kid in toKeep)
+				{
+					OleDbCommand uk = new OleDbCommand("UPDATE filteredNotams_table SET Status='K', AutoKept='Y' WHERE ID=?", conn);
+					uk.Parameters.AddWithValue("?", kid);
+					uk.ExecuteNonQuery();
+				}
+				foreach (int uid in toUnKeep)
+				{
+					OleDbCommand un = new OleDbCommand("UPDATE filteredNotams_table SET Status='', AutoKept='' WHERE ID=?", conn);
+					un.Parameters.AddWithValue("?", uid);
+					un.ExecuteNonQuery();
+				}
 			}
 			conn.Close();
 
@@ -1505,6 +1513,7 @@ namespace ICAO_CSV
 		// Save remark / SupRef without re-rendering (the field already shows the text).
 		void StationSaveRemark(int notam_ID, bool isSup, string text)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbCommand u = new OleDbCommand(
@@ -1520,6 +1529,7 @@ namespace ICAO_CSV
 		void StationImpactSet(int notam_ID, string code, bool on, string notamText,
 			System.Collections.Generic.List<RwyInfo> runways, string icao, string key)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbCommand u;
@@ -1553,6 +1563,7 @@ namespace ICAO_CSV
 		void StationSupSet(int notam_ID, string notamText, bool on,
 			System.Collections.Generic.List<RwyInfo> runways, string icao, string key)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbCommand u;
@@ -1580,6 +1591,7 @@ namespace ICAO_CSV
 
 		void Keep_Notam(int notam_ID)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			// AutoKept='' marks this as a manual Keep, so the auto-Keep pre-pass never demotes it.
@@ -1592,6 +1604,7 @@ namespace ICAO_CSV
 
 		void Ignore_Notam(int notam_ID)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			_autoKeepSkip.Add(notam_ID);   // don't auto-re-keep a NOTAM the dispatcher ignored
 
 			// If this NOTAM was only Kept because the engine auto-suggested it (RwyClosure/
@@ -1692,6 +1705,7 @@ namespace ICAO_CSV
 
 		void Btn_submitNotamsClick(object sender, EventArgs e)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			string AP = Lbl_location.Text;
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();

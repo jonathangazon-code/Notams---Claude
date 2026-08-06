@@ -52,6 +52,7 @@ namespace ICAO_CSV
 
 		void Btn_addRecipientClick(object sender, EventArgs e)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			string a = TxtBox_recipient.Text.Trim();
 			if (a == "" || !a.Contains("@")) return;
 			foreach (object it in Lst_Recipients.Items)
@@ -75,6 +76,7 @@ namespace ICAO_CSV
 
 		void Btn_removeRecipientClick(object sender, EventArgs e)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			if (Lst_Recipients.SelectedItem == null) return;
 			string a = Lst_Recipients.SelectedItem.ToString();
 
@@ -142,6 +144,7 @@ namespace ICAO_CSV
 		// Sends today's two PDF reports via Outlook (late-bound COM, direct send).
 		void Btn_sendReportsClick(object sender, EventArgs e)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			string today    = DateTime.Now.ToString("yyMMdd");
 			string notamPdf = Path.Combine(ReportsDir, today + "-NOTAMS_report.pdf");
 			string supPdf   = Path.Combine(ReportsDir, today + "-AIP_SUP_report.pdf");

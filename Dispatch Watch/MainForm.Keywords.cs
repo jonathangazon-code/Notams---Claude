@@ -69,6 +69,7 @@ namespace ICAO_CSV
 
 		void Btn_addKeywordClick(object sender, EventArgs e)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			string w = TxtBox_keyword.Text.Trim().ToUpper();
 			if (w == "") return;
 
@@ -90,6 +91,7 @@ namespace ICAO_CSV
 
 		void Btn_removeKeywordClick(object sender, EventArgs e)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			if (Lst_Keywords.SelectedItem == null) return;
 			string w = Lst_Keywords.SelectedItem.ToString();
 

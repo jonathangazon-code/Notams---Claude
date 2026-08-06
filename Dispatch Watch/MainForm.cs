@@ -23,6 +23,17 @@ namespace ICAO_CSV
 				if (System.IO.File.Exists(ico)) this.Icon = new System.Drawing.Icon(ico);
 			}
 			catch { /* icon optional */ }
+
+			// Deployment: install-to-local-folder/auto-update may relaunch and Environment.Exit
+			// before returning, so it runs before anything else touches the DB. User identity
+			// and the Writer/Reader lock both need to be resolved before StartApp()'s download —
+			// see MainForm.Deployment.cs.
+			EnsureLocalInstall();
+			_currentUserEmail = GetCurrentUserEmail();
+			EnsureUsersTable();
+			UpsertCurrentUser(_currentUserEmail);
+			AcquireOrPromptForLock();
+
 			StartApp();
 			EnsureSchema();
 			EnsureKeywordsTable();
@@ -41,6 +52,8 @@ namespace ICAO_CSV
 			Airport_List();
 			Keywords_Refresh();
 			Recipients_Refresh();
+			if (!IsWriter) ApplyReaderModeUi();
+			StartIdleAutoSave();
 			this.FormClosing += MainForm_FormClosing;
 			// Run the first Filter render once the window is shown (and maximized) so the
 			// layout uses the real tab width rather than the smaller design-time size.
@@ -62,6 +75,9 @@ namespace ICAO_CSV
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
+			if (_lockHeartbeatTimer != null) _lockHeartbeatTimer.Stop();
+			if (_idleCheckTimer != null) _idleCheckTimer.Stop();
+			ReleaseLock();   // before the upload below, so the next launcher never sees a stale "in use" state
 			EndApp();
 		}
 

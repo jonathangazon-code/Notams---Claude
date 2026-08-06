@@ -155,6 +155,7 @@ namespace ICAO_CSV
 			Button save = new Button { Tag = "dispose", Top = 350, Left = 20, Width = 100, Height = 30, Text = "Save" };
 			save.Click += delegate
 			{
+				if (!EnsureWriterOrWarn()) return;
 				_flightScheduleBaseUrl   = _adminFlightScheduleUrl.Text.Trim();
 				_briefingBaseUrl         = _adminBriefingUrl.Text.Trim();
 				_callsignPrefixFilters   = ParsePrefixes(_adminCallsignPrefixes.Text);

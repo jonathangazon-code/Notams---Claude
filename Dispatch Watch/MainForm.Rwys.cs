@@ -248,16 +248,16 @@ namespace ICAO_CSV
 
 			Button bReimport = new Button { Tag = "dispose", Top = 49, Left = 190, Size = new Size(150, 26),
 				Text = "↻ Re-import CSV", BackColor = Color.SeaGreen, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-			bReimport.Click += (s, e) => { if (_rwyCmb.Text != "") { ImportRunwaysFromCsv(_rwyCmb.Text); RegenerateRwyMemo(_rwyCmb.Text); RwyLoadGrid(_rwyCmb.Text); } };
+			bReimport.Click += (s, e) => { if (!EnsureWriterOrWarn()) return; if (_rwyCmb.Text != "") { ImportRunwaysFromCsv(_rwyCmb.Text); RegenerateRwyMemo(_rwyCmb.Text); RwyLoadGrid(_rwyCmb.Text); } };
 			tabPage5.Controls.Add(bReimport);
 
 			Button bAdd = new Button { Tag = "dispose", Top = 49, Left = 350, Size = new Size(90, 26), Text = "+ Add RWY" };
-			bAdd.Click += (s, e) => { if (_rwyDgv != null) _rwyDgv.Rows.Add(); };
+			bAdd.Click += (s, e) => { if (!EnsureWriterOrWarn()) return; if (_rwyDgv != null) _rwyDgv.Rows.Add(); };
 			tabPage5.Controls.Add(bAdd);
 
 			Button bSave = new Button { Tag = "dispose", Top = 49, Left = 450, Size = new Size(110, 26),
 				Text = "Save", BackColor = Color.FromArgb(38,50,56), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-			bSave.Click += (s, e) => { if (_rwyCmb.Text != "") { RwySaveGrid(_rwyCmb.Text); RegenerateRwyMemo(_rwyCmb.Text); } };
+			bSave.Click += (s, e) => { if (!EnsureWriterOrWarn()) return; if (_rwyCmb.Text != "") { RwySaveGrid(_rwyCmb.Text); RegenerateRwyMemo(_rwyCmb.Text); } };
 			tabPage5.Controls.Add(bSave);
 
 			_rwyDgv = new DataGridView { Tag = "dispose", Top = 85, Left = 20, Size = new Size(820, 460),

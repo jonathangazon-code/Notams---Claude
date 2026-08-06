@@ -252,6 +252,7 @@ namespace ICAO_CSV
 		// edits all funnel through here instead of a separate Add/Edit form.
 		private void SaveAptRow(int rowIndex)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			DataGridViewRow row = _aptDgv.Rows[rowIndex];
 			if (row.IsNewRow) return;
 
@@ -325,6 +326,7 @@ namespace ICAO_CSV
 
 		private void DeleteAptRow(int rowIndex)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			DataGridViewRow row = _aptDgv.Rows[rowIndex];
 			if (row.IsNewRow || row.Tag == null) return;
 

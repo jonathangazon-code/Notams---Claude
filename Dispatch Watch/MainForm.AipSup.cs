@@ -18,6 +18,7 @@ namespace ICAO_CSV
 	{
 		public void update_SUP_Avio(int i)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			string status = "";
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();

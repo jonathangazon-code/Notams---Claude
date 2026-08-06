@@ -145,6 +145,7 @@ namespace ICAO_CSV
 		// hundred individual getBriefing calls.
 		public void RefreshFlightSchedule()
 		{
+			if (!EnsureWriterOrWarn()) return;
 			if (_fsWorker != null && _fsWorker.IsBusy) return;
 
 			EnsureFlightScheduleTable();

@@ -397,6 +397,7 @@ string xmlNotams = "";
 		// tab's quick button to refresh its view and the "last update" label afterwards.
 		public void RunDbUpdatePipeline(Action onCompleted)
 		{
+			if (!EnsureWriterOrWarn()) return;
 			if (_dbUpdateWorker != null && _dbUpdateWorker.IsBusy) return;   // already running
 
 			Btn_updateDB.Enabled = false;
