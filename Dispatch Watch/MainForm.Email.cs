@@ -145,14 +145,16 @@ namespace ICAO_CSV
 			string today    = DateTime.Now.ToString("yyMMdd");
 			string notamPdf = Path.Combine(ReportsDir, today + "-NOTAMS_report.pdf");
 			string supPdf   = Path.Combine(ReportsDir, today + "-AIP_SUP_report.pdf");
+			string fsPdf    = Path.Combine(ReportsDir, today + "-Flight_Schedule.pdf");
 
 			List<string> missing = new List<string>();
 			if (!File.Exists(notamPdf)) missing.Add(Path.GetFileName(notamPdf));
 			if (!File.Exists(supPdf))   missing.Add(Path.GetFileName(supPdf));
+			if (!File.Exists(fsPdf))    missing.Add(Path.GetFileName(fsPdf));
 			if (missing.Count > 0)
 			{
 				MessageBox.Show("Today's PDF report(s) not found:\n" + string.Join("\n", missing.ToArray()) +
-					"\n\nExport both reports to PDF first.", "Send Reports", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					"\n\nExport all three reports to PDF first.", "Send Reports", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
 
@@ -168,10 +170,15 @@ namespace ICAO_CSV
 				"Send Reports", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
 
 			string titleDate = DateTime.Now.ToString("ddMMMyyyy", System.Globalization.CultureInfo.InvariantCulture).ToUpper(); // e.g. 09JUL2026
-			string subject   = "NOTAMs Report and AIP Sup List - " + titleDate;
-			string bodyHtml  = "Dear all,<br><br>" +
-				"Please find attached the NOTAMs Report and AIP SUP List for today " + titleDate + " <br><br>" +
-				"Kind regards,<br>";
+			string subject   = "Ops Briefing – NOTAMs, AIP SUP & Flight Schedule - " + titleDate;
+
+			// The email body is the Conflict tab's own report (MainForm.Conflict.cs), so the
+			// two never drift apart — same intro sentence, same impact sections/colors/badges,
+			// just prefixed with a note about the three attached PDFs.
+			string bodyHtml = BuildConflictReportHtml();
+			string attachmentNote =
+				"<p style=\"font-family:'Segoe UI',Arial,sans-serif;font-size:13px;color:#455a64;margin:16px 0 0 0\">" +
+				"Attached: the full NOTAMs Report, AIP SUP List, and Flight Schedule (next 7 days) for " + titleDate + ".</p>";
 
 			string step = "init";
 			try
@@ -217,15 +224,22 @@ namespace ICAO_CSV
 					return;
 				}
 
-				// Body + default signature read from the Outlook signature files (no GetInspector,
-				// which conflicts with .Send).
+				// Body (the Conflict report + attachment note) + default signature read from
+				// the Outlook signature files (no GetInspector, which conflicts with .Send) —
+				// both inserted just before </body> so they land inside the Conflict report's
+				// own <html> document instead of dangling after its closing tag.
 				step = "Body";
-				mt.InvokeMember("HTMLBody", BindingFlags.SetProperty, null, mail, new object[] { bodyHtml + ReadDefaultSignatureHtml() });
+				string fullBody = bodyHtml;
+				int bodyCloseIdx = fullBody.LastIndexOf("</body>", StringComparison.OrdinalIgnoreCase);
+				string tail = attachmentNote + ReadDefaultSignatureHtml();
+				fullBody = bodyCloseIdx >= 0 ? fullBody.Insert(bodyCloseIdx, tail) : fullBody + tail;
+				mt.InvokeMember("HTMLBody", BindingFlags.SetProperty, null, mail, new object[] { fullBody });
 
 				step = "Attachments";
 				object atts = mt.InvokeMember("Attachments", BindingFlags.GetProperty, null, mail, null);
 				Type at = atts.GetType();
 				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { notamPdf });
+				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { fsPdf });
 				at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { supPdf });
 
 				step = "Send";

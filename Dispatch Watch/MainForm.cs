@@ -136,6 +136,7 @@ namespace ICAO_CSV
 		void Btn_exportReportClick(object sender, EventArgs e)       { ExportToPdf(Web_report, "NOTAMS_report"); }
 		void Btn_Sup_printReportClick(object sender, EventArgs e)    { Web_Sup_report.Print(); }
 		void Btn_Sup_exportReportClick(object sender, EventArgs e)   { ExportToPdf(Web_Sup_report, "AIP_SUP_report"); }
+		void Btn_fsExportReportClick(object sender, EventArgs e)     { ExportToPdf(BuildFlightScheduleHtml(), "Flight_Schedule"); }
 		void Btn_restartAppClick(object sender, EventArgs e)      { Application.Restart(); }
 		void Btn_XMLClick(object sender, EventArgs e)             { GetXML(); }
 		void Btn_reloadClick(object sender, EventArgs e)          { Reload_text(); }

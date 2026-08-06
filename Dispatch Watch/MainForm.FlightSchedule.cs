@@ -5,6 +5,7 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using System.Xml.Linq;
@@ -113,7 +114,10 @@ namespace ICAO_CSV
 			Button refresh = new Button { Top = 10, Left = 400, Width = 90, Height = 28, Text = "Refresh" };
 			refresh.Click += delegate { RefreshFlightSchedule(); };
 			topBar.Controls.Add(refresh);
-			_fsCsvInfoLabel = new Label { Top = 18, Left = 500, AutoSize = true, ForeColor = Color.Gray, Text = "" };
+			Button exportPdf = new Button { Top = 10, Left = 498, Width = 100, Height = 28, Text = "Export PDF" };
+			exportPdf.Click += Btn_fsExportReportClick;
+			topBar.Controls.Add(exportPdf);
+			_fsCsvInfoLabel = new Label { Top = 18, Left = 610, AutoSize = true, ForeColor = Color.Gray, Text = "" };
 			topBar.Controls.Add(_fsCsvInfoLabel);
 			tabPage_FlightSchedule.Controls.Add(topBar);
 
@@ -733,6 +737,88 @@ namespace ICAO_CSV
 			// before (or fully scrolled if the previous load had more rows), which can read
 			// as the header row/first rows being clipped — pin the view back to the top.
 			if (_fsDgv.Rows.Count > 0) _fsDgv.FirstDisplayedScrollingRowIndex = 0;
+		}
+
+		// Standalone HTML rendering of the next 7 days of FlightSchedule, for the "Export
+		// PDF" button and the Send Reports email attachment — reuses the same query as
+		// LoadFlightScheduleGrid, just clipped to 7 days and grouped by calendar date with a
+		// colored header row per day (same visual language as MainForm.Reports.cs's Section()
+		// headers), instead of the tab's flat 14-day grid.
+		public string BuildFlightScheduleHtml()
+		{
+			DateTime nowUtc = DateTime.UtcNow;
+			DateTime windowEnd = nowUtc.AddDays(7);
+
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+			conn.Open();
+			OleDbDataReader reader = new OleDbCommand("SELECT FLDt, Callsign, Reg, STD, STA, Crew, Origin, Dest FROM FlightSchedule ORDER BY STD", conn).ExecuteReader();
+
+			// Grouped by calendar date (UTC) in the order flights are encountered — the query
+			// is already ORDER BY STD, so dates come out in ascending order naturally.
+			List<string> dateOrder = new List<string>();
+			Dictionary<string, StringBuilder> rowsByDate = new Dictionary<string, StringBuilder>();
+
+			while (reader.Read())
+			{
+				string callsign = reader.IsDBNull(1) ? "" : reader.GetString(1);
+				string reg      = reader.IsDBNull(2) ? "" : reader.GetString(2);
+				string stdRaw   = reader.IsDBNull(3) ? "" : reader.GetString(3);
+				string staRaw   = reader.IsDBNull(4) ? "" : reader.GetString(4);
+				string crew     = reader.IsDBNull(5) ? "" : reader.GetString(5);
+				string origin   = reader.IsDBNull(6) ? "" : reader.GetString(6);
+				string dest     = reader.IsDBNull(7) ? "" : reader.GetString(7);
+
+				DateTime std;
+				if (!DateTime.TryParse(stdRaw, CultureInfo.InvariantCulture,
+					DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out std)) continue;
+				if (std < nowUtc || std > windowEnd) continue;
+
+				DateTime sta;
+				bool hasSta = DateTime.TryParse(staRaw, CultureInfo.InvariantCulture,
+					DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out sta);
+
+				string dateKey = std.ToString("yyyy-MM-dd");
+				StringBuilder rows;
+				if (!rowsByDate.TryGetValue(dateKey, out rows))
+				{
+					rows = new StringBuilder();
+					rowsByDate[dateKey] = rows;
+					dateOrder.Add(dateKey);
+				}
+
+				rows.Append("<tr>" +
+					"<td>" + callsign.Replace("&", "&amp;") + "</td>" +
+					"<td>" + origin + "</td>" +
+					"<td>" + dest + "</td>" +
+					"<td>" + reg + "</td>" +
+					"<td>" + std.ToString("HH:mm") + "Z</td>" +
+					"<td>" + (hasSta ? sta.ToString("HH:mm") + "Z" : "") + "</td>" +
+					"<td>" + crew.Replace("&", "&amp;") + "</td>" +
+					"</tr>");
+			}
+			conn.Close();
+
+			StringBuilder table = new StringBuilder();
+			foreach (string dateKey in dateOrder)
+			{
+				DateTime d = DateTime.ParseExact(dateKey, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+				table.Append("<tr><th colspan=\"7\" class=\"dateHdr\">" + d.ToString("dddd dd MMMM yyyy", CultureInfo.InvariantCulture) + "</th></tr>");
+				table.Append("<tr class=\"colHdr\"><th>Callsign</th><th>Origin</th><th>Dest</th><th>Reg</th><th>STD (UTC)</th><th>STA (UTC)</th><th>Crew</th></tr>");
+				table.Append(rowsByDate[dateKey]);
+			}
+
+			string reportDate = DateTime.Now.ToString("ddMMMMyyyy HHmm") + "CET";
+			return
+				"<html><head><title>FLIGHT SCHEDULE</title><style>" +
+				"body{font-family:Calibri}" +
+				"table{width:700px;text-align:left;font-size:12px;border:1px solid black;border-collapse:collapse}" +
+				"th,td{border:1px solid black;padding:3px 6px}" +
+				".dateHdr{background:SlateGray;color:white;font-size:14px;font-weight:bold;text-align:left}" +
+				".colHdr{background:LightSlateGrey;color:white;font-weight:bold}" +
+				"</style></head><body>" +
+				"<h1>Flight Schedule - Next 7 Days</h1><p>" + reportDate + "</p>" +
+				"<table>" + table + "</table>" +
+				"</body></html>";
 		}
 
 		// AND-combines every non-empty per-column filter textbox against that column's

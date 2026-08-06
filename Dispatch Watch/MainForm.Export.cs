@@ -8,6 +8,11 @@ namespace ICAO_CSV
 	{
 		void ExportToPdf(WebBrowser browser, string baseName)
 		{
+			ExportToPdf(browser.DocumentText, baseName);
+		}
+
+		void ExportToPdf(string html, string baseName)
+		{
 			string wkhtmlExe = Path.Combine(Application.StartupPath, "wkhtmltopdf.exe");
 			if (!File.Exists(wkhtmlExe))
 			{
@@ -26,7 +31,7 @@ namespace ICAO_CSV
 
 			try
 			{
-				File.WriteAllText(tempHtml, browser.DocumentText, System.Text.Encoding.UTF8);
+				File.WriteAllText(tempHtml, html, System.Text.Encoding.UTF8);
 
 				var proc = new System.Diagnostics.Process();
 				proc.StartInfo.FileName        = wkhtmlExe;

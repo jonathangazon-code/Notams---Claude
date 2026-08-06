@@ -26,7 +26,15 @@ namespace ICAO_CSV
 		// (station used as Dest). One section per impact code (A/N/C/D/F, same severity
 		// order as SuggestedSingleCode), each listing the airport card + matching flights +
 		// full NOTAM text for every conflict found; SUP is out of scope for this tab.
-		public void Build_Conflict_Report()
+		void Build_Conflict_Report()
+		{
+			Web_Conflict.DocumentText = BuildConflictReportHtml();
+		}
+
+		// Builds the full Conflict-report HTML document — used both to populate the Conflict
+		// tab's WebBrowser and as the Send Reports email body (MainForm.Email.cs), so the two
+		// stay identical rather than drifting into two separately-maintained renderings.
+		public string BuildConflictReportHtml()
 		{
 			EnsureArchiveConfig();
 			List<FsFlight> flights = LoadFsFlights();
@@ -37,8 +45,12 @@ namespace ICAO_CSV
 			DateTime nowUtc = DateTime.UtcNow;
 			DateTime windowEnd = nowUtc.AddDays(7);
 
-			List<string> impactOrder = new List<string> { "A", "N", "C", "D", "F" };
+			// Fuel listed before Not ALTN — same ordering used in the NOTAM Report tab's
+			// Section() sub-headers, so the two surfaces read consistently.
+			List<string> impactOrder = new List<string> { "A", "N", "C", "F", "D" };
 			StringBuilder body = new StringBuilder();
+
+			body.Append("<p class=\"introLine\">Below is a summary of operational impacts on the network over the next 7 days, cross-referenced against your flight schedule.</p>");
 
 			if (flights.Count == 0)
 				body.Append(
@@ -135,6 +147,7 @@ namespace ICAO_CSV
 				".sectionHeader{position:relative;display:block;padding:10px 14px;border-left:4px solid;border-radius:6px;margin:0 0 8px 0}" +
 				".dot{display:inline-block;width:10px;height:10px;border-radius:5px;margin-right:8px}" +
 				".sectionTitle{font-size:15px;font-weight:bold;color:#222}" +
+				".introLine{font-size:13.5px;color:#455a64;margin:0 0 16px 0}" +
 				// Absolute rather than float:right — in the IE7-mode WebBrowser, a floated
 				// span after inline content doesn't get cleared by the section header (whose
 				// height then collapses around it), so the badge visually escapes its own
@@ -158,7 +171,7 @@ namespace ICAO_CSV
 				".warnIcon{margin-right:8px}" +
 				"</style></head><body>" + body + "</body></html>";
 
-			Web_Conflict.DocumentText = html;
+			return html;
 		}
 
 		private bool Overlaps(DateTime notamStart, DateTime notamEnd, DateTime flightTime)
@@ -326,6 +339,30 @@ namespace ICAO_CSV
 		// Conflict report page instead of living in its own WebBrowser control.
 		private string BuildConflictCardHtml(string AP, string key, string notamText, string remark, List<string> matches)
 		{
+			string flightChips = "";
+			foreach (string m in matches) flightChips += "<span class=\"flightChip\">" + m + "</span>";
+
+			string remarkLine = remark != "" ? "<div class=\"remark\">&#9654; " + remark.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
+			string keyLine = key != "" ? "<div class=\"notamkey\">" + key.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
+
+			return
+				"<div class=\"card\">" +
+				BuildAirportHeaderHtml(AP) +
+				"<div class=\"body\">" +
+				flightChips +
+				remarkLine +
+				keyLine +
+				"<div class=\"notamtext\">" + notamText.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" +
+				"</div>" +
+				"</div>";
+		}
+
+		// The airport header block (ICAO/IATA/name/RWY table/diagram, i.e. the ".ahead" div)
+		// shared between the Conflict card above and the per-airport detail sections the NOTAM
+		// Report tab links a NOTAM key into (MainForm.Reports.cs) — pulled out so both stay
+		// backed by the same RWY/geo-loading logic instead of two copies drifting apart.
+		public string BuildAirportHeaderHtml(string AP)
+		{
 			string iata = GetIATA(AP);
 			string name = GetAirportName(AP);
 
@@ -354,14 +391,7 @@ namespace ICAO_CSV
 				if (i % 2 == 0) leftCol += cell; else rightCol += cell;
 			}
 
-			string flightChips = "";
-			foreach (string m in matches) flightChips += "<span class=\"flightChip\">" + m + "</span>";
-
-			string remarkLine = remark != "" ? "<div class=\"remark\">&#9654; " + remark.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
-			string keyLine = key != "" ? "<div class=\"notamkey\">" + key.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
-
 			return
-				"<div class=\"card\">" +
 				"<div class=\"ahead\">" +
 				"<div class=\"diagram\">" + rwySvg + "</div>" +
 				"<div class=\"icao\">" + AP + "</div>" +
@@ -369,13 +399,6 @@ namespace ICAO_CSV
 				"<table class=\"rwytable\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
 				"<td class=\"blk\">" + leftCol + "</td><td class=\"blk\">" + rightCol + "</td>" +
 				"</tr></table>" +
-				"</div>" +
-				"<div class=\"body\">" +
-				flightChips +
-				remarkLine +
-				keyLine +
-				"<div class=\"notamtext\">" + notamText.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" +
-				"</div>" +
 				"</div>";
 		}
 	}
