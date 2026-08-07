@@ -16,6 +16,8 @@ namespace ICAO_CSV
 			public string Callsign, Reg, Origin, Dest;
 			public DateTime Std, Sta;
 			public bool HasStd, HasSta;
+			public string Alt1, Alt2;
+			public int FlightTimeMin, Alt1TimeMin, Alt2TimeMin;
 		}
 
 		void ConflictTabEnter(object sender, EventArgs e) { Build_Conflict_Report(); }
@@ -107,14 +109,42 @@ namespace ICAO_CSV
 				if (!TryParseNotamDate(startRaw, out notamStart) || !TryParseNotamDate(endRaw, out notamEnd)) continue;
 
 				List<string> matches = new List<string>();
+				bool altnConflict = false;
 				if (impact == "D")
 				{
 					// Not ALTN shows every Kept, D-classified NOTAM active at some point in
-					// the next 7 days — full stop, no reference to flights at all. Whether an
-					// airport can be used as an alternate isn't a function of which flights
-					// happen to touch it as origin/destination, unlike every other impact
-					// code, so there's no flight-matching step (and no IATA lookup) here.
+					// the next 7 days regardless of flights — whether an airport can be used as
+					// an alternate isn't a function of origin/destination traffic. But if this
+					// station is actually filed as a flight's diversion alternate (Alt1/Alt2,
+					// from the briefing's AlternateFuel data), that's a real, time-specific
+					// conflict worth calling out distinctly: estimated arrival at the alternate
+					// is STD + main-leg flight time + alternate flight time, checked against the
+					// NOTAM's active window with its own ± window (_altnConflictWindowHours,
+					// independent of the origin/destination one).
 					if (notamEnd < nowUtc || notamStart > windowEnd) continue;
+
+					foreach (FsFlight f in flights)
+					{
+						if (!f.HasStd) continue;
+						if (f.Alt1 == location && f.FlightTimeMin > 0 && f.Alt1TimeMin > 0)
+						{
+							DateTime altArrival = f.Std.AddMinutes(f.FlightTimeMin + f.Alt1TimeMin);
+							if (altArrival <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, altArrival, _altnConflictWindowHours))
+							{
+								matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 1 — est. diversion arrival " + FormatUtc(altArrival) + "Z");
+								altnConflict = true;
+							}
+						}
+						if (f.Alt2 == location && f.FlightTimeMin > 0 && f.Alt2TimeMin > 0)
+						{
+							DateTime altArrival = f.Std.AddMinutes(f.FlightTimeMin + f.Alt2TimeMin);
+							if (altArrival <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, altArrival, _altnConflictWindowHours))
+							{
+								matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 2 — est. diversion arrival " + FormatUtc(altArrival) + "Z");
+								altnConflict = true;
+							}
+						}
+					}
 				}
 				else
 				{
@@ -134,7 +164,9 @@ namespace ICAO_CSV
 					if (matches.Count == 0) continue;   // no conflict — nothing to show for this NOTAM
 				}
 
-				cardsByImpact[impact].Add(BuildConflictCardHtml(location, key, all, remark, matches, rasterDiagrams, cidImages, inlineImages));
+				string cardHtml = BuildConflictCardHtml(location, key, all, remark, matches, rasterDiagrams, cidImages, inlineImages, altnConflict);
+				if (altnConflict) cardsByImpact[impact].Insert(0, cardHtml);
+				else cardsByImpact[impact].Add(cardHtml);
 			}
 			conn.Close();
 
@@ -168,6 +200,8 @@ namespace ICAO_CSV
 				// header and overlaps the airport card below instead of sitting flush right.
 				".count{position:absolute;top:10px;right:14px;color:#fff;font-size:12px;padding:2px 10px;border-radius:10px}" +
 				".card{border:1px solid #cfd8dc;border-radius:8px;overflow:hidden;margin:0 0 18px 0}" +
+				".cardAlert{border:2px solid #c62828;box-shadow:0 0 0 1px #c62828}" +
+				".flightChipAlert{background:#c62828;color:#fff;font-weight:bold}" +
 				".ahead{background:#263238;padding:14px 18px;position:relative}" +
 				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
 				".sub{font-size:13px;color:#78909c;margin-top:2px}" +
@@ -190,8 +224,13 @@ namespace ICAO_CSV
 
 		private bool Overlaps(DateTime notamStart, DateTime notamEnd, DateTime flightTime)
 		{
-			DateTime winStart = flightTime.AddHours(-_conflictWindowHours);
-			DateTime winEnd   = flightTime.AddHours(_conflictWindowHours);
+			return Overlaps(notamStart, notamEnd, flightTime, _conflictWindowHours);
+		}
+
+		private bool Overlaps(DateTime notamStart, DateTime notamEnd, DateTime flightTime, int windowHours)
+		{
+			DateTime winStart = flightTime.AddHours(-windowHours);
+			DateTime winEnd   = flightTime.AddHours(windowHours);
 			return notamStart <= winEnd && notamEnd >= winStart;
 		}
 
@@ -291,9 +330,14 @@ namespace ICAO_CSV
 		// closing "MON 0500-2359, TUE 0000-0100".
 		private bool OverlapsSchedule(DateTime notamStart, DateTime notamEnd, string notamText, DateTime flightTime)
 		{
+			return OverlapsSchedule(notamStart, notamEnd, notamText, flightTime, _conflictWindowHours);
+		}
+
+		private bool OverlapsSchedule(DateTime notamStart, DateTime notamEnd, string notamText, DateTime flightTime, int windowHours)
+		{
 			List<Tuple<DateTime, DateTime>> windows = ParseNotamActiveWindows(notamText, notamStart, notamEnd);
-			if (windows == null) return Overlaps(notamStart, notamEnd, flightTime);
-			foreach (Tuple<DateTime, DateTime> w in windows) if (Overlaps(w.Item1, w.Item2, flightTime)) return true;
+			if (windows == null) return Overlaps(notamStart, notamEnd, flightTime, windowHours);
+			foreach (Tuple<DateTime, DateTime> w in windows) if (Overlaps(w.Item1, w.Item2, flightTime, windowHours)) return true;
 			return false;
 		}
 
@@ -328,7 +372,8 @@ namespace ICAO_CSV
 			List<FsFlight> list = new List<FsFlight>();
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
-			OleDbDataReader reader = new OleDbCommand("SELECT Callsign, Reg, Origin, Dest, STD, STA FROM FlightSchedule", conn).ExecuteReader();
+			OleDbDataReader reader = new OleDbCommand(
+				"SELECT Callsign, Reg, Origin, Dest, STD, STA, Alt1, Alt2, FlightTimeMin, Alt1TimeMin, Alt2TimeMin FROM FlightSchedule", conn).ExecuteReader();
 			while (reader.Read())
 			{
 				FsFlight f = new FsFlight();
@@ -340,6 +385,11 @@ namespace ICAO_CSV
 				string staRaw = reader.IsDBNull(5) ? "" : reader.GetString(5);
 				f.HasStd = DateTime.TryParse(stdRaw, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out f.Std);
 				f.HasSta = DateTime.TryParse(staRaw, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out f.Sta);
+				f.Alt1 = reader.IsDBNull(6) ? "" : reader.GetString(6);
+				f.Alt2 = reader.IsDBNull(7) ? "" : reader.GetString(7);
+				f.FlightTimeMin = reader.IsDBNull(8) ? 0 : Convert.ToInt32(reader.GetValue(8));
+				f.Alt1TimeMin   = reader.IsDBNull(9) ? 0 : Convert.ToInt32(reader.GetValue(9));
+				f.Alt2TimeMin   = reader.IsDBNull(10) ? 0 : Convert.ToInt32(reader.GetValue(10));
 				list.Add(f);
 			}
 			conn.Close();
@@ -352,16 +402,22 @@ namespace ICAO_CSV
 		// Filter tab's WebBrowser) since this fragment gets concatenated into one big
 		// Conflict report page instead of living in its own WebBrowser control.
 		private string BuildConflictCardHtml(string AP, string key, string notamText, string remark, List<string> matches,
-			bool rasterDiagram, bool cidImages, Dictionary<string, string> inlineImages)
+			bool rasterDiagram, bool cidImages, Dictionary<string, string> inlineImages, bool highlight)
 		{
 			string flightChips = "";
-			foreach (string m in matches) flightChips += "<span class=\"flightChip\">" + m + "</span>";
+			foreach (string m in matches) flightChips += "<span class=\"flightChip" + (highlight ? " flightChipAlert" : "") + "\">" + m + "</span>";
 
 			string remarkLine = remark != "" ? "<div class=\"remark\">&#9654; " + remark.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
 			string keyLine = key != "" ? "<div class=\"notamkey\">" + key.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
 
+			// A Not-ALTN NOTAM that's a real diversion-time conflict against a flight's filed
+			// alternate is a higher-severity finding than the section's default "airport isn't
+			// usable as an alternate at all, regardless of any flight" listing — highlighted red
+			// and (by the caller, cardsByImpact.Insert(0, ...)) sorted to the top of its section.
+			string cardClass = highlight ? "card cardAlert" : "card";
+
 			return
-				"<div class=\"card\">" +
+				"<div class=\"" + cardClass + "\">" +
 				BuildAirportHeaderHtml(AP, rasterDiagram, cidImages, inlineImages) +
 				"<div class=\"body\">" +
 				flightChips +

@@ -23,6 +23,11 @@ namespace ICAO_CSV
 		// ±window (hours) the Conflict tab uses around a flight's STD/STA to decide
 		// whether an overlapping NOTAM counts as a conflict. Editable here.
 		private static int _conflictWindowHours = 12;
+		// ±window (hours) the Conflict tab uses around a flight's ESTIMATED ARRIVAL AT AN
+		// ALTERNATE (STD + FlightTimeMin + AltNTimeMin) to decide whether a "Not ALTN" NOTAM
+		// at that alternate is a real diversion-time conflict — kept independent of
+		// _conflictWindowHours (origin/destination) since it's a different kind of estimate.
+		private static int _altnConflictWindowHours = 2;
 		// Root folder of the Movement Manager XML "flightInfo_V2" message feed (see
 		// MainForm.MmSchedule.cs) — a network share in production. Editable here in case
 		// the path changes.
@@ -40,6 +45,7 @@ namespace ICAO_CSV
 		private TextBox _adminBriefingUrl;
 		private TextBox _adminCallsignPrefixes;
 		private TextBox _adminConflictWindow;
+		private TextBox _adminAltnConflictWindow;
 		private TextBox _adminMmMessagesPath;
 		private TextBox _adminFlightSchedCsvPath;
 		private Label   _adminStatus;
@@ -59,6 +65,7 @@ namespace ICAO_CSV
 					XElement br = root.Element("BriefingServiceUrl");
 					XElement cs = root.Element("CallsignPrefixes");
 					XElement cw = root.Element("ConflictWindowHours");
+					XElement acw = root.Element("AltnConflictWindowHours");
 					XElement mm = root.Element("MmMessagesPath");
 					XElement fc = root.Element("FlightSchedCsvPath");
 					if (fs != null && !string.IsNullOrEmpty(fs.Value)) _flightScheduleBaseUrl = fs.Value;
@@ -68,6 +75,8 @@ namespace ICAO_CSV
 					if (fc != null && !string.IsNullOrEmpty(fc.Value)) _flightSchedCsvPath = fc.Value;
 					int parsedWindow;
 					if (cw != null && int.TryParse(cw.Value, out parsedWindow) && parsedWindow > 0) _conflictWindowHours = parsedWindow;
+					int parsedAltnWindow;
+					if (acw != null && int.TryParse(acw.Value, out parsedAltnWindow) && parsedAltnWindow > 0) _altnConflictWindowHours = parsedAltnWindow;
 				}
 				else
 				{
@@ -88,6 +97,7 @@ namespace ICAO_CSV
 						new XElement("BriefingServiceUrl", _briefingBaseUrl),
 						new XElement("CallsignPrefixes", string.Join(",", _callsignPrefixFilters.ToArray())),
 						new XElement("ConflictWindowHours", _conflictWindowHours),
+						new XElement("AltnConflictWindowHours", _altnConflictWindowHours),
 						new XElement("MmMessagesPath", _mmMessagesPath),
 						new XElement("FlightSchedCsvPath", _flightSchedCsvPath)));
 				doc.Save(ArchiveConfigPath);
@@ -157,19 +167,26 @@ namespace ICAO_CSV
 				Text = _conflictWindowHours.ToString() };
 			tabPage_Admin.Controls.Add(_adminConflictWindow);
 
-			Label lbl5 = new Label { Tag = "dispose", Top = 292, Left = 20, AutoSize = true,
+			Label lbl4b = new Label { Tag = "dispose", Top = 292, Left = 20, AutoSize = true,
+				Text = "Conflict tab — Not ALTN window around estimated alternate arrival (± hours)" };
+			tabPage_Admin.Controls.Add(lbl4b);
+			_adminAltnConflictWindow = new TextBox { Tag = "dispose", Top = 314, Left = 20, Width = 80,
+				Text = _altnConflictWindowHours.ToString() };
+			tabPage_Admin.Controls.Add(_adminAltnConflictWindow);
+
+			Label lbl5 = new Label { Tag = "dispose", Top = 350, Left = 20, AutoSize = true,
 				Text = "Movement Manager XML messages folder" };
 			tabPage_Admin.Controls.Add(lbl5);
-			_adminMmMessagesPath = new TextBox { Tag = "dispose", Top = 314, Left = 20, Width = 520, Text = _mmMessagesPath };
+			_adminMmMessagesPath = new TextBox { Tag = "dispose", Top = 372, Left = 20, Width = 520, Text = _mmMessagesPath };
 			tabPage_Admin.Controls.Add(_adminMmMessagesPath);
 
-			Label lbl6 = new Label { Tag = "dispose", Top = 350, Left = 20, AutoSize = true,
+			Label lbl6 = new Label { Tag = "dispose", Top = 408, Left = 20, AutoSize = true,
 				Text = "Flight Sched CSV folder (shared — every dispatcher's fallback CSV drop)" };
 			tabPage_Admin.Controls.Add(lbl6);
-			_adminFlightSchedCsvPath = new TextBox { Tag = "dispose", Top = 372, Left = 20, Width = 520, Text = _flightSchedCsvPath };
+			_adminFlightSchedCsvPath = new TextBox { Tag = "dispose", Top = 430, Left = 20, Width = 520, Text = _flightSchedCsvPath };
 			tabPage_Admin.Controls.Add(_adminFlightSchedCsvPath);
 
-			Button save = new Button { Tag = "dispose", Top = 408, Left = 20, Width = 100, Height = 30, Text = "Save" };
+			Button save = new Button { Tag = "dispose", Top = 466, Left = 20, Width = 100, Height = 30, Text = "Save" };
 			save.Click += delegate
 			{
 				if (!EnsureWriterOrWarn()) return;
@@ -181,13 +198,16 @@ namespace ICAO_CSV
 				int parsedWindow;
 				if (int.TryParse(_adminConflictWindow.Text.Trim(), out parsedWindow) && parsedWindow > 0)
 					_conflictWindowHours = parsedWindow;
+				int parsedAltnWindow;
+				if (int.TryParse(_adminAltnConflictWindow.Text.Trim(), out parsedAltnWindow) && parsedAltnWindow > 0)
+					_altnConflictWindowHours = parsedAltnWindow;
 				SaveArchiveConfig();
 				EnsureFlightSchedFolder();
 				_adminStatus.Text = "Saved.";
 			};
 			tabPage_Admin.Controls.Add(save);
 
-			_adminStatus = new Label { Tag = "dispose", Top = 416, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
+			_adminStatus = new Label { Tag = "dispose", Top = 474, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
 			tabPage_Admin.Controls.Add(_adminStatus);
 		}
 	}

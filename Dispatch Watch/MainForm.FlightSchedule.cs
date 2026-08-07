@@ -4,6 +4,7 @@ using System.Data.OleDb;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -44,6 +45,20 @@ namespace ICAO_CSV
 				try { new OleDbCommand("ALTER TABLE FlightSchedule ADD COLUMN Origin TEXT(4)", conn).ExecuteNonQuery(); }
 				catch { /* already exists */ }
 				try { new OleDbCommand("ALTER TABLE FlightSchedule ADD COLUMN Dest TEXT(4)", conn).ExecuteNonQuery(); }
+				catch { /* already exists */ }
+				// Filed alternates + flight-time-in-minutes, read out of the same getBriefing
+				// XML STA already comes from (FetchBriefingDetails) — only ever populated once a
+				// flight plan has actually been built, same as STA, and only for Source='WS' rows
+				// (MM/CSV rows have no Fltleg_ID to brief).
+				try { new OleDbCommand("ALTER TABLE FlightSchedule ADD COLUMN Alt1 TEXT(4)", conn).ExecuteNonQuery(); }
+				catch { /* already exists */ }
+				try { new OleDbCommand("ALTER TABLE FlightSchedule ADD COLUMN Alt2 TEXT(4)", conn).ExecuteNonQuery(); }
+				catch { /* already exists */ }
+				try { new OleDbCommand("ALTER TABLE FlightSchedule ADD COLUMN FlightTimeMin LONG", conn).ExecuteNonQuery(); }
+				catch { /* already exists */ }
+				try { new OleDbCommand("ALTER TABLE FlightSchedule ADD COLUMN Alt1TimeMin LONG", conn).ExecuteNonQuery(); }
+				catch { /* already exists */ }
+				try { new OleDbCommand("ALTER TABLE FlightSchedule ADD COLUMN Alt2TimeMin LONG", conn).ExecuteNonQuery(); }
 				catch { /* already exists */ }
 				conn.Close();
 			}
@@ -86,8 +101,9 @@ namespace ICAO_CSV
 			// (and added to the tab) BEFORE topBar: WinForms stacks same-Dock=Top controls
 			// with the LAST one added ending up closest to the parent's top edge, so adding
 			// this first is what puts it BELOW the title bar rather than above it.
-			string[] colNames = { "Date", "Callsign", "Origin", "Dest", "Reg", "STD (UTC)", "STA (UTC)", "Crew" };
-			int[] colWidths   = { 90, 100, 70, 70, 80, 140, 140, 380 };
+			string[] colNames = { "Date", "Callsign", "Origin", "Dest", "Reg", "STD (UTC)", "STA (UTC)",
+				"Flight Time", "Alt 1", "Time to Alt 1", "Alt 2", "Time to Alt 2", "Crew" };
+			int[] colWidths   = { 90, 100, 70, 70, 80, 140, 140, 90, 70, 100, 70, 100, 380 };
 			Panel filterRow = new Panel { Tag = "dispose", Dock = DockStyle.Top, Height = 42 };
 			_fsFilterBoxes = new TextBox[colWidths.Length];
 			int filterLeft = _fsDgvRowHeaderWidth;
@@ -134,8 +150,13 @@ namespace ICAO_CSV
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Dest",     HeaderText = "Dest",      Width = colWidths[3] });
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Reg",      HeaderText = "Reg",       Width = colWidths[4] });
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "STD",      HeaderText = "STD (UTC)", Width = colWidths[5] });
-			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "STA",      HeaderText = "STA (UTC)", Width = colWidths[6] });
-			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Crew",     HeaderText = "Crew",      Width = colWidths[7] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "STA",         HeaderText = "STA (UTC)",      Width = colWidths[6] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "FlightTime",  HeaderText = "Flight Time",    Width = colWidths[7] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Alt1",        HeaderText = "Alt 1",          Width = colWidths[8] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Alt1Time",    HeaderText = "Time to Alt 1",  Width = colWidths[9] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Alt2",        HeaderText = "Alt 2",          Width = colWidths[10] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Alt2Time",    HeaderText = "Time to Alt 2",  Width = colWidths[11] });
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Crew",        HeaderText = "Crew",           Width = colWidths[12] });
 			// Dock=Fill controls occupy remaining space in add order, so the grid must be
 			// added after the Top-docked bars.
 			tabPage_FlightSchedule.Controls.Add(_fsDgv);
@@ -222,19 +243,29 @@ namespace ICAO_CSV
 				(dest ?? "").Trim().ToUpper() + "|" + (fldt ?? "").Trim().Substring(0, Math.Min(10, (fldt ?? "").Trim().Length));
 		}
 
+		// FltlegID -> last-cached STD plus everything FetchBriefingDetails resolved for it.
+		private struct CachedBriefing { public string Std; public BriefingDetails Details; }
+
 		private void FetchFlightSchedule(Action<int, string> onProgress)
 		{
-			Dictionary<int, string[]> cached = new Dictionary<int, string[]>();   // FltlegID -> [STD, STA]
+			Dictionary<int, CachedBriefing> cached = new Dictionary<int, CachedBriefing>();
 			OleDbConnection rconn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			rconn.Open();
-			OleDbDataReader rdr = new OleDbCommand("SELECT FltlegID, STD, STA FROM FlightSchedule", rconn).ExecuteReader();
+			OleDbDataReader rdr = new OleDbCommand(
+				"SELECT FltlegID, STD, STA, Alt1, Alt2, FlightTimeMin, Alt1TimeMin, Alt2TimeMin FROM FlightSchedule", rconn).ExecuteReader();
 			while (rdr.Read())
 			{
 				if (rdr.IsDBNull(0)) continue;
 				int id = Convert.ToInt32(rdr.GetValue(0));
-				string std = rdr.IsDBNull(1) ? "" : rdr.GetString(1);
-				string sta = rdr.IsDBNull(2) ? "" : rdr.GetString(2);
-				cached[id] = new string[] { std, sta };
+				CachedBriefing cb = new CachedBriefing();
+				cb.Std = rdr.IsDBNull(1) ? "" : rdr.GetString(1);
+				cb.Details.Sta           = rdr.IsDBNull(2) ? "" : rdr.GetString(2);
+				cb.Details.Alt1          = rdr.IsDBNull(3) ? "" : rdr.GetString(3);
+				cb.Details.Alt2          = rdr.IsDBNull(4) ? "" : rdr.GetString(4);
+				cb.Details.FlightTimeMin = rdr.IsDBNull(5) ? 0  : Convert.ToInt32(rdr.GetValue(5));
+				cb.Details.Alt1TimeMin   = rdr.IsDBNull(6) ? 0  : Convert.ToInt32(rdr.GetValue(6));
+				cb.Details.Alt2TimeMin   = rdr.IsDBNull(7) ? 0  : Convert.ToInt32(rdr.GetValue(7));
+				cached[id] = cb;
 			}
 			rconn.Close();
 
@@ -327,23 +358,35 @@ namespace ICAO_CSV
 				string origin   = (string)f[8];
 				string dest     = (string)f[9];
 
-				string[] cache;
+				CachedBriefing cache;
 				bool exists = cached.TryGetValue(fltlegId, out cache);
 				string sta;
+				BriefingDetails details;
 				if (source == "CSV")
+				{
 					sta = csvSta;   // no Fltleg_ID to brief yet — STA comes straight from the CSV
-				else
+					details = new BriefingDetails { Alt1 = "", Alt2 = "" };
+				}
+				else if (exists && cache.Std == std && cache.Details.Sta != "")
+				{
 					// getBriefing legitimately 404s/errors for flights whose briefing hasn't
-					// been generated yet (e.g. far-future legs) — FetchSta already swallows
-					// that and returns "", and the flight is still persisted with a blank STA
-					// rather than being dropped from the list.
-					sta = (exists && cache[0] == std && cache[1] != "") ? cache[1] : FetchSta(fltlegId);
+					// been generated yet (e.g. far-future legs) — FetchBriefingDetails already
+					// swallows that, and the flight is still persisted with blanks rather than
+					// being dropped from the list.
+					sta = cache.Details.Sta;
+					details = cache.Details;
+				}
+				else
+				{
+					details = FetchBriefingDetails(fltlegId);
+					sta = details.Sta;
+				}
 
 				try
 				{
 				if (exists)
 				{
-					OleDbCommand upd = new OleDbCommand("UPDATE FlightSchedule SET FLDt=?, Callsign=?, Reg=?, STD=?, STA=?, Crew=?, Source=?, Origin=?, Dest=? WHERE FltlegID=?", wconn);
+					OleDbCommand upd = new OleDbCommand("UPDATE FlightSchedule SET FLDt=?, Callsign=?, Reg=?, STD=?, STA=?, Crew=?, Source=?, Origin=?, Dest=?, Alt1=?, Alt2=?, FlightTimeMin=?, Alt1TimeMin=?, Alt2TimeMin=? WHERE FltlegID=?", wconn);
 					upd.Parameters.AddWithValue("?", fldtVal);
 					upd.Parameters.AddWithValue("?", callsign);
 					upd.Parameters.AddWithValue("?", reg);
@@ -353,12 +396,17 @@ namespace ICAO_CSV
 					upd.Parameters.AddWithValue("?", source);
 					upd.Parameters.AddWithValue("?", origin);
 					upd.Parameters.AddWithValue("?", dest);
+					upd.Parameters.AddWithValue("?", details.Alt1);
+					upd.Parameters.AddWithValue("?", details.Alt2);
+					upd.Parameters.AddWithValue("?", details.FlightTimeMin);
+					upd.Parameters.AddWithValue("?", details.Alt1TimeMin);
+					upd.Parameters.AddWithValue("?", details.Alt2TimeMin);
 					upd.Parameters.AddWithValue("?", fltlegId);
 					upd.ExecuteNonQuery();
 				}
 				else
 				{
-					OleDbCommand ins = new OleDbCommand("INSERT INTO FlightSchedule ([FltlegID],[FLDt],[Callsign],[Reg],[STD],[STA],[Crew],[Source],[Origin],[Dest]) VALUES (?,?,?,?,?,?,?,?,?,?)", wconn);
+					OleDbCommand ins = new OleDbCommand("INSERT INTO FlightSchedule ([FltlegID],[FLDt],[Callsign],[Reg],[STD],[STA],[Crew],[Source],[Origin],[Dest],[Alt1],[Alt2],[FlightTimeMin],[Alt1TimeMin],[Alt2TimeMin]) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", wconn);
 					ins.Parameters.AddWithValue("?", fltlegId);
 					ins.Parameters.AddWithValue("?", fldtVal);
 					ins.Parameters.AddWithValue("?", callsign);
@@ -369,6 +417,11 @@ namespace ICAO_CSV
 					ins.Parameters.AddWithValue("?", source);
 					ins.Parameters.AddWithValue("?", origin);
 					ins.Parameters.AddWithValue("?", dest);
+					ins.Parameters.AddWithValue("?", details.Alt1);
+					ins.Parameters.AddWithValue("?", details.Alt2);
+					ins.Parameters.AddWithValue("?", details.FlightTimeMin);
+					ins.Parameters.AddWithValue("?", details.Alt1TimeMin);
+					ins.Parameters.AddWithValue("?", details.Alt2TimeMin);
 					ins.ExecuteNonQuery();
 				}
 				}
@@ -684,22 +737,91 @@ namespace ICAO_CSV
 			return rows;
 		}
 
-		// A getBriefing response bundles several BriefingContentProduct blocks (OFP, MET,
-		// NOTAM...); ScheduledTimeOfArrival appears once, deep under the OFP's
-		// FlightPlanSummary. A plain regex search (same style already used for the NOTAM
-		// XML in MainForm.NotamData.cs) is simpler and more robust here than walking the
-		// deeply nested, namespaced OFP tree with LINQ to XML.
-		private string FetchSta(int fltlegId)
+		private struct BriefingDetails
 		{
+			public string Sta;
+			public string Alt1, Alt2;
+			public int FlightTimeMin, Alt1TimeMin, Alt2TimeMin;
+		}
+
+		// A getBriefing response bundles several BriefingContentProduct blocks (OFP, MET,
+		// NOTAM...); the fields this reads (ScheduledTimeOfArrival, FlightTime, and the
+		// alternates) all live under the OFP's ARINC-633 FlightPlan payload, which uses a
+		// SEPARATE namespace (http://aeec.aviation-ia.net/633) from the outer envelope — so
+		// lookups here match on local name only (.Descendants().Where(e => e.Name.LocalName
+		// == ...)), never a fully-qualified XName, same idiom already proven in the sibling
+		// WebService-PDF Archives project's briefing reader. Each destination alternate is one
+		// <AlternateFuel> element: a direct-child <Airport airportFunction="..."> names it
+		// (PrimaryArrivalAlternateAirport -> Alt1, the next distinct ArrivalAlternateAirport ->
+		// Alt2 — DepartureAlternateAirport/ETOPSAdequateAirport are the take-off alternate and
+		// en-route adequate airports, not relevant here), and the AlternateFuel's own
+		// direct-child <Duration> is the flight time from destination to that alternate —
+		// deliberately NOT the nested <FinalReserve><Duration> sibling, which is a fixed
+		// reserve-fuel duration, not a flight time. A flat regex (still fine for the single,
+		// non-repeated ScheduledTimeOfArrival) can't safely tell those two <Duration> elements
+		// apart, hence XDocument here instead.
+		private BriefingDetails FetchBriefingDetails(int fltlegId)
+		{
+			BriefingDetails d = new BriefingDetails();
 			try
 			{
 				string xml;
 				using (WebClient wc = new WebClient())
 					xml = wc.DownloadString(_briefingBaseUrl.TrimEnd('/') + "/?METHOD=getBriefing&FLTLEG_ID=" + fltlegId);
-				Match m = Regex.Match(xml, "<ScheduledTimeOfArrival>([^<]*)</ScheduledTimeOfArrival>");
-				return m.Success ? m.Groups[1].Value : "";
+
+				Match staMatch = Regex.Match(xml, "<ScheduledTimeOfArrival>([^<]*)</ScheduledTimeOfArrival>");
+				d.Sta = staMatch.Success ? staMatch.Groups[1].Value : "";
+
+				XDocument doc = XDocument.Parse(xml);
+
+				XElement flightTimeEl = doc.Descendants().Where(e => e.Name.LocalName == "FlightTime").FirstOrDefault();
+				XElement flightTimeVal = flightTimeEl != null
+					? flightTimeEl.Descendants().Where(e => e.Name.LocalName == "Value").FirstOrDefault()
+					: null;
+				d.FlightTimeMin = flightTimeVal != null ? ParseIsoDurationMinutes(flightTimeVal.Value) : 0;
+
+				List<string> seenAlt = new List<string>();
+				foreach (XElement alt in doc.Descendants().Where(e => e.Name.LocalName == "AlternateFuel"))
+				{
+					XElement airport = alt.Elements().FirstOrDefault(e => e.Name.LocalName == "Airport");
+					if (airport == null) continue;
+					string function = (string)airport.Attribute("airportFunction") ?? "";
+					if (function != "PrimaryArrivalAlternateAirport" && function != "ArrivalAlternateAirport") continue;
+
+					XElement icaoEl = airport.Descendants().FirstOrDefault(e => e.Name.LocalName == "AirportICAOCode");
+					string icao = icaoEl != null ? icaoEl.Value : "";
+					if (icao == "" || seenAlt.Contains(icao)) continue;
+					seenAlt.Add(icao);
+
+					XElement durVal = alt.Elements().Where(e => e.Name.LocalName == "Duration")
+						.SelectMany(e => e.Descendants().Where(v => v.Name.LocalName == "Value")).FirstOrDefault();
+					int minutes = durVal != null ? ParseIsoDurationMinutes(durVal.Value) : 0;
+
+					if (d.Alt1 == null) { d.Alt1 = icao; d.Alt1TimeMin = minutes; }
+					else if (d.Alt2 == null) { d.Alt2 = icao; d.Alt2TimeMin = minutes; }
+				}
+				d.Alt1 = d.Alt1 ?? ""; d.Alt2 = d.Alt2 ?? "";
 			}
-			catch { return ""; }
+			catch { /* briefing legitimately unavailable yet (e.g. far-future leg) — return whatever was parsed so far */ }
+			return d;
+		}
+
+		// "PT4H16M00.000S" -> 256. Tolerant of a missing hours or minutes component.
+		private static int ParseIsoDurationMinutes(string iso)
+		{
+			if (string.IsNullOrEmpty(iso)) return 0;
+			Match m = Regex.Match(iso, @"PT(?:(\d+)H)?(?:(\d+)M)?");
+			if (!m.Success) return 0;
+			int hours = m.Groups[1].Success ? int.Parse(m.Groups[1].Value) : 0;
+			int minutes = m.Groups[2].Success ? int.Parse(m.Groups[2].Value) : 0;
+			return hours * 60 + minutes;
+		}
+
+		// 0 (no briefing yet / no such alternate) displays blank rather than "0:00".
+		private static string FormatMinutesHhmm(int minutes)
+		{
+			if (minutes <= 0) return "";
+			return (minutes / 60) + ":" + (minutes % 60).ToString("00");
 		}
 
 		private void LoadFlightScheduleGrid()
@@ -709,7 +831,8 @@ namespace ICAO_CSV
 
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
-			OleDbDataReader reader = new OleDbCommand("SELECT FLDt, Callsign, Reg, STD, STA, Crew, Origin, Dest FROM FlightSchedule ORDER BY STD", conn).ExecuteReader();
+			OleDbDataReader reader = new OleDbCommand(
+				"SELECT FLDt, Callsign, Reg, STD, STA, Crew, Origin, Dest, FlightTimeMin, Alt1, Alt1TimeMin, Alt2, Alt2TimeMin FROM FlightSchedule ORDER BY STD", conn).ExecuteReader();
 			while (reader.Read())
 			{
 				string fldt     = reader.IsDBNull(0) ? "" : reader.GetString(0);
@@ -720,7 +843,12 @@ namespace ICAO_CSV
 				string crew     = reader.IsDBNull(5) ? "" : reader.GetString(5);
 				string origin   = reader.IsDBNull(6) ? "" : reader.GetString(6);
 				string dest     = reader.IsDBNull(7) ? "" : reader.GetString(7);
-				_fsDgv.Rows.Add(fldt, callsign, origin, dest, reg, std, sta, crew);
+				string flightTime = FormatMinutesHhmm(reader.IsDBNull(8) ? 0 : Convert.ToInt32(reader.GetValue(8)));
+				string alt1      = reader.IsDBNull(9)  ? "" : reader.GetString(9);
+				string alt1Time  = FormatMinutesHhmm(reader.IsDBNull(10) ? 0 : Convert.ToInt32(reader.GetValue(10)));
+				string alt2      = reader.IsDBNull(11) ? "" : reader.GetString(11);
+				string alt2Time  = FormatMinutesHhmm(reader.IsDBNull(12) ? 0 : Convert.ToInt32(reader.GetValue(12)));
+				_fsDgv.Rows.Add(fldt, callsign, origin, dest, reg, std, sta, flightTime, alt1, alt1Time, alt2, alt2Time, crew);
 			}
 			conn.Close();
 
