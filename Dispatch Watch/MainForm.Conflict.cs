@@ -226,6 +226,157 @@ namespace ICAO_CSV
 			return result;
 		}
 
+		// Core per-NOTAM matching logic — shared by BuildConflictReportHtml (which renders the
+		// matches) and GetConflictedFltlegIds (which just needs to know which flights have at
+		// least one match, for the Flight Schedule grid's row highlight). Returns false when
+		// there's nothing to show for this NOTAM (impact != "D" with zero matches, or a D)-item
+		// outside the 7-day window) — the caller should skip it entirely, same as the old inline
+		// "continue" this was factored out of.
+		private bool TryComputeConflictMatches(string impact, string location, string key, string all, DateTime notamStart, DateTime notamEnd,
+			List<FsFlight> flights, Dictionary<int, FsFlight> flightsById, HashSet<string> dismissed, Dictionary<string, List<int>> manualByNotamKey,
+			DateTime nowUtc, DateTime windowEnd, out List<ConflictMatch> matches, out bool highlight)
+		{
+			matches = new List<ConflictMatch>();
+			highlight = false;
+			bool altnConflict = false;
+
+			if (impact == "D")
+			{
+				// Not ALTN shows every Kept, D-classified NOTAM active at some point in the next
+				// 7 days regardless of flights — whether an airport can be used as an alternate
+				// isn't a function of origin/destination traffic. But if this station is actually
+				// filed as a flight's diversion alternate (Alt1/Alt2, from the briefing's
+				// AlternateFuel data), that's a real, time-specific conflict worth calling out
+				// distinctly: estimated arrival at the alternate is STD + main-leg flight time +
+				// alternate flight time, checked against the NOTAM's active window with its own
+				// ± window (_altnConflictWindowHours, independent of the origin/destination one).
+				if (notamEnd < nowUtc || notamStart > windowEnd) return false;
+
+				foreach (FsFlight f in flights)
+				{
+					if (!f.HasStd) continue;
+					if (f.Alt1 == location && f.FlightTimeMin > 0 && f.Alt1TimeMin > 0 && !dismissed.Contains(key + "|" + f.FltlegID))
+					{
+						DateTime altArrival = f.Std.AddMinutes(f.FlightTimeMin + f.Alt1TimeMin);
+						if (altArrival <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, altArrival, _altnConflictWindowHours))
+						{
+							matches.Add(new ConflictMatch { FltlegId = f.FltlegID, Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 1 — est. diversion arrival " + FormatUtc(altArrival) + "Z" });
+							altnConflict = true;
+						}
+					}
+					if (f.Alt2 == location && f.FlightTimeMin > 0 && f.Alt2TimeMin > 0 && !dismissed.Contains(key + "|" + f.FltlegID))
+					{
+						DateTime altArrival = f.Std.AddMinutes(f.FlightTimeMin + f.Alt2TimeMin);
+						if (altArrival <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, altArrival, _altnConflictWindowHours))
+						{
+							matches.Add(new ConflictMatch { FltlegId = f.FltlegID, Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 2 — est. diversion arrival " + FormatUtc(altArrival) + "Z" });
+							altnConflict = true;
+						}
+					}
+				}
+			}
+			else
+			{
+				// FlightSchedule.Origin/Dest are IATA codes (webservice's iataID, and the CSV's
+				// DEP/ARR columns) while the NOTAM's location is ICAO — comparing them directly
+				// never matched. Convert the NOTAM's station to IATA here.
+				string iata = GetIATA(location);
+				if (iata != "")
+				{
+					foreach (FsFlight f in flights)
+					{
+						if (dismissed.Contains(key + "|" + f.FltlegID)) continue;
+						if (f.Origin == iata && f.HasStd && f.Std <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, f.Std))
+							matches.Add(new ConflictMatch { FltlegId = f.FltlegID, Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — origin — STD " + FormatUtc(f.Std) + "Z" });
+						if (f.Dest == iata && f.HasSta && f.Sta <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, f.Sta))
+							matches.Add(new ConflictMatch { FltlegId = f.FltlegID, Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — destination — STA " + FormatUtc(f.Sta) + "Z" });
+					}
+				}
+				// station not in Stations_ICAO_IATA (iata=="") just means no automatic match is
+				// possible — a manually-forced one can still apply below.
+			}
+
+			// Manually-forced flights (Flight Schedule tab's "Force Conflict") always apply,
+			// regardless of impact code or whether the automatic matching found anything — this
+			// is how a dispatcher surfaces a false negative the algorithm can't express.
+			List<int> manualIds;
+			bool hasManualMatch = false;
+			if (manualByNotamKey.TryGetValue(key, out manualIds))
+			{
+				foreach (int fltlegId in manualIds)
+				{
+					FsFlight f;
+					if (!flightsById.TryGetValue(fltlegId, out f)) continue;   // flight no longer in FlightSchedule (past/dropped)
+					matches.Add(new ConflictMatch { FltlegId = fltlegId, Manual = true,
+						Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — forced by dispatcher" });
+					hasManualMatch = true;
+				}
+			}
+
+			highlight = altnConflict || hasManualMatch;
+			if (impact != "D" && matches.Count == 0) return false;
+			return true;
+		}
+
+		// Every FltlegID that has at least one active conflict match right now (automatic or
+		// manually-forced) — used by the Flight Schedule tab (MainForm.FlightSchedule.cs) to
+		// highlight those rows, so a conflict is visible without switching to the Conflict tab.
+		// Runs the exact same matching logic BuildConflictReportHtml renders, just without
+		// building any HTML.
+		public HashSet<int> GetConflictedFltlegIds()
+		{
+			HashSet<int> result = new HashSet<int>();
+
+			EnsureArchiveConfig();
+			List<FsFlight> flights = LoadFsFlights();
+			Dictionary<int, FsFlight> flightsById = new Dictionary<int, FsFlight>();
+			foreach (FsFlight f in flights) flightsById[f.FltlegID] = f;
+			if (flights.Count == 0) return result;
+
+			HashSet<string> dismissed = LoadDismissedConflicts();
+			Dictionary<string, List<int>> manualByNotamKey = LoadManualConflictsByNotamKey();
+			DateTime nowUtc = DateTime.UtcNow;
+			DateTime windowEnd = nowUtc.AddDays(7);
+
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+			conn.Open();
+			OleDbDataReader reader = new OleDbCommand("SELECT * FROM filteredNotams_table WHERE Status='K'", conn).ExecuteReader();
+
+			int ordLocation  = reader.GetOrdinal("location");
+			int ordKey       = reader.GetOrdinal("key");
+			int ordAll       = reader.GetOrdinal("all");
+			int ordStartdate = reader.GetOrdinal("startdate");
+			int ordEnddate   = reader.GetOrdinal("enddate");
+			int ordImpact    = reader.GetOrdinal("Impact");
+
+			HashSet<string> validImpacts = new HashSet<string> { "A", "N", "C", "F", "D" };
+			while (reader.Read())
+			{
+				string impact = reader.IsDBNull(ordImpact) ? "" : reader.GetString(ordImpact);
+				if (!validImpacts.Contains(impact)) continue;
+
+				string location = reader.IsDBNull(ordLocation) ? "" : reader.GetString(ordLocation);
+				string key      = reader.IsDBNull(ordKey) ? "" : reader.GetString(ordKey);
+				string all      = reader.IsDBNull(ordAll) ? "" : reader.GetString(ordAll);
+				string startRaw = reader.IsDBNull(ordStartdate) ? "" : reader.GetString(ordStartdate);
+				string endRaw   = reader.IsDBNull(ordEnddate) ? "" : reader.GetString(ordEnddate);
+				if (location == "") continue;
+
+				DateTime notamStart, notamEnd;
+				if (!TryParseNotamDate(startRaw, out notamStart) || !TryParseNotamDate(endRaw, out notamEnd)) continue;
+
+				List<ConflictMatch> matches;
+				bool highlight;
+				if (!TryComputeConflictMatches(impact, location, key, all, notamStart, notamEnd, flights, flightsById,
+					dismissed, manualByNotamKey, nowUtc, windowEnd, out matches, out highlight))
+					continue;
+
+				foreach (ConflictMatch m in matches) result.Add(m.FltlegId);
+			}
+			conn.Close();
+			return result;
+		}
+
 		// Builds the full Conflict-report HTML document — used both to populate the Conflict
 		// tab's WebBrowser and as the Send Reports email body (MainForm.Email.cs), so the two
 		// stay identical rather than drifting into two separately-maintained renderings.
@@ -308,86 +459,21 @@ namespace ICAO_CSV
 				DateTime notamStart, notamEnd;
 				if (!TryParseNotamDate(startRaw, out notamStart) || !TryParseNotamDate(endRaw, out notamEnd)) continue;
 
-				List<ConflictMatch> matches = new List<ConflictMatch>();
-				bool altnConflict = false;
-				if (impact == "D")
-				{
-					// Not ALTN shows every Kept, D-classified NOTAM active at some point in
-					// the next 7 days regardless of flights — whether an airport can be used as
-					// an alternate isn't a function of origin/destination traffic. But if this
-					// station is actually filed as a flight's diversion alternate (Alt1/Alt2,
-					// from the briefing's AlternateFuel data), that's a real, time-specific
-					// conflict worth calling out distinctly: estimated arrival at the alternate
-					// is STD + main-leg flight time + alternate flight time, checked against the
-					// NOTAM's active window with its own ± window (_altnConflictWindowHours,
-					// independent of the origin/destination one).
-					if (notamEnd < nowUtc || notamStart > windowEnd) continue;
+				List<ConflictMatch> matches;
+				bool highlight;
+				if (!TryComputeConflictMatches(impact, location, key, all, notamStart, notamEnd, flights, flightsById,
+					dismissed, manualByNotamKey, nowUtc, windowEnd, out matches, out highlight))
+					continue;   // no automatic or manual conflict (or, for D, out of the 7-day window) — nothing to show for this NOTAM
 
-					foreach (FsFlight f in flights)
-					{
-						if (!f.HasStd) continue;
-						if (f.Alt1 == location && f.FlightTimeMin > 0 && f.Alt1TimeMin > 0 && !dismissed.Contains(key + "|" + f.FltlegID))
-						{
-							DateTime altArrival = f.Std.AddMinutes(f.FlightTimeMin + f.Alt1TimeMin);
-							if (altArrival <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, altArrival, _altnConflictWindowHours))
-							{
-								matches.Add(new ConflictMatch { FltlegId = f.FltlegID, Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 1 — est. diversion arrival " + FormatUtc(altArrival) + "Z" });
-								altnConflict = true;
-							}
-						}
-						if (f.Alt2 == location && f.FlightTimeMin > 0 && f.Alt2TimeMin > 0 && !dismissed.Contains(key + "|" + f.FltlegID))
-						{
-							DateTime altArrival = f.Std.AddMinutes(f.FlightTimeMin + f.Alt2TimeMin);
-							if (altArrival <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, altArrival, _altnConflictWindowHours))
-							{
-								matches.Add(new ConflictMatch { FltlegId = f.FltlegID, Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 2 — est. diversion arrival " + FormatUtc(altArrival) + "Z" });
-								altnConflict = true;
-							}
-						}
-					}
-				}
-				else
-				{
-					// FlightSchedule.Origin/Dest are IATA codes (webservice's iataID, and the
-					// CSV's DEP/ARR columns) while the NOTAM's location is ICAO — comparing
-					// them directly never matched. Convert the NOTAM's station to IATA here.
-					string iata = GetIATA(location);
-					if (iata != "")
-					{
-						foreach (FsFlight f in flights)
-						{
-							if (dismissed.Contains(key + "|" + f.FltlegID)) continue;
-							if (f.Origin == iata && f.HasStd && f.Std <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, f.Std))
-								matches.Add(new ConflictMatch { FltlegId = f.FltlegID, Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — origin — STD " + FormatUtc(f.Std) + "Z" });
-							if (f.Dest == iata && f.HasSta && f.Sta <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, f.Sta))
-								matches.Add(new ConflictMatch { FltlegId = f.FltlegID, Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — destination — STA " + FormatUtc(f.Sta) + "Z" });
-						}
-					}
-					// station not in Stations_ICAO_IATA (iata=="") just means no automatic
-					// match is possible — a manually-forced one can still apply below.
-				}
-
-				// Manually-forced flights (Flight Schedule tab's "Force Conflict") always apply,
-				// regardless of impact code or whether the automatic matching found anything —
-				// this is how a dispatcher surfaces a false negative the algorithm can't express.
-				List<int> manualIds;
-				bool hasManualMatch = false;
-				if (manualByNotamKey.TryGetValue(key, out manualIds))
-				{
-					foreach (int fltlegId in manualIds)
-					{
-						FsFlight f;
-						if (!flightsById.TryGetValue(fltlegId, out f)) continue;   // flight no longer in FlightSchedule (past/dropped)
-						matches.Add(new ConflictMatch { FltlegId = fltlegId, Manual = true,
-							Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — forced by dispatcher" });
-						hasManualMatch = true;
-					}
-				}
-
-				bool highlight = altnConflict || hasManualMatch;
-				if (impact != "D" && matches.Count == 0) continue;   // no automatic or manual conflict — nothing to show for this NOTAM
-
-				string cardHtml = BuildConflictCardHtml(location, key, all, remark, matches, rasterDiagrams, cidImages, inlineImages, highlight, interactive);
+				// The RMK line above the key (a "notamkey"-line neighbor) is only the NOTAM's own
+				// first text line — for a recurring D)-item ("EVERY WED 0700-1000", "DAILY
+				// 2300-0459") that's just the weekly/daily pattern, not the NOTAM's actual overall
+				// validity period, so the dispatcher has no way to see when it starts/ends without
+				// opening the full text. FormatDate (MainForm.NotamFilter.cs) is the same
+				// "dd MMM yyyy HH:mmz" formatter NotamRemarkDefault already uses for this exact
+				// date shape elsewhere, so the two read consistently wherever both show up.
+				string period = FormatDate(startRaw) + " - " + FormatDate(endRaw);
+				string cardHtml = BuildConflictCardHtml(location, key, period, all, remark, matches, rasterDiagrams, cidImages, inlineImages, highlight, interactive);
 				if (highlight) cardsByImpact[impact].Insert(0, cardHtml);
 				else cardsByImpact[impact].Add(cardHtml);
 			}
@@ -438,6 +524,7 @@ namespace ICAO_CSV
 				".flightChipManual{background:#ff8f00;color:#fff;font-weight:bold}" +
 				".remark{font-size:12px;color:#455a64;margin:0 0 8px 0}" +
 				".notamkey{font-size:12px;color:#607d8b;font-weight:bold;margin:0 0 4px 0}" +
+				".notamperiod{font-weight:normal;color:#90a4ae;margin-left:10px}" +
 				".notamtext{background:#f5f5f5;border-radius:6px;padding:10px 12px;font-family:'Courier New',monospace;font-size:12.5px;white-space:pre-wrap;line-height:1.6}" +
 				".warnBanner{background:#fff3e0;color:#7a4a00;border:1px solid #ffcc80;border-radius:6px;padding:10px 14px;margin:0 0 16px 0;font-size:13px}" +
 				".warnIcon{margin-right:8px}" +
@@ -684,7 +771,7 @@ namespace ICAO_CSV
 		// BuildAirportCardHtml (which returns a whole standalone document sized for the
 		// Filter tab's WebBrowser) since this fragment gets concatenated into one big
 		// Conflict report page instead of living in its own WebBrowser control.
-		private string BuildConflictCardHtml(string AP, string key, string notamText, string remark, List<ConflictMatch> matches,
+		private string BuildConflictCardHtml(string AP, string key, string period, string notamText, string remark, List<ConflictMatch> matches,
 			bool rasterDiagram, bool cidImages, Dictionary<string, string> inlineImages, bool highlight, bool interactive)
 		{
 			string flightChips = "";
@@ -703,7 +790,11 @@ namespace ICAO_CSV
 			}
 
 			string remarkLine = remark != "" ? "<div class=\"remark\">&#9654; " + remark.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
-			string keyLine = key != "" ? "<div class=\"notamkey\">" + key.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
+			// Period is shown next to the key regardless of what the RMK line above already
+			// says — a recurring D)-item's RMK is usually just its weekly/daily pattern (e.g.
+			// "EVERY WED 0700-1000"), not the NOTAM's actual overall validity window.
+			string periodSpan = period != "" ? "<span class=\"notamperiod\">" + period.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" : "";
+			string keyLine = key != "" ? "<div class=\"notamkey\">" + key.Replace("&", "&amp;").Replace("<", "&lt;") + periodSpan + "</div>" : "";
 
 			// A Not-ALTN NOTAM that's a real diversion-time conflict against a flight's filed
 			// alternate is a higher-severity finding than the section's default "airport isn't

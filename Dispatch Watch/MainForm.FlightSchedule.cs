@@ -845,6 +845,10 @@ namespace ICAO_CSV
 			OleDbDataReader reader = new OleDbCommand(
 				"SELECT FltlegID, FLDt, Callsign, Reg, STD, STA, Crew, Origin, Dest, FlightTimeMin, Alt1, Alt1TimeMin, Alt2, Alt2TimeMin FROM FlightSchedule ORDER BY STD", conn).ExecuteReader();
 			Dictionary<int, string> manualConflicts = LoadManualConflictsByFltlegId();
+			// Every flight with an active Conflict-tab match (automatic or manually-forced) —
+			// same matching logic as the Conflict tab itself (MainForm.Conflict.cs), so a
+			// dismissed/false-positive match doesn't highlight a row here either.
+			HashSet<int> conflictedIds = GetConflictedFltlegIds();
 			while (reader.Read())
 			{
 				int    fltlegId = reader.IsDBNull(0) ? 0 : Convert.ToInt32(reader.GetValue(0));
@@ -865,7 +869,13 @@ namespace ICAO_CSV
 				string assignedKey;
 				string forceBtnText = manualConflicts.TryGetValue(fltlegId, out assignedKey) && assignedKey != "" ? assignedKey : "+ Force";
 
-				_fsDgv.Rows.Add(fldt, callsign, origin, dest, reg, std, sta, flightTime, alt1, alt1Time, alt2, alt2Time, crew, fltlegId, forceBtnText);
+				int rowIndex = _fsDgv.Rows.Add(fldt, callsign, origin, dest, reg, std, sta, flightTime, alt1, alt1Time, alt2, alt2Time, crew, fltlegId, forceBtnText);
+				if (conflictedIds.Contains(fltlegId))
+				{
+					DataGridViewRow row = _fsDgv.Rows[rowIndex];
+					row.DefaultCellStyle.BackColor = Color.FromArgb(255, 205, 210);
+					row.DefaultCellStyle.SelectionBackColor = Color.FromArgb(239, 154, 154);
+				}
 			}
 			conn.Close();
 
@@ -923,12 +933,15 @@ namespace ICAO_CSV
 
 				Label icaoLbl = new Label { Text = "ICAO", ForeColor = Color.FromArgb(207, 216, 220), Top = 46, Left = 20, AutoSize = true };
 				dlg.Controls.Add(icaoLbl);
-				TextBox icaoBox = new TextBox { Top = 64, Left = 20, Width = 100 };
+				TextBox icaoBox = new TextBox { Top = 64, Left = 20, Width = 100, BackColor = Color.White, ForeColor = Color.Black };
 				dlg.Controls.Add(icaoBox);
-				Button search = new Button { Text = "Search", Top = 62, Left = 128, Width = 80, Height = 24 };
+				Button search = new Button { Text = "Search", Top = 62, Left = 128, Width = 80, Height = 24,
+					BackColor = Color.FromArgb(69, 90, 100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+				search.FlatAppearance.BorderColor = Color.FromArgb(96, 125, 139);
 				dlg.Controls.Add(search);
 
-				ListBox list = new ListBox { Top = 100, Left = 20, Width = 430, Height = 220, Font = new Font("Consolas", 8.5f) };
+				ListBox list = new ListBox { Top = 100, Left = 20, Width = 430, Height = 220, Font = new Font("Consolas", 8.5f),
+					BackColor = Color.White, ForeColor = Color.Black };
 				dlg.Controls.Add(list);
 
 				search.Click += delegate
@@ -938,9 +951,15 @@ namespace ICAO_CSV
 						list.Items.Add(line);
 				};
 
-				Button assign = new Button { Text = "Assign", Top = 334, Left = 20, Width = 100, Height = 30 };
-				Button clear = new Button { Text = "Clear assignment", Top = 334, Left = 130, Width = 140, Height = 30 };
-				Button cancel = new Button { Text = "Cancel", Top = 334, Left = 280, Width = 100, Height = 30 };
+				Button assign = new Button { Text = "Assign", Top = 334, Left = 20, Width = 100, Height = 30,
+					BackColor = Color.FromArgb(46, 125, 82), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+				assign.FlatAppearance.BorderColor = Color.FromArgb(96, 125, 139);
+				Button clear = new Button { Text = "Clear assignment", Top = 334, Left = 130, Width = 140, Height = 30,
+					BackColor = Color.FromArgb(69, 90, 100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+				clear.FlatAppearance.BorderColor = Color.FromArgb(96, 125, 139);
+				Button cancel = new Button { Text = "Cancel", Top = 334, Left = 280, Width = 100, Height = 30,
+					BackColor = Color.FromArgb(69, 90, 100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+				cancel.FlatAppearance.BorderColor = Color.FromArgb(96, 125, 139);
 
 				assign.Click += delegate
 				{
@@ -967,9 +986,11 @@ namespace ICAO_CSV
 			}
 		}
 
-		// Kept, impact-classified NOTAMs at one station, formatted "KEY  [IMPACT]  snippet" for
-		// ShowForceConflictDialog's picker list — "KEY" is split off by the two-space separator
-		// when the dispatcher assigns their selection.
+		// Kept, impact-classified NOTAMs at one station, formatted "KEY  Impact Label  snippet"
+		// for ShowForceConflictDialog's picker list — ImpactLabel (MainForm.NotamFilter.cs) is
+		// the same full-word label used everywhere else in the app (e.g. "No ILS" rather than the
+		// raw "N" code), so the list reads consistently with the Conflict tab's own section
+		// headers. "KEY" is split off by the two-space separator when the dispatcher assigns.
 		private List<string> FindKeptNotamsForIcao(string icao)
 		{
 			List<string> result = new List<string>();
@@ -989,7 +1010,7 @@ namespace ICAO_CSV
 				string snippet = remark != "" ? remark : all;
 				snippet = snippet.Replace("\r", " ").Replace("\n", " ");
 				if (snippet.Length > 70) snippet = snippet.Substring(0, 70) + "...";
-				result.Add(key + "  [" + impact + "]  " + snippet);
+				result.Add(key + "  " + ImpactLabel(impact) + "  " + snippet);
 			}
 			conn.Close();
 			return result;
