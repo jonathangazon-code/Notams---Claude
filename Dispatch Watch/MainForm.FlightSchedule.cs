@@ -157,6 +157,17 @@ namespace ICAO_CSV
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Alt2",        HeaderText = "Alt 2",          Width = colWidths[10] });
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Alt2Time",    HeaderText = "Time to Alt 2",  Width = colWidths[11] });
 			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Crew",        HeaderText = "Crew",           Width = colWidths[12] });
+			// Hidden identity column (not part of colNames/colWidths — the filter row above is
+			// strictly 1:1 with that array) so the "Force Conflict" button handler below knows
+			// which flight it's acting on without needing a separate Row.Tag convention.
+			_fsDgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "FltlegID", Visible = false });
+			// Opens ShowForceConflictDialog to manually assign/clear a Kept NOTAM as a forced
+			// conflict for this flight — for false negatives the automatic Origin/Dest/Alt1/Alt2
+			// matching on the Conflict tab can't express. Per-row button text (set in
+			// LoadFlightScheduleGrid) shows the assigned NOTAM's key, or "+ Force" if none.
+			_fsDgv.Columns.Add(new DataGridViewButtonColumn { Name = "ForceConflict", HeaderText = "Force Conflict",
+				Text = "+ Force", UseColumnTextForButtonValue = false, Width = 110 });
+			_fsDgv.CellContentClick += FsDgv_CellContentClick;
 			// Dock=Fill controls occupy remaining space in add order, so the grid must be
 			// added after the Top-docked bars.
 			tabPage_FlightSchedule.Controls.Add(_fsDgv);
@@ -832,23 +843,29 @@ namespace ICAO_CSV
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbDataReader reader = new OleDbCommand(
-				"SELECT FLDt, Callsign, Reg, STD, STA, Crew, Origin, Dest, FlightTimeMin, Alt1, Alt1TimeMin, Alt2, Alt2TimeMin FROM FlightSchedule ORDER BY STD", conn).ExecuteReader();
+				"SELECT FltlegID, FLDt, Callsign, Reg, STD, STA, Crew, Origin, Dest, FlightTimeMin, Alt1, Alt1TimeMin, Alt2, Alt2TimeMin FROM FlightSchedule ORDER BY STD", conn).ExecuteReader();
+			Dictionary<int, string> manualConflicts = LoadManualConflictsByFltlegId();
 			while (reader.Read())
 			{
-				string fldt     = reader.IsDBNull(0) ? "" : reader.GetString(0);
-				string callsign = reader.IsDBNull(1) ? "" : reader.GetString(1);
-				string reg      = reader.IsDBNull(2) ? "" : reader.GetString(2);
-				string std      = reader.IsDBNull(3) ? "" : reader.GetString(3);
-				string sta      = reader.IsDBNull(4) ? "" : reader.GetString(4);
-				string crew     = reader.IsDBNull(5) ? "" : reader.GetString(5);
-				string origin   = reader.IsDBNull(6) ? "" : reader.GetString(6);
-				string dest     = reader.IsDBNull(7) ? "" : reader.GetString(7);
-				string flightTime = FormatMinutesHhmm(reader.IsDBNull(8) ? 0 : Convert.ToInt32(reader.GetValue(8)));
-				string alt1      = reader.IsDBNull(9)  ? "" : reader.GetString(9);
-				string alt1Time  = FormatMinutesHhmm(reader.IsDBNull(10) ? 0 : Convert.ToInt32(reader.GetValue(10)));
-				string alt2      = reader.IsDBNull(11) ? "" : reader.GetString(11);
-				string alt2Time  = FormatMinutesHhmm(reader.IsDBNull(12) ? 0 : Convert.ToInt32(reader.GetValue(12)));
-				_fsDgv.Rows.Add(fldt, callsign, origin, dest, reg, std, sta, flightTime, alt1, alt1Time, alt2, alt2Time, crew);
+				int    fltlegId = reader.IsDBNull(0) ? 0 : Convert.ToInt32(reader.GetValue(0));
+				string fldt     = reader.IsDBNull(1) ? "" : reader.GetString(1);
+				string callsign = reader.IsDBNull(2) ? "" : reader.GetString(2);
+				string reg      = reader.IsDBNull(3) ? "" : reader.GetString(3);
+				string std      = reader.IsDBNull(4) ? "" : reader.GetString(4);
+				string sta      = reader.IsDBNull(5) ? "" : reader.GetString(5);
+				string crew     = reader.IsDBNull(6) ? "" : reader.GetString(6);
+				string origin   = reader.IsDBNull(7) ? "" : reader.GetString(7);
+				string dest     = reader.IsDBNull(8) ? "" : reader.GetString(8);
+				string flightTime = FormatMinutesHhmm(reader.IsDBNull(9) ? 0 : Convert.ToInt32(reader.GetValue(9)));
+				string alt1      = reader.IsDBNull(10) ? "" : reader.GetString(10);
+				string alt1Time  = FormatMinutesHhmm(reader.IsDBNull(11) ? 0 : Convert.ToInt32(reader.GetValue(11)));
+				string alt2      = reader.IsDBNull(12) ? "" : reader.GetString(12);
+				string alt2Time  = FormatMinutesHhmm(reader.IsDBNull(13) ? 0 : Convert.ToInt32(reader.GetValue(13)));
+
+				string assignedKey;
+				string forceBtnText = manualConflicts.TryGetValue(fltlegId, out assignedKey) && assignedKey != "" ? assignedKey : "+ Force";
+
+				_fsDgv.Rows.Add(fldt, callsign, origin, dest, reg, std, sta, flightTime, alt1, alt1Time, alt2, alt2Time, crew, fltlegId, forceBtnText);
 			}
 			conn.Close();
 
@@ -869,6 +886,113 @@ namespace ICAO_CSV
 			// before (or fully scrolled if the previous load had more rows), which can read
 			// as the header row/first rows being clipped — pin the view back to the top.
 			if (_fsDgv.Rows.Count > 0) _fsDgv.FirstDisplayedScrollingRowIndex = 0;
+		}
+
+		private void FsDgv_CellContentClick(object sender, DataGridViewCellEventArgs e)
+		{
+			if (e.RowIndex < 0) return;
+			if (_fsDgv.Columns[e.ColumnIndex].Name != "ForceConflict") return;
+			int fltlegId = Convert.ToInt32(_fsDgv.Rows[e.RowIndex].Cells["FltlegID"].Value);
+			ShowForceConflictDialog(fltlegId);
+			LoadFlightScheduleGrid();   // refresh button text in case the assignment changed
+		}
+
+		// Modal dialog letting the dispatcher manually assign (or clear) a Kept, impact-
+		// classified NOTAM as a forced conflict for one flight — for cases the automatic
+		// Origin/Dest/Alt1/Alt2 matching on the Conflict tab (MainForm.Conflict.cs) can't
+		// express. Same dark-theme, hand-positioned Form pattern as ShowLockPromptDialog
+		// (MainForm.Deployment.cs).
+		private void ShowForceConflictDialog(int fltlegId)
+		{
+			Dictionary<int, string> current = LoadManualConflictsByFltlegId();
+			string currentKey;
+			current.TryGetValue(fltlegId, out currentKey);
+
+			using (Form dlg = new Form
+			{
+				Text = "Dispatch Watch", FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen,
+				ControlBox = false, MinimizeBox = false, MaximizeBox = false, Width = 480, Height = 420, BackColor = Color.FromArgb(38, 50, 56)
+			})
+			{
+				Label current_lbl = new Label
+				{
+					Text = "Current: " + (!string.IsNullOrEmpty(currentKey) ? currentKey : "(none)"),
+					ForeColor = Color.White, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), Top = 14, Left = 20, AutoSize = true
+				};
+				dlg.Controls.Add(current_lbl);
+
+				Label icaoLbl = new Label { Text = "ICAO", ForeColor = Color.FromArgb(207, 216, 220), Top = 46, Left = 20, AutoSize = true };
+				dlg.Controls.Add(icaoLbl);
+				TextBox icaoBox = new TextBox { Top = 64, Left = 20, Width = 100 };
+				dlg.Controls.Add(icaoBox);
+				Button search = new Button { Text = "Search", Top = 62, Left = 128, Width = 80, Height = 24 };
+				dlg.Controls.Add(search);
+
+				ListBox list = new ListBox { Top = 100, Left = 20, Width = 430, Height = 220, Font = new Font("Consolas", 8.5f) };
+				dlg.Controls.Add(list);
+
+				search.Click += delegate
+				{
+					list.Items.Clear();
+					foreach (string line in FindKeptNotamsForIcao(icaoBox.Text.Trim().ToUpper()))
+						list.Items.Add(line);
+				};
+
+				Button assign = new Button { Text = "Assign", Top = 334, Left = 20, Width = 100, Height = 30 };
+				Button clear = new Button { Text = "Clear assignment", Top = 334, Left = 130, Width = 140, Height = 30 };
+				Button cancel = new Button { Text = "Cancel", Top = 334, Left = 280, Width = 100, Height = 30 };
+
+				assign.Click += delegate
+				{
+					if (list.SelectedItem == null) { MessageBox.Show("Select a NOTAM from the list first."); return; }
+					string line = list.SelectedItem.ToString();
+					string selectedKey = line.Split(new[] { "  " }, StringSplitOptions.None)[0].Trim();
+					if (!EnsureWriterOrWarn()) return;
+					AssignManualConflict(fltlegId, selectedKey);
+					dlg.Close();
+				};
+				clear.Click += delegate
+				{
+					if (!EnsureWriterOrWarn()) return;
+					DeleteManualConflict(fltlegId);
+					dlg.Close();
+				};
+				cancel.Click += delegate { dlg.Close(); };
+
+				dlg.Controls.Add(assign);
+				dlg.Controls.Add(clear);
+				dlg.Controls.Add(cancel);
+
+				dlg.ShowDialog();
+			}
+		}
+
+		// Kept, impact-classified NOTAMs at one station, formatted "KEY  [IMPACT]  snippet" for
+		// ShowForceConflictDialog's picker list — "KEY" is split off by the two-space separator
+		// when the dispatcher assigns their selection.
+		private List<string> FindKeptNotamsForIcao(string icao)
+		{
+			List<string> result = new List<string>();
+			if (icao == "") return result;
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+			conn.Open();
+			OleDbCommand cmd = new OleDbCommand("SELECT [key], Impact, Remark, [all] FROM filteredNotams_table WHERE location=? AND Status='K' AND Impact<>''", conn);
+			cmd.Parameters.AddWithValue("?", icao);
+			OleDbDataReader reader = cmd.ExecuteReader();
+			while (reader.Read())
+			{
+				string key    = reader.IsDBNull(0) ? "" : reader.GetString(0);
+				string impact = reader.IsDBNull(1) ? "" : reader.GetString(1);
+				string remark = reader.IsDBNull(2) ? "" : reader.GetString(2);
+				string all    = reader.IsDBNull(3) ? "" : reader.GetString(3);
+				if (key == "") continue;
+				string snippet = remark != "" ? remark : all;
+				snippet = snippet.Replace("\r", " ").Replace("\n", " ");
+				if (snippet.Length > 70) snippet = snippet.Substring(0, 70) + "...";
+				result.Add(key + "  [" + impact + "]  " + snippet);
+			}
+			conn.Close();
+			return result;
 		}
 
 		// Standalone HTML rendering of the next 7 days of FlightSchedule, for the "Export

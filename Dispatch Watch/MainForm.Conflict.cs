@@ -3,21 +3,49 @@ using System.Collections.Generic;
 using System.Data.OleDb;
 using System.Drawing;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace ICAO_CSV
 {
+	// Lets the Conflict tab's flight-match checkboxes (native <input type="checkbox">,
+	// live WebBrowser only — never used in the email/PDF render) call back into C# to
+	// dismiss a false-positive match or remove a manually-forced one, same ObjectForScripting
+	// idiom as AviobookScriptBridge (MainForm.AipSup.cs) / ReportScriptBridge (MainForm.Reports.cs).
+	[ComVisible(true)]
+	public class ConflictScriptBridge
+	{
+		private MainForm _form;
+		public ConflictScriptBridge(MainForm form) { _form = form; }
+		public void DismissMatch(string notamKey, int fltlegId) { _form.DismissConflictMatch(notamKey, fltlegId); }
+		public void RemoveManualConflict(int fltlegId, string notamKey) { _form.RemoveManualConflict(fltlegId, notamKey); }
+	}
+
 	public partial class MainForm
 	{
 		// One flight-schedule row, trimmed to what the conflict scan needs.
 		private struct FsFlight
 		{
+			public int FltlegID;
 			public string Callsign, Reg, Origin, Dest;
 			public DateTime Std, Sta;
 			public bool HasStd, HasSta;
 			public string Alt1, Alt2;
 			public int FlightTimeMin, Alt1TimeMin, Alt2TimeMin;
+		}
+
+		// One flight match rendered as a chip on a NOTAM card — Text is the display line,
+		// FltlegId identifies which flight it is (for the dismiss/remove checkbox), and
+		// Manual distinguishes a dispatcher-forced conflict (ManualConflicts table, removed
+		// outright on uncheck) from an automatically-detected one (dismissed into
+		// ConflictDismissals on uncheck, which only suppresses it — the underlying match
+		// keeps being detected but is filtered back out on every future render).
+		private struct ConflictMatch
+		{
+			public string Text;
+			public int FltlegId;
+			public bool Manual;
 		}
 
 		void ConflictTabEnter(object sender, EventArgs e) { Build_Conflict_Report(); }
@@ -31,7 +59,171 @@ namespace ICAO_CSV
 		void Build_Conflict_Report()
 		{
 			Dictionary<string, string> unused;
+			Web_Conflict.ObjectForScripting = new ConflictScriptBridge(this);
 			Web_Conflict.DocumentText = BuildConflictReportHtml(false, false, out unused);
+		}
+
+		// Called from the Conflict tab's flight-match checkbox (ConflictScriptBridge) when the
+		// dispatcher unticks an automatically-detected match they consider a false positive.
+		// Gated by EnsureWriterOrWarn like every other write path; either way the tab is
+		// re-rendered afterward, which is also what makes a blocked Reader's checkbox visually
+		// snap back to ticked (the dismissal never persisted, so the next render re-detects it).
+		public void DismissConflictMatch(string notamKey, int fltlegId)
+		{
+			if (EnsureWriterOrWarn())
+			{
+				try { InsertConflictDismissal(notamKey, fltlegId); } catch { }
+			}
+			Build_Conflict_Report();
+		}
+
+		// Called from a manually-forced match's checkbox — unlike a dismissal, this deletes the
+		// ManualConflicts row outright (there's nothing to "suppress", it's the dispatcher's own
+		// record), so the flight's Flight Schedule "Force Conflict" button also reverts to unassigned.
+		public void RemoveManualConflict(int fltlegId, string notamKey)
+		{
+			if (EnsureWriterOrWarn())
+			{
+				try { DeleteManualConflict(fltlegId); } catch { }
+			}
+			Build_Conflict_Report();
+		}
+
+		private void EnsureConflictDismissalsTable()
+		{
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+				conn.Open();
+				try { new OleDbCommand("CREATE TABLE ConflictDismissals ([ID] AUTOINCREMENT PRIMARY KEY, [NotamKey] TEXT(50), [FltlegID] LONG, [DismissedAt] TEXT(25))", conn).ExecuteNonQuery(); }
+				catch { /* already exists */ }
+				conn.Close();
+			}
+			catch { }
+		}
+
+		private void InsertConflictDismissal(string notamKey, int fltlegId)
+		{
+			EnsureConflictDismissalsTable();
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+			conn.Open();
+			OleDbCommand ins = new OleDbCommand("INSERT INTO ConflictDismissals ([NotamKey],[FltlegID],[DismissedAt]) VALUES (?,?,?)", conn);
+			ins.Parameters.AddWithValue("?", notamKey);
+			ins.Parameters.AddWithValue("?", fltlegId);
+			ins.Parameters.AddWithValue("?", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+			ins.ExecuteNonQuery();
+			conn.Close();
+		}
+
+		// Keyed by "NotamKey|FltlegID" — checked before adding any automatically-detected
+		// match (Origin/Dest/Alt1/Alt2) so a dismissed one simply never reappears.
+		private HashSet<string> LoadDismissedConflicts()
+		{
+			HashSet<string> result = new HashSet<string>();
+			EnsureConflictDismissalsTable();
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+				conn.Open();
+				OleDbDataReader reader = new OleDbCommand("SELECT NotamKey, FltlegID FROM ConflictDismissals", conn).ExecuteReader();
+				while (reader.Read())
+				{
+					string notamKey = reader.IsDBNull(0) ? "" : reader.GetString(0);
+					int fltlegId = reader.IsDBNull(1) ? 0 : Convert.ToInt32(reader.GetValue(1));
+					result.Add(notamKey + "|" + fltlegId);
+				}
+				conn.Close();
+			}
+			catch { }
+			return result;
+		}
+
+		private void EnsureManualConflictsTable()
+		{
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+				conn.Open();
+				try { new OleDbCommand("CREATE TABLE ManualConflicts ([ID] AUTOINCREMENT PRIMARY KEY, [FltlegID] LONG, [NotamKey] TEXT(50), [CreatedAt] TEXT(25))", conn).ExecuteNonQuery(); }
+				catch { /* already exists */ }
+				conn.Close();
+			}
+			catch { }
+		}
+
+		// One active manual assignment per flight — replaces any prior row for the same FltlegID.
+		public void AssignManualConflict(int fltlegId, string notamKey)
+		{
+			EnsureManualConflictsTable();
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+			conn.Open();
+			OleDbCommand del = new OleDbCommand("DELETE FROM ManualConflicts WHERE FltlegID=?", conn);
+			del.Parameters.AddWithValue("?", fltlegId);
+			del.ExecuteNonQuery();
+			OleDbCommand ins = new OleDbCommand("INSERT INTO ManualConflicts ([FltlegID],[NotamKey],[CreatedAt]) VALUES (?,?,?)", conn);
+			ins.Parameters.AddWithValue("?", fltlegId);
+			ins.Parameters.AddWithValue("?", notamKey);
+			ins.Parameters.AddWithValue("?", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+			ins.ExecuteNonQuery();
+			conn.Close();
+		}
+
+		public void DeleteManualConflict(int fltlegId)
+		{
+			EnsureManualConflictsTable();
+			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+			conn.Open();
+			OleDbCommand del = new OleDbCommand("DELETE FROM ManualConflicts WHERE FltlegID=?", conn);
+			del.Parameters.AddWithValue("?", fltlegId);
+			del.ExecuteNonQuery();
+			conn.Close();
+		}
+
+		// FltlegID -> assigned NotamKey ("" if none), for the Flight Schedule tab's "Force
+		// Conflict" button text (MainForm.FlightSchedule.cs).
+		public Dictionary<int, string> LoadManualConflictsByFltlegId()
+		{
+			Dictionary<int, string> result = new Dictionary<int, string>();
+			EnsureManualConflictsTable();
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+				conn.Open();
+				OleDbDataReader reader = new OleDbCommand("SELECT FltlegID, NotamKey FROM ManualConflicts", conn).ExecuteReader();
+				while (reader.Read())
+				{
+					int fltlegId = reader.IsDBNull(0) ? 0 : Convert.ToInt32(reader.GetValue(0));
+					result[fltlegId] = reader.IsDBNull(1) ? "" : reader.GetString(1);
+				}
+				conn.Close();
+			}
+			catch { }
+			return result;
+		}
+
+		// NotamKey -> list of manually-forced FltlegIDs, for BuildConflictReportHtml.
+		private Dictionary<string, List<int>> LoadManualConflictsByNotamKey()
+		{
+			Dictionary<string, List<int>> result = new Dictionary<string, List<int>>();
+			EnsureManualConflictsTable();
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+				conn.Open();
+				OleDbDataReader reader = new OleDbCommand("SELECT FltlegID, NotamKey FROM ManualConflicts", conn).ExecuteReader();
+				while (reader.Read())
+				{
+					int fltlegId = reader.IsDBNull(0) ? 0 : Convert.ToInt32(reader.GetValue(0));
+					string notamKey = reader.IsDBNull(1) ? "" : reader.GetString(1);
+					if (notamKey == "") continue;
+					List<int> list;
+					if (!result.TryGetValue(notamKey, out list)) result[notamKey] = list = new List<int>();
+					list.Add(fltlegId);
+				}
+				conn.Close();
+			}
+			catch { }
+			return result;
 		}
 
 		// Builds the full Conflict-report HTML document — used both to populate the Conflict
@@ -54,6 +246,14 @@ namespace ICAO_CSV
 
 			EnsureArchiveConfig();
 			List<FsFlight> flights = LoadFsFlights();
+			Dictionary<int, FsFlight> flightsById = new Dictionary<int, FsFlight>();
+			foreach (FsFlight f in flights) flightsById[f.FltlegID] = f;
+			HashSet<string> dismissed = LoadDismissedConflicts();
+			Dictionary<string, List<int>> manualByNotamKey = LoadManualConflictsByNotamKey();
+			// Live tab only (rasterDiagrams=false) gets interactive dismiss/remove checkboxes on
+			// each flight chip — the email/PDF render (rasterDiagrams=true) has no JS bridge and
+			// stays plain text, same convention rasterDiagrams already uses everywhere else.
+			bool interactive = !rasterDiagrams;
 
 			// The whole tab is capped to the next 7 days — a NOTAM/flight pairing further
 			// out than that isn't shown, regardless of how far ahead FlightSchedule itself
@@ -108,7 +308,7 @@ namespace ICAO_CSV
 				DateTime notamStart, notamEnd;
 				if (!TryParseNotamDate(startRaw, out notamStart) || !TryParseNotamDate(endRaw, out notamEnd)) continue;
 
-				List<string> matches = new List<string>();
+				List<ConflictMatch> matches = new List<ConflictMatch>();
 				bool altnConflict = false;
 				if (impact == "D")
 				{
@@ -126,21 +326,21 @@ namespace ICAO_CSV
 					foreach (FsFlight f in flights)
 					{
 						if (!f.HasStd) continue;
-						if (f.Alt1 == location && f.FlightTimeMin > 0 && f.Alt1TimeMin > 0)
+						if (f.Alt1 == location && f.FlightTimeMin > 0 && f.Alt1TimeMin > 0 && !dismissed.Contains(key + "|" + f.FltlegID))
 						{
 							DateTime altArrival = f.Std.AddMinutes(f.FlightTimeMin + f.Alt1TimeMin);
 							if (altArrival <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, altArrival, _altnConflictWindowHours))
 							{
-								matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 1 — est. diversion arrival " + FormatUtc(altArrival) + "Z");
+								matches.Add(new ConflictMatch { FltlegId = f.FltlegID, Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 1 — est. diversion arrival " + FormatUtc(altArrival) + "Z" });
 								altnConflict = true;
 							}
 						}
-						if (f.Alt2 == location && f.FlightTimeMin > 0 && f.Alt2TimeMin > 0)
+						if (f.Alt2 == location && f.FlightTimeMin > 0 && f.Alt2TimeMin > 0 && !dismissed.Contains(key + "|" + f.FltlegID))
 						{
 							DateTime altArrival = f.Std.AddMinutes(f.FlightTimeMin + f.Alt2TimeMin);
 							if (altArrival <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, altArrival, _altnConflictWindowHours))
 							{
-								matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 2 — est. diversion arrival " + FormatUtc(altArrival) + "Z");
+								matches.Add(new ConflictMatch { FltlegId = f.FltlegID, Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 2 — est. diversion arrival " + FormatUtc(altArrival) + "Z" });
 								altnConflict = true;
 							}
 						}
@@ -152,20 +352,43 @@ namespace ICAO_CSV
 					// CSV's DEP/ARR columns) while the NOTAM's location is ICAO — comparing
 					// them directly never matched. Convert the NOTAM's station to IATA here.
 					string iata = GetIATA(location);
-					if (iata == "") continue;   // station not in Stations_ICAO_IATA — no IATA to match flights against
-
-					foreach (FsFlight f in flights)
+					if (iata != "")
 					{
-						if (f.Origin == iata && f.HasStd && f.Std <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, f.Std))
-							matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — origin — STD " + FormatUtc(f.Std) + "Z");
-						if (f.Dest == iata && f.HasSta && f.Sta <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, f.Sta))
-							matches.Add(f.Callsign + " " + f.Origin + "-" + f.Dest + " — destination — STA " + FormatUtc(f.Sta) + "Z");
+						foreach (FsFlight f in flights)
+						{
+							if (dismissed.Contains(key + "|" + f.FltlegID)) continue;
+							if (f.Origin == iata && f.HasStd && f.Std <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, f.Std))
+								matches.Add(new ConflictMatch { FltlegId = f.FltlegID, Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — origin — STD " + FormatUtc(f.Std) + "Z" });
+							if (f.Dest == iata && f.HasSta && f.Sta <= windowEnd && OverlapsSchedule(notamStart, notamEnd, all, f.Sta))
+								matches.Add(new ConflictMatch { FltlegId = f.FltlegID, Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — destination — STA " + FormatUtc(f.Sta) + "Z" });
+						}
 					}
-					if (matches.Count == 0) continue;   // no conflict — nothing to show for this NOTAM
+					// station not in Stations_ICAO_IATA (iata=="") just means no automatic
+					// match is possible — a manually-forced one can still apply below.
 				}
 
-				string cardHtml = BuildConflictCardHtml(location, key, all, remark, matches, rasterDiagrams, cidImages, inlineImages, altnConflict);
-				if (altnConflict) cardsByImpact[impact].Insert(0, cardHtml);
+				// Manually-forced flights (Flight Schedule tab's "Force Conflict") always apply,
+				// regardless of impact code or whether the automatic matching found anything —
+				// this is how a dispatcher surfaces a false negative the algorithm can't express.
+				List<int> manualIds;
+				bool hasManualMatch = false;
+				if (manualByNotamKey.TryGetValue(key, out manualIds))
+				{
+					foreach (int fltlegId in manualIds)
+					{
+						FsFlight f;
+						if (!flightsById.TryGetValue(fltlegId, out f)) continue;   // flight no longer in FlightSchedule (past/dropped)
+						matches.Add(new ConflictMatch { FltlegId = fltlegId, Manual = true,
+							Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — forced by dispatcher" });
+						hasManualMatch = true;
+					}
+				}
+
+				bool highlight = altnConflict || hasManualMatch;
+				if (impact != "D" && matches.Count == 0) continue;   // no automatic or manual conflict — nothing to show for this NOTAM
+
+				string cardHtml = BuildConflictCardHtml(location, key, all, remark, matches, rasterDiagrams, cidImages, inlineImages, highlight, interactive);
+				if (highlight) cardsByImpact[impact].Insert(0, cardHtml);
 				else cardsByImpact[impact].Add(cardHtml);
 			}
 			conn.Close();
@@ -212,6 +435,7 @@ namespace ICAO_CSV
 				".diagram{position:absolute;top:10px;right:60px}" +
 				".body{padding:12px 18px}" +
 				".flightChip{display:inline-block;background:#fbe9e7;color:#4e342e;font-size:12px;padding:5px 10px;border-radius:6px;margin:0 8px 8px 0}" +
+				".flightChipManual{background:#ff8f00;color:#fff;font-weight:bold}" +
 				".remark{font-size:12px;color:#455a64;margin:0 0 8px 0}" +
 				".notamkey{font-size:12px;color:#607d8b;font-weight:bold;margin:0 0 4px 0}" +
 				".notamtext{background:#f5f5f5;border-radius:6px;padding:10px 12px;font-family:'Courier New',monospace;font-size:12.5px;white-space:pre-wrap;line-height:1.6}" +
@@ -244,24 +468,49 @@ namespace ICAO_CSV
 			return -1;
 		}
 
+		// Kind distinguishes the three recurring-schedule shapes a D)-item can use — a plain
+		// day-of-week list (Weekly), a day-of-month/month+day(-range) list (MonthDay, e.g.
+		// "11 2330-0245, 13 0001-0245" or "AUG 11-13 0530-1600"), or DAILY.
+		private const int ScheduleKindWeekly = 0;
+		private const int ScheduleKindMonthDay = 1;
+		private const int ScheduleKindDaily = 2;
+
 		private struct ScheduleEntry
 		{
-			public bool Daily;
-			public HashSet<DayOfWeek> Days;
-			public int StartMin, EndMin;   // minutes since local midnight, from HHMM
+			public int Kind;
+			public HashSet<DayOfWeek> Days;   // Kind=Weekly
+			public int Month;                 // Kind=MonthDay, 0 = unspecified/any month
+			public int Day1, Day2;            // Kind=MonthDay, inclusive day-of-month range
+			public int StartMin, EndMin;      // minutes since local midnight, from HHMM
+		}
+
+		private static readonly string[] _monthTokens = { "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
+
+		private static int MonthTokenIndex(string token)
+		{
+			for (int i = 0; i < _monthTokens.Length; i++) if (_monthTokens[i] == token.ToUpper()) return i;
+			return -1;
 		}
 
 		private static readonly Regex _dayItemRe = new Regex(
 			@"\b(MON|TUE|WED|THU|FRI|SAT|SUN)\b(?:\s*-\s*\b(MON|TUE|WED|THU|FRI|SAT|SUN)\b)?\s+(\d{4})\s*-\s*(\d{4})",
 			RegexOptions.IgnoreCase);
 		private static readonly Regex _dailyRe = new Regex(@"\bDAILY\b\s+(\d{4})\s*-\s*(\d{4})", RegexOptions.IgnoreCase);
+		// Day-of-month, optionally prefixed by a month abbreviation, optionally a same-month
+		// day range (e.g. "11 2330-0245", "AUG 10 1100-1600", "AUG 11-13 0530-1600"). Can't
+		// collide with _dayItemRe: that one requires a MON/TUE/... token where this one
+		// requires a digit at the same position.
+		private static readonly Regex _monthDayItemRe = new Regex(
+			@"\b(?:(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+)?(\d{1,2})(?:\s*-\s*(\d{1,2}))?\s+(\d{4})\s*-\s*(\d{4})\b",
+			RegexOptions.IgnoreCase);
 
 		// Extracts recurring D)-item closure schedules ("DAILY 2230-0330", "MON 0500-2359,
-		// TUE 0000-0100", "MON-FRI 0600-1800", ...) out of the NOTAM's raw free text, and
-		// expands them into concrete UTC occurrence intervals across [notamStart, notamEnd].
-		// Returns null when nothing recognizable is found — the caller then falls back to
-		// treating the whole validity window as active (today's behavior), so an exotic or
-		// unparseable schedule never silently hides a real conflict.
+		// TUE 0000-0100", "MON-FRI 0600-1800", "11 2330-0245, 13 0001-0245", "AUG 11-13
+		// 0530-1600", ...) out of the NOTAM's raw free text, and expands them into concrete
+		// UTC occurrence intervals across [notamStart, notamEnd]. Returns null when nothing
+		// recognizable is found — the caller then falls back to treating the whole validity
+		// window as active (today's behavior), so an exotic or unparseable schedule never
+		// silently hides a real conflict.
 		private static List<Tuple<DateTime, DateTime>> ParseNotamActiveWindows(string text, DateTime notamStart, DateTime notamEnd)
 		{
 			text = text ?? "";
@@ -280,17 +529,40 @@ namespace ICAO_CSV
 
 					HashSet<DayOfWeek> days = new HashSet<DayOfWeek>();
 					for (int i = fromIdx; i <= toIdx; i++) days.Add(_dayOfWeekByToken[i]);
-					entries.Add(new ScheduleEntry { Daily = false, Days = days, StartMin = startMin, EndMin = endMin });
+					entries.Add(new ScheduleEntry { Kind = ScheduleKindWeekly, Days = days, StartMin = startMin, EndMin = endMin });
 				}
 			}
 			else
 			{
-				Match d = _dailyRe.Match(text);
-				if (d.Success)
+				MatchCollection monthDayMatches = _monthDayItemRe.Matches(text);
+				if (monthDayMatches.Count > 0)
 				{
-					int startMin, endMin;
-					if (TryHhmm(d.Groups[1].Value, out startMin) && TryHhmm(d.Groups[2].Value, out endMin))
-						entries.Add(new ScheduleEntry { Daily = true, Days = null, StartMin = startMin, EndMin = endMin });
+					foreach (Match m in monthDayMatches)
+					{
+						string monthTok = m.Groups[1].Value;
+						int month = monthTok == "" ? 0 : MonthTokenIndex(monthTok) + 1;
+						if (monthTok != "" && month <= 0) continue;   // shouldn't happen given the regex, but stay safe
+
+						int day1, day2;
+						if (!int.TryParse(m.Groups[2].Value, out day1)) continue;
+						day2 = m.Groups[3].Success ? int.Parse(m.Groups[3].Value) : day1;
+						if (day1 < 1 || day1 > 31 || day2 < day1) continue;   // wraparound day ranges unsupported — skip this entry
+
+						int startMin, endMin;
+						if (!TryHhmm(m.Groups[4].Value, out startMin) || !TryHhmm(m.Groups[5].Value, out endMin)) continue;
+
+						entries.Add(new ScheduleEntry { Kind = ScheduleKindMonthDay, Month = month, Day1 = day1, Day2 = day2, StartMin = startMin, EndMin = endMin });
+					}
+				}
+				else
+				{
+					Match d = _dailyRe.Match(text);
+					if (d.Success)
+					{
+						int startMin, endMin;
+						if (TryHhmm(d.Groups[1].Value, out startMin) && TryHhmm(d.Groups[2].Value, out endMin))
+							entries.Add(new ScheduleEntry { Kind = ScheduleKindDaily, StartMin = startMin, EndMin = endMin });
+					}
 				}
 			}
 
@@ -301,7 +573,7 @@ namespace ICAO_CSV
 			{
 				foreach (ScheduleEntry entry in entries)
 				{
-					if (!entry.Daily && !entry.Days.Contains(d.DayOfWeek)) continue;
+					if (!EntryMatchesDate(entry, d)) continue;
 
 					DateTime occStart = d.AddMinutes(entry.StartMin);
 					DateTime occEnd = entry.EndMin > entry.StartMin ? d.AddMinutes(entry.EndMin) : d.AddDays(1).AddMinutes(entry.EndMin);
@@ -312,6 +584,16 @@ namespace ICAO_CSV
 				}
 			}
 			return occurrences;
+		}
+
+		private static bool EntryMatchesDate(ScheduleEntry entry, DateTime d)
+		{
+			switch (entry.Kind)
+			{
+				case ScheduleKindWeekly: return entry.Days.Contains(d.DayOfWeek);
+				case ScheduleKindMonthDay: return (entry.Month == 0 || d.Month == entry.Month) && d.Day >= entry.Day1 && d.Day <= entry.Day2;
+				default: return true;   // ScheduleKindDaily
+			}
 		}
 
 		private static bool TryHhmm(string hhmm, out int minutesSinceMidnight)
@@ -373,23 +655,24 @@ namespace ICAO_CSV
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
 			OleDbDataReader reader = new OleDbCommand(
-				"SELECT Callsign, Reg, Origin, Dest, STD, STA, Alt1, Alt2, FlightTimeMin, Alt1TimeMin, Alt2TimeMin FROM FlightSchedule", conn).ExecuteReader();
+				"SELECT FltlegID, Callsign, Reg, Origin, Dest, STD, STA, Alt1, Alt2, FlightTimeMin, Alt1TimeMin, Alt2TimeMin FROM FlightSchedule", conn).ExecuteReader();
 			while (reader.Read())
 			{
 				FsFlight f = new FsFlight();
-				f.Callsign = reader.IsDBNull(0) ? "" : reader.GetString(0);
-				f.Reg      = reader.IsDBNull(1) ? "" : reader.GetString(1);
-				f.Origin   = reader.IsDBNull(2) ? "" : reader.GetString(2);
-				f.Dest     = reader.IsDBNull(3) ? "" : reader.GetString(3);
-				string stdRaw = reader.IsDBNull(4) ? "" : reader.GetString(4);
-				string staRaw = reader.IsDBNull(5) ? "" : reader.GetString(5);
+				f.FltlegID = reader.IsDBNull(0) ? 0 : Convert.ToInt32(reader.GetValue(0));
+				f.Callsign = reader.IsDBNull(1) ? "" : reader.GetString(1);
+				f.Reg      = reader.IsDBNull(2) ? "" : reader.GetString(2);
+				f.Origin   = reader.IsDBNull(3) ? "" : reader.GetString(3);
+				f.Dest     = reader.IsDBNull(4) ? "" : reader.GetString(4);
+				string stdRaw = reader.IsDBNull(5) ? "" : reader.GetString(5);
+				string staRaw = reader.IsDBNull(6) ? "" : reader.GetString(6);
 				f.HasStd = DateTime.TryParse(stdRaw, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out f.Std);
 				f.HasSta = DateTime.TryParse(staRaw, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out f.Sta);
-				f.Alt1 = reader.IsDBNull(6) ? "" : reader.GetString(6);
-				f.Alt2 = reader.IsDBNull(7) ? "" : reader.GetString(7);
-				f.FlightTimeMin = reader.IsDBNull(8) ? 0 : Convert.ToInt32(reader.GetValue(8));
-				f.Alt1TimeMin   = reader.IsDBNull(9) ? 0 : Convert.ToInt32(reader.GetValue(9));
-				f.Alt2TimeMin   = reader.IsDBNull(10) ? 0 : Convert.ToInt32(reader.GetValue(10));
+				f.Alt1 = reader.IsDBNull(7) ? "" : reader.GetString(7);
+				f.Alt2 = reader.IsDBNull(8) ? "" : reader.GetString(8);
+				f.FlightTimeMin = reader.IsDBNull(9)  ? 0 : Convert.ToInt32(reader.GetValue(9));
+				f.Alt1TimeMin   = reader.IsDBNull(10) ? 0 : Convert.ToInt32(reader.GetValue(10));
+				f.Alt2TimeMin   = reader.IsDBNull(11) ? 0 : Convert.ToInt32(reader.GetValue(11));
 				list.Add(f);
 			}
 			conn.Close();
@@ -401,11 +684,23 @@ namespace ICAO_CSV
 		// BuildAirportCardHtml (which returns a whole standalone document sized for the
 		// Filter tab's WebBrowser) since this fragment gets concatenated into one big
 		// Conflict report page instead of living in its own WebBrowser control.
-		private string BuildConflictCardHtml(string AP, string key, string notamText, string remark, List<string> matches,
-			bool rasterDiagram, bool cidImages, Dictionary<string, string> inlineImages, bool highlight)
+		private string BuildConflictCardHtml(string AP, string key, string notamText, string remark, List<ConflictMatch> matches,
+			bool rasterDiagram, bool cidImages, Dictionary<string, string> inlineImages, bool highlight, bool interactive)
 		{
 			string flightChips = "";
-			foreach (string m in matches) flightChips += "<span class=\"flightChip" + (highlight ? " flightChipAlert" : "") + "\">" + m + "</span>";
+			foreach (ConflictMatch m in matches)
+			{
+				string chipClass = "flightChip" + (m.Manual ? " flightChipManual" : (highlight ? " flightChipAlert" : ""));
+				string checkbox = "";
+				if (interactive)
+				{
+					string jsCall = m.Manual
+						? "window.external.RemoveManualConflict(" + m.FltlegId + ",'" + key + "')"
+						: "window.external.DismissMatch('" + key + "'," + m.FltlegId + ")";
+					checkbox = "<input type=\"checkbox\" checked=\"checked\" onclick=\"" + jsCall + "\"> ";
+				}
+				flightChips += "<span class=\"" + chipClass + "\">" + checkbox + m.Text + "</span>";
+			}
 
 			string remarkLine = remark != "" ? "<div class=\"remark\">&#9654; " + remark.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
 			string keyLine = key != "" ? "<div class=\"notamkey\">" + key.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" : "";
