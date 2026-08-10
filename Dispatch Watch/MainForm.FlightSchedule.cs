@@ -1026,9 +1026,14 @@ namespace ICAO_CSV
 			DateTime nowUtc = DateTime.UtcNow;
 			DateTime windowEnd = nowUtc.AddDays(7);
 
+			// Same conflict set the live grid highlights with (MainForm.Conflict.cs) — a flight
+			// with an active automatic or manually-forced match is flagged the same way here so
+			// the exported PDF/email version carries the same information as the tab.
+			HashSet<int> conflictedIds = GetConflictedFltlegIds();
+
 			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 			conn.Open();
-			OleDbDataReader reader = new OleDbCommand("SELECT FLDt, Callsign, Reg, STD, STA, Crew, Origin, Dest FROM FlightSchedule ORDER BY STD", conn).ExecuteReader();
+			OleDbDataReader reader = new OleDbCommand("SELECT FltlegID, FLDt, Callsign, Reg, STD, STA, Crew, Origin, Dest FROM FlightSchedule ORDER BY STD", conn).ExecuteReader();
 
 			// Grouped by calendar date (UTC) in the order flights are encountered — the query
 			// is already ORDER BY STD, so dates come out in ascending order naturally.
@@ -1037,13 +1042,14 @@ namespace ICAO_CSV
 
 			while (reader.Read())
 			{
-				string callsign = reader.IsDBNull(1) ? "" : reader.GetString(1);
-				string reg      = reader.IsDBNull(2) ? "" : reader.GetString(2);
-				string stdRaw   = reader.IsDBNull(3) ? "" : reader.GetString(3);
-				string staRaw   = reader.IsDBNull(4) ? "" : reader.GetString(4);
-				string crew     = reader.IsDBNull(5) ? "" : reader.GetString(5);
-				string origin   = reader.IsDBNull(6) ? "" : reader.GetString(6);
-				string dest     = reader.IsDBNull(7) ? "" : reader.GetString(7);
+				int    fltlegId = reader.IsDBNull(0) ? 0 : Convert.ToInt32(reader.GetValue(0));
+				string callsign = reader.IsDBNull(2) ? "" : reader.GetString(2);
+				string reg      = reader.IsDBNull(3) ? "" : reader.GetString(3);
+				string stdRaw   = reader.IsDBNull(4) ? "" : reader.GetString(4);
+				string staRaw   = reader.IsDBNull(5) ? "" : reader.GetString(5);
+				string crew     = reader.IsDBNull(6) ? "" : reader.GetString(6);
+				string origin   = reader.IsDBNull(7) ? "" : reader.GetString(7);
+				string dest     = reader.IsDBNull(8) ? "" : reader.GetString(8);
 
 				DateTime std;
 				if (!DateTime.TryParse(stdRaw, CultureInfo.InvariantCulture,
@@ -1063,7 +1069,8 @@ namespace ICAO_CSV
 					dateOrder.Add(dateKey);
 				}
 
-				rows.Append("<tr>" +
+				string trStyle = conflictedIds.Contains(fltlegId) ? " style=\"background:#ffcdd2\"" : "";
+				rows.Append("<tr" + trStyle + ">" +
 					"<td>" + callsign.Replace("&", "&amp;") + "</td>" +
 					"<td>" + origin + "</td>" +
 					"<td>" + dest + "</td>" +
