@@ -608,14 +608,18 @@ namespace ICAO_CSV
 				// IE7 quirk with VML nested in table cells. The one piece that's still a <table>
 				// (.rHeadTable, ICAO/IATA/name vs ref/period) contains only text, no VML, so it
 				// isn't affected by that second issue.
-				".notamRow{position:relative;min-height:76px;padding:8px 10px 8px 116px;border:1px solid #e0e4e7;border-radius:6px;margin:0 0 8px 0;font-size:12.5px;background:#fafbfb}" +
+				".notamRow{position:relative;min-height:84px;padding:8px 10px 8px 128px;border:1px solid #e0e4e7;border-radius:6px;margin:0 0 8px 0;font-size:12.5px;background:#fafbfb}" +
 				".notamRow.h24{background:#fff8dc;border-color:#f2d675}" +
-				".rDiagram{position:absolute;top:8px;left:10px;width:96px;height:72px;text-align:center}" +
+				".rDiagram{position:absolute;top:8px;left:10px;width:108px;height:80px;text-align:center}" +
 				".rHeadTable{width:100%}" +
 				".rApt{font-weight:bold;color:#37474f;text-align:left}" +
 				".rApt .iata{font-weight:normal;color:#78909c;margin-left:6px}" +
 				".rApt .name{font-weight:normal;color:#90a4ae;margin-left:6px;font-style:italic}" +
-				".rKeyPeriod{color:#607d8b;font-size:11.5px;white-space:nowrap;text-align:right}" +
+				// text-align:left (not right) and no white-space:nowrap — nowrap forced this
+				// cell's content to whatever width the key+period text needed regardless of the
+				// page's actual width, pushing the whole table (and the page) wider than the
+				// WebBrowser control's viewport and forcing a horizontal scrollbar.
+				".rKeyPeriod{color:#607d8b;font-size:11.5px;text-align:left;padding-left:14px}" +
 				".rKeyPeriod .k{font-weight:600}" +
 				".rKeyPeriod .p{color:#90a4ae;font-family:'Courier New',monospace;margin-left:8px}" +
 				".rText{color:#455a64;padding-top:4px}" +
@@ -1109,11 +1113,11 @@ namespace ICAO_CSV
 		}
 
 		// Raster mini twins of BuildRwyImage/BuildRwyImageGeo (MainForm.NotamFilter.cs) — same
-		// geometry, white background instead of the full card's dark ".ahead" background, a
-		// single solid black line per runway instead of the thick+dashed pair, black QFU labels.
+		// geometry, transparent background instead of the full card's dark ".ahead" background,
+		// a single solid black line per runway instead of the thick+dashed pair, black QFU labels.
 		private static byte[] BuildRwyImageMini(List<string> rwyClean)
 		{
-			int W = 96, H = 72, cx = 48, cy = 36, maxHalf = 30;
+			int W = 108, H = 80, cx = 54, cy = 40, maxHalf = 26;
 
 			List<int> headings = new List<int>();
 			List<double> lengths = new List<double>();
@@ -1136,7 +1140,7 @@ namespace ICAO_CSV
 
 			List<double[]> segs = new List<double[]>();
 			List<object[]> ends = new List<object[]>();
-			double spacing = 11;
+			double spacing = 15;
 			for (int i = 0; i < headings.Count; i++)
 			{
 				double half = maxHalf * (lengths[i] > 0 ? lengths[i] / maxLen : 1.0);
@@ -1164,7 +1168,7 @@ namespace ICAO_CSV
 
 		private static byte[] BuildRwyImageGeoMini(List<RwyGeo> rs)
 		{
-			int W = 96, H = 72, pad = 12;
+			int W = 108, H = 80, pad = 14;
 			int n = rs.Count;
 			double lat0 = 0, lon0 = 0; int cnt = 0;
 			for (int i = 0; i < n; i++) if (HasCoords(rs[i])) { lat0 += rs[i].Lat; lon0 += rs[i].Lon; cnt++; }
@@ -1222,17 +1226,18 @@ namespace ICAO_CSV
 			return RenderRwyDiagramPngMini(W, H, segs, ends);
 		}
 
-		// Shared bitmap renderer for the mini diagrams — white background (these rows sit on
-		// the report's white body, unlike the full card's dark ".ahead" block), solid black
-		// line(s), black QFU labels only (no dist/CAT text).
+		// Shared bitmap renderer for the mini diagrams — transparent background (these rows
+		// alternate between plain and yellow-tinted (.h24) backgrounds, so a fixed fill color
+		// would mismatch one of them; PNG supports alpha, so transparent blends into either),
+		// solid black line(s), black QFU labels only (no dist/CAT text).
 		private static byte[] RenderRwyDiagramPngMini(int W, int H, List<double[]> segs, List<object[]> ends)
 		{
-			using (Bitmap bmp = new Bitmap(W, H))
+			using (Bitmap bmp = new Bitmap(W, H, PixelFormat.Format32bppArgb))
 			using (Graphics g = Graphics.FromImage(bmp))
 			{
 				g.SmoothingMode = SmoothingMode.AntiAlias;
 				g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
-				g.Clear(Color.White);
+				g.Clear(Color.Transparent);
 
 				using (Pen pen = new Pen(Color.Black, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
 					foreach (double[] s in segs) g.DrawLine(pen, (float)s[0], (float)s[1], (float)s[2], (float)s[3]);
@@ -1285,7 +1290,7 @@ namespace ICAO_CSV
 			}
 
 			string src = cidImages ? "cid:" + cid : new Uri(tempPath).AbsoluteUri;
-			return "<img width=\"96\" height=\"72\" src=\"" + src + "\">";
+			return "<img width=\"108\" height=\"80\" src=\"" + src + "\">";
 		}
 	}
 }
