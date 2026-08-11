@@ -597,21 +597,20 @@ namespace ICAO_CSV
 				// Compact informational row for a Not-ALTN NOTAM with no real diversion match —
 				// diagram + ICAO/IATA/name + ref/period on one line, full text below. No flight
 				// chips/checkbox/dist-CAT blocks, since these aren't tied to any specific flight.
-				// Table-based, not display:flex — the IE7-mode WebBrowser control doesn't support
-				// flexbox at all (same reason BuildAirportHeaderHtml's raster path uses a <table>
-				// two-column layout instead of position:absolute); flex here silently collapsed
-				// into a stacked, unaligned mess instead of a diagram-left/text-right row.
-				".notamRow{width:100%;border:1px solid #e0e4e7;border-radius:6px;margin:0 0 8px 0;font-size:12.5px;background:#fafbfb;border-collapse:collapse}" +
+				//
+				// Plain position:relative/absolute divs, NOT a <table> — matching exactly how
+				// every other diagram in this report is placed (.ahead/.diagram: a position:
+				// relative div holding a position:absolute one). Two other layouts were tried and
+				// both broke: display:flex doesn't exist in the IE7-mode WebBrowser control at
+				// all, and putting the VML-producing div inside a <table> <td> let the VML lines'
+				// position:absolute escape their intended local containing block and drift toward
+				// the airport-name text instead of staying inside their own small box — a known
+				// IE7 quirk with VML nested in table cells. The one piece that's still a <table>
+				// (.rHeadTable, ICAO/IATA/name vs ref/period) contains only text, no VML, so it
+				// isn't affected by that second issue.
+				".notamRow{position:relative;min-height:76px;padding:8px 10px 8px 116px;border:1px solid #e0e4e7;border-radius:6px;margin:0 0 8px 0;font-size:12.5px;background:#fafbfb}" +
 				".notamRow.h24{background:#fff8dc;border-color:#f2d675}" +
-				".notamRow td{padding:8px 10px}" +
-				// position:relative on the <td> itself, not just the VML div inside it — a known
-			// IE7-mode quirk is that position:absolute VML shapes nested inside a table cell can
-			// escape their intended local containing block and position themselves relative to a
-			// much larger ancestor instead, which is exactly what made the mini diagram's lines/
-			// labels drift toward the airport-name text instead of staying inside their own small
-			// box. Explicitly giving the cell its own positioning context keeps the VML contained.
-			".rDiagram{width:96px;text-align:center;vertical-align:middle;position:relative}" +
-				".rMain{vertical-align:top}" +
+				".rDiagram{position:absolute;top:8px;left:10px;width:96px;height:72px;text-align:center}" +
 				".rHeadTable{width:100%}" +
 				".rApt{font-weight:bold;color:#37474f;text-align:left}" +
 				".rApt .iata{font-weight:normal;color:#78909c;margin-left:6px}" +
@@ -1057,21 +1056,20 @@ namespace ICAO_CSV
 			string nameSpan = name != "" ? "<span class=\"name\">" + name.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" : "";
 			string flagSpan = activeNext24h ? "<span class=\"rFlag\">ACTIVE &lt;24H</span>" : "";
 
-			// Table-based layout (diagram cell + main cell, and a nested table for the
-			// airport-name/ref-period header line) — see the .notamRow CSS comment: the
-			// IE7-mode WebBrowser control doesn't support display:flex.
+			// Diagram: position:absolute div, matching .ahead/.diagram exactly (see the
+			// .notamRow CSS comment) — the VML it contains must not be nested inside a <table>
+			// cell. Header line (airport name vs ref/period) stays a <table> since it's plain
+			// text with no VML in it.
 			return
-				"<table class=\"notamRow" + (activeNext24h ? " h24" : "") + "\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
-				"<td class=\"rDiagram\">" + diagram + "</td>" +
-				"<td class=\"rMain\">" +
+				"<div class=\"notamRow" + (activeNext24h ? " h24" : "") + "\">" +
+				"<div class=\"rDiagram\">" + diagram + "</div>" +
 				"<table class=\"rHeadTable\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
 				"<td class=\"rApt\">" + AP + iataSpan + nameSpan + "</td>" +
 				"<td class=\"rKeyPeriod\"><span class=\"k\">" + key.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" +
 				"<span class=\"p\">" + period.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" + flagSpan + "</td>" +
 				"</tr></table>" +
 				"<div class=\"rText\">" + StripLeadingNoMarker(notamText).Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" +
-				"</td>" +
-				"</tr></table>";
+				"</div>";
 		}
 
 		// Loads the same RWY memo/geo data BuildAirportHeaderHtml does (small, deliberate
