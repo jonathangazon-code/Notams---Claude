@@ -465,7 +465,12 @@ namespace ICAO_CSV
 
 				string location = reader.IsDBNull(ordLocation) ? "" : reader.GetString(ordLocation);
 				string key      = reader.IsDBNull(ordKey) ? "" : reader.GetString(ordKey);
-				string all      = reader.IsDBNull(ordAll) ? "" : reader.GetString(ordAll);
+				// GetXML/Split (MainForm.NotamData.cs) stores apostrophes/quotes in "all" as the
+				// literal strings "(char)39"/"(char)34" (a legacy escaping workaround) — every
+				// other renderer (MainForm.NotamFilter.cs) un-replaces them back before display;
+				// this tab never did, so a NOTAM with an apostrophe (e.g. "AIRLINES REFUELLED BY
+				// 'SASCA'") showed the literal "(char)39" text instead of a quote mark.
+				string all = reader.IsDBNull(ordAll) ? "" : reader.GetString(ordAll).Replace("(char)39", "'").Replace("(char)34", "\"");
 				string startRaw = reader.IsDBNull(ordStartdate) ? "" : reader.GetString(ordStartdate);
 				string endRaw   = reader.IsDBNull(ordEnddate) ? "" : reader.GetString(ordEnddate);
 				string remark   = reader.IsDBNull(ordRemark) ? "" : reader.GetString(ordRemark);
