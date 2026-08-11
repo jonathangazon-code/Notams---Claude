@@ -604,7 +604,7 @@ namespace ICAO_CSV
 				".notamRow{width:100%;border:1px solid #e0e4e7;border-radius:6px;margin:0 0 8px 0;font-size:12.5px;background:#fafbfb;border-collapse:collapse}" +
 				".notamRow.h24{background:#fff8dc;border-color:#f2d675}" +
 				".notamRow td{padding:8px 10px}" +
-				".rDiagram{width:66px;text-align:center;vertical-align:middle}" +
+				".rDiagram{width:96px;text-align:center;vertical-align:middle}" +
 				".rMain{vertical-align:top}" +
 				".rHeadTable{width:100%}" +
 				".rApt{font-weight:bold;color:#37474f;text-align:left}" +
@@ -1102,7 +1102,7 @@ namespace ICAO_CSV
 		// instead of the full card's light-on-dark thick+dashed line, with no dist/CAT text.
 		private static string BuildRwySvgMini(List<string> rwyClean)
 		{
-			int W = 66, H = 50, cx = 33, cy = 25, maxHalf = 20;
+			int W = 96, H = 72, cx = 48, cy = 36, maxHalf = 30;
 
 			List<int> headings = new List<int>();
 			List<double> lengths = new List<double>();
@@ -1125,11 +1125,11 @@ namespace ICAO_CSV
 
 			StringBuilder shapes = new StringBuilder();
 			StringBuilder labels = new StringBuilder();
-			double spacing = 6;
+			double spacing = 11;
 			for (int i = 0; i < headings.Count; i++)
 			{
 				double half = maxHalf * (lengths[i] > 0 ? lengths[i] / maxLen : 1.0);
-				if (half < 8) half = 8;
+				if (half < 10) half = 10;
 				double rad = headings[i] * Math.PI / 180.0;
 				double dx = Math.Sin(rad) * half;
 				double dy = -Math.Cos(rad) * half;
@@ -1145,8 +1145,8 @@ namespace ICAO_CSV
 
 				shapes.Append("<v:line style=\"position:absolute\" from=\"" + F(x1) + "," + F(y1) +
 					"\" to=\"" + F(x2) + "," + F(y2) + "\" strokecolor=\"#222222\" strokeweight=\"2px\"><v:stroke endcap=\"round\"/></v:line>");
-				labels.Append(RwyLabelMini(end1[i], x1, y1, ocx, ocy));
-				if (end2[i] != "") labels.Append(RwyLabelMini(end2[i], x2, y2, ocx, ocy));
+				labels.Append(RwyLabelMini(end1[i], x1, y1, ocx, ocy, W, H));
+				if (end2[i] != "") labels.Append(RwyLabelMini(end2[i], x2, y2, ocx, ocy, W, H));
 			}
 
 			return "<div style=\"position:relative;width:" + W + "px;height:" + H + "px\">" + shapes + labels + "</div>";
@@ -1156,7 +1156,7 @@ namespace ICAO_CSV
 		// smaller viewBox, solid black line(s) and QFU labels only.
 		private static string BuildRwySvgGeoMini(List<RwyGeo> rs)
 		{
-			int W = 66, H = 50, pad = 8;
+			int W = 96, H = 72, pad = 12;
 			int n = rs.Count;
 			double lat0 = 0, lon0 = 0; int cnt = 0;
 			for (int i = 0; i < n; i++) if (HasCoords(rs[i])) { lat0 += rs[i].Lat; lon0 += rs[i].Lon; cnt++; }
@@ -1209,17 +1209,24 @@ namespace ICAO_CSV
 			foreach (object[] e in ends)
 			{
 				double x = offX + ((double)e[1] - minX) * scale, y = offY + ((double)e[2] - minY) * scale;
-				labels.Append(RwyLabelMini((string)e[0], x, y, W / 2.0, H / 2.0));
+				labels.Append(RwyLabelMini((string)e[0], x, y, W / 2.0, H / 2.0, W, H));
 			}
 			return "<div style=\"position:relative;width:" + W + "px;height:" + H + "px\">" + shapes + labels + "</div>";
 		}
 
-		private static string RwyLabelMini(string text, double x, double y, double cx, double cy)
+		// Clamped to stay fully inside the [0,W]x[0,H] diagram box (a label nudged outward from
+		// a threshold near the edge could otherwise land partly outside the box — which, since
+		// the box sits in its own narrow table cell next to the airport name, bled visually into
+		// the neighboring text instead of just looking a little off-center).
+		private static string RwyLabelMini(string text, double x, double y, double cx, double cy, int W, int H)
 		{
+			const int labelW = 22, labelH = 13;
 			double ox = (x - cx) * 0.3, oy = (y - cy) * 0.3;
-			double lx = x + ox - 9, ly = y + oy - 6;
+			double lx = x + ox - labelW / 2.0, ly = y + oy - labelH / 2.0;
+			lx = Math.Max(0, Math.Min(W - labelW, lx));
+			ly = Math.Max(0, Math.Min(H - labelH, ly));
 			return "<div style=\"position:absolute;left:" + F(lx) + "px;top:" + F(ly) +
-				"px;width:18px;text-align:center;font-size:9px;font-weight:bold;color:#222;font-family:'Segoe UI',Arial\">" + text + "</div>";
+				"px;width:" + labelW + "px;text-align:center;font-size:9px;font-weight:bold;color:#222;font-family:'Segoe UI',Arial\">" + text + "</div>";
 		}
 
 		// Raster mini twins of BuildRwyImage/BuildRwyImageGeo (MainForm.NotamFilter.cs) — same
@@ -1227,7 +1234,7 @@ namespace ICAO_CSV
 		// single solid black line per runway instead of the thick+dashed pair, black QFU labels.
 		private static byte[] BuildRwyImageMini(List<string> rwyClean)
 		{
-			int W = 66, H = 50, cx = 33, cy = 25, maxHalf = 20;
+			int W = 96, H = 72, cx = 48, cy = 36, maxHalf = 30;
 
 			List<int> headings = new List<int>();
 			List<double> lengths = new List<double>();
@@ -1250,11 +1257,11 @@ namespace ICAO_CSV
 
 			List<double[]> segs = new List<double[]>();
 			List<object[]> ends = new List<object[]>();
-			double spacing = 6;
+			double spacing = 11;
 			for (int i = 0; i < headings.Count; i++)
 			{
 				double half = maxHalf * (lengths[i] > 0 ? lengths[i] / maxLen : 1.0);
-				if (half < 8) half = 8;
+				if (half < 10) half = 10;
 				double rad = headings[i] * Math.PI / 180.0;
 				double dx = Math.Sin(rad) * half;
 				double dy = -Math.Cos(rad) * half;
@@ -1278,7 +1285,7 @@ namespace ICAO_CSV
 
 		private static byte[] BuildRwyImageGeoMini(List<RwyGeo> rs)
 		{
-			int W = 66, H = 50, pad = 8;
+			int W = 96, H = 72, pad = 12;
 			int n = rs.Count;
 			double lat0 = 0, lon0 = 0; int cnt = 0;
 			for (int i = 0; i < n; i++) if (HasCoords(rs[i])) { lat0 += rs[i].Lat; lon0 += rs[i].Lon; cnt++; }
@@ -1355,12 +1362,18 @@ namespace ICAO_CSV
 				using (Brush brush = new SolidBrush(Color.Black))
 				using (StringFormat fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
 				{
+					// Clamped to stay inside the bitmap — same reasoning as RwyLabelMini's VML
+					// twin: an unclamped label near the edge could otherwise be cut off/spill
+					// outside the diagram.
+					const int halfLabelW = 11, halfLabelH = 7;
 					foreach (object[] e in ends)
 					{
 						string text = (string)e[0];
 						double x = (double)e[1], y = (double)e[2], refCx = (double)e[3], refCy = (double)e[4];
 						double ox = (x - refCx) * 0.3, oy = (y - refCy) * 0.3;
-						g.DrawString(text, font, brush, (float)(x + ox), (float)(y + oy), fmt);
+						double lx = Math.Max(halfLabelW, Math.Min(W - halfLabelW, x + ox));
+						double ly = Math.Max(halfLabelH, Math.Min(H - halfLabelH, y + oy));
+						g.DrawString(text, font, brush, (float)lx, (float)ly, fmt);
 					}
 				}
 
@@ -1394,7 +1407,7 @@ namespace ICAO_CSV
 			}
 
 			string src = cidImages ? "cid:" + cid : new Uri(tempPath).AbsoluteUri;
-			return "<img width=\"66\" height=\"50\" src=\"" + src + "\">";
+			return "<img width=\"96\" height=\"72\" src=\"" + src + "\">";
 		}
 	}
 }
