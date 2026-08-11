@@ -233,6 +233,8 @@ The NOTAM Filter/Station right-column cards are absolute-positioned (not docked/
 
 The embedded `WebBrowser` renders in legacy IE quirks mode: **inline SVG is not supported** — use **VML** instead (`xmlns:v="urn:schemas-microsoft-com:vml"` + `v\:*{behavior:url(#default#VML)}`). Prefer `<table>`/`float` over modern fl/grid layout; `inline-block` is unreliable.
 
+**Position:absolute VML nested inside a `<table>` cell can escape its local containing block** — every existing diagram (`BuildRwySvg`/`BuildRwySvgGeo`) sits inside a plain `<div>` (`.ahead`/`.diagram`), never a `<td>`. The Conflict tab's mini Not-ALTN-row diagram (`MainForm.Conflict.cs`, `.notamRow`) put the VML-producing div inside a `<td>` for the first time — the lines/QFU labels then drifted toward the neighboring cell's text instead of staying inside their own small box, since the VML shapes' `position:absolute` was resolving against a much larger ancestor than the intended local div. Fixed by giving the `<td>` itself an explicit `position:relative` (`.rDiagram`), which re-establishes it as the containing block. If VML content ever needs to live inside a table cell again, set `position:relative` on that cell.
+
 ### JavaScript ↔ C# Bridge (AIP SUP tab)
 
 `Web_Sup_report` uses `ObjectForScripting = new AviobookScriptBridge(this)` so HTML checkboxes can call `window.external.UpdateAviobook(id)` directly into C# without redrawing the UI. The JS function `updateCheckbox(id, isYes)` updates only the affected checkbox in place.

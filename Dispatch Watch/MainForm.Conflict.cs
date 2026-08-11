@@ -604,7 +604,13 @@ namespace ICAO_CSV
 				".notamRow{width:100%;border:1px solid #e0e4e7;border-radius:6px;margin:0 0 8px 0;font-size:12.5px;background:#fafbfb;border-collapse:collapse}" +
 				".notamRow.h24{background:#fff8dc;border-color:#f2d675}" +
 				".notamRow td{padding:8px 10px}" +
-				".rDiagram{width:96px;text-align:center;vertical-align:middle}" +
+				// position:relative on the <td> itself, not just the VML div inside it — a known
+			// IE7-mode quirk is that position:absolute VML shapes nested inside a table cell can
+			// escape their intended local containing block and position themselves relative to a
+			// much larger ancestor instead, which is exactly what made the mini diagram's lines/
+			// labels drift toward the airport-name text instead of staying inside their own small
+			// box. Explicitly giving the cell its own positioning context keeps the VML contained.
+			".rDiagram{width:96px;text-align:center;vertical-align:middle;position:relative}" +
 				".rMain{vertical-align:top}" +
 				".rHeadTable{width:100%}" +
 				".rApt{font-weight:bold;color:#37474f;text-align:left}" +
