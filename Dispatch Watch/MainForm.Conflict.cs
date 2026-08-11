@@ -592,18 +592,23 @@ namespace ICAO_CSV
 				// Compact informational row for a Not-ALTN NOTAM with no real diversion match —
 				// diagram + ICAO/IATA/name + ref/period on one line, full text below. No flight
 				// chips/checkbox/dist-CAT blocks, since these aren't tied to any specific flight.
-				".notamRow{display:flex;align-items:stretch;gap:12px;padding:8px 10px;border:1px solid #e0e4e7;border-radius:6px;margin:0 0 8px 0;font-size:12.5px;background:#fafbfb}" +
+				// Table-based, not display:flex — the IE7-mode WebBrowser control doesn't support
+				// flexbox at all (same reason BuildAirportHeaderHtml's raster path uses a <table>
+				// two-column layout instead of position:absolute); flex here silently collapsed
+				// into a stacked, unaligned mess instead of a diagram-left/text-right row.
+				".notamRow{width:100%;border:1px solid #e0e4e7;border-radius:6px;margin:0 0 8px 0;font-size:12.5px;background:#fafbfb;border-collapse:collapse}" +
 				".notamRow.h24{background:#fff8dc;border-color:#f2d675}" +
-				".rDiagram{flex:0 0 66px;display:flex;align-items:center;justify-content:center}" +
-				".rMain{flex:1;min-width:0}" +
-				".rHead{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 12px;margin-bottom:3px}" +
-				".rApt{font-weight:bold;color:#37474f}" +
+				".notamRow td{padding:8px 10px}" +
+				".rDiagram{width:66px;text-align:center;vertical-align:middle}" +
+				".rMain{vertical-align:top}" +
+				".rHeadTable{width:100%}" +
+				".rApt{font-weight:bold;color:#37474f;text-align:left}" +
 				".rApt .iata{font-weight:normal;color:#78909c;margin-left:6px}" +
 				".rApt .name{font-weight:normal;color:#90a4ae;margin-left:6px;font-style:italic}" +
-				".rKeyPeriod{color:#607d8b;font-size:11.5px;white-space:nowrap}" +
+				".rKeyPeriod{color:#607d8b;font-size:11.5px;white-space:nowrap;text-align:right}" +
 				".rKeyPeriod .k{font-weight:600}" +
 				".rKeyPeriod .p{color:#90a4ae;font-family:'Courier New',monospace;margin-left:8px}" +
-				".rText{color:#455a64}" +
+				".rText{color:#455a64;padding-top:4px}" +
 				".rFlag{font-size:10.5px;font-weight:bold;color:#8a6d00;background:#ffe9a8;padding:1px 6px;border-radius:8px;white-space:nowrap;margin-left:8px}" +
 				"</style></head><body>" + body + "</body></html>";
 
@@ -1041,19 +1046,21 @@ namespace ICAO_CSV
 			string nameSpan = name != "" ? "<span class=\"name\">" + name.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" : "";
 			string flagSpan = activeNext24h ? "<span class=\"rFlag\">ACTIVE &lt;24H</span>" : "";
 
+			// Table-based layout (diagram cell + main cell, and a nested table for the
+			// airport-name/ref-period header line) — see the .notamRow CSS comment: the
+			// IE7-mode WebBrowser control doesn't support display:flex.
 			return
-				"<div class=\"notamRow" + (activeNext24h ? " h24" : "") + "\">" +
-				"<div class=\"rDiagram\">" + diagram + "</div>" +
-				"<div class=\"rMain\">" +
-				"<div class=\"rHead\">" +
-				"<span class=\"rApt\">" + AP + iataSpan + nameSpan + "</span>" +
-				"<span class=\"rKeyPeriod\"><span class=\"k\">" + key.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" +
-				"<span class=\"p\">" + period.Replace("&", "&amp;").Replace("<", "&lt;") + "</span></span>" +
-				flagSpan +
-				"</div>" +
+				"<table class=\"notamRow" + (activeNext24h ? " h24" : "") + "\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
+				"<td class=\"rDiagram\">" + diagram + "</td>" +
+				"<td class=\"rMain\">" +
+				"<table class=\"rHeadTable\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
+				"<td class=\"rApt\">" + AP + iataSpan + nameSpan + "</td>" +
+				"<td class=\"rKeyPeriod\"><span class=\"k\">" + key.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" +
+				"<span class=\"p\">" + period.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" + flagSpan + "</td>" +
+				"</tr></table>" +
 				"<div class=\"rText\">" + StripLeadingNoMarker(notamText).Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" +
-				"</div>" +
-				"</div>";
+				"</td>" +
+				"</tr></table>";
 		}
 
 		// Loads the same RWY memo/geo data BuildAirportHeaderHtml does (small, deliberate
