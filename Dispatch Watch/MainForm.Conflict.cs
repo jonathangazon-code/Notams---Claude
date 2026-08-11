@@ -500,7 +500,7 @@ namespace ICAO_CSV
 				if (impact == "D" && !highlight)
 				{
 					bool activeNext24h = notamStart <= nowUtc.AddHours(24) && notamEnd >= nowUtc;
-					string rowHtml = BuildNotAltnRowHtml(location, key, period, all, activeNext24h, rasterDiagrams, cidImages, inlineImages);
+					string rowHtml = BuildNotAltnRowHtml(location, key, period, all, activeNext24h, cidImages, inlineImages);
 					notAltnOtherRows.Add(new Tuple<DateTime, string>(notamStart, rowHtml));
 					continue;
 				}
@@ -1046,11 +1046,11 @@ namespace ICAO_CSV
 		// no dismiss checkbox, no RWY dist/CAT blocks: this row isn't tied to any specific
 		// flight, unlike every other card in this report.
 		private string BuildNotAltnRowHtml(string AP, string key, string period, string notamText, bool activeNext24h,
-			bool rasterDiagram, bool cidImages, Dictionary<string, string> inlineImages)
+			bool cidImages, Dictionary<string, string> inlineImages)
 		{
 			string iata = GetIATA(AP);
 			string name = GetAirportName(AP);
-			string diagram = BuildNotAltnMiniDiagram(AP, rasterDiagram, cidImages, inlineImages);
+			string diagram = BuildNotAltnMiniDiagram(AP, cidImages, inlineImages);
 
 			string iataSpan = (iata != "" && iata != AP) ? "<span class=\"iata\">" + iata + "</span>" : "";
 			string nameSpan = name != "" ? "<span class=\"name\">" + name.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" : "";
@@ -1076,9 +1076,19 @@ namespace ICAO_CSV
 		// duplication — same precedent as the raster/VML diagram twins below, so this new,
 		// less-tested row layout can never affect the proven-working airport card renderer)
 		// and renders it as a simplified mini diagram: black line(s), black QFU labels, no
-		// distance/CAT text. rasterDiagram/cidImages/inlineImages follow the same convention
-		// as BuildAirportHeaderHtml (VML for the live tab, a cid/file PNG for the email).
-		private string BuildNotAltnMiniDiagram(string AP, bool rasterDiagram, bool cidImages, Dictionary<string, string> inlineImages)
+		// distance/CAT text.
+		//
+		// Always raster (a plain <img>), even on the live tab where rasterDiagram is normally
+		// false (VML) for every other diagram in this report — VML placed in/near this row's
+		// compact layout repeatedly escaped its containing block in this WebBrowser control's
+		// IE7 rendering (tried a <table> cell, then a plain position:relative/absolute div pair
+		// identical to the proven .ahead/.diagram pattern — both still drifted), so this mini
+		// diagram sidesteps VML entirely. cidImages=false here (the live tab never passes true)
+		// means BuildRwyDiagramImageTagMini embeds a file:// reference — the exact same
+		// raster+file:// mechanism the NOTAM Report tab's own live WebBrowser preview already
+		// uses successfully via BuildRwyDiagramImageTag, so this is proven to work with
+		// DocumentText-injected HTML, not just when loaded from an actual .html file.
+		private string BuildNotAltnMiniDiagram(string AP, bool cidImages, Dictionary<string, string> inlineImages)
 		{
 			string RWYs = "";
 			OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
@@ -1095,142 +1105,7 @@ namespace ICAO_CSV
 
 			List<RwyGeo> geo = LoadRwyGeo(AP);
 
-			if (!rasterDiagram)
-				return HasGeo(geo) ? BuildRwySvgGeoMini(geo) : BuildRwySvgMini(rwyClean);
-
 			return BuildRwyDiagramImageTagMini(AP, geo, rwyClean, cidImages, inlineImages);
-		}
-
-		// Mini twin of BuildRwySvg (MainForm.NotamFilter.cs) — same schematic-fallback geometry
-		// (heading/length only, no real coordinates), scaled down and drawn in solid black
-		// instead of the full card's light-on-dark thick+dashed line, with no dist/CAT text.
-		private static string BuildRwySvgMini(List<string> rwyClean)
-		{
-			int W = 96, H = 72, cx = 48, cy = 36, maxHalf = 30;
-
-			List<int> headings = new List<int>();
-			List<double> lengths = new List<double>();
-			List<string> end1 = new List<string>();
-			List<string> end2 = new List<string>();
-			for (int i = 0; i < rwyClean.Count; i += 2)
-			{
-				string d1 = ParseDesignator(rwyClean[i]);
-				string d2 = (i + 1 < rwyClean.Count) ? ParseDesignator(rwyClean[i + 1]) : "";
-				int hdg = ParseHeading(d1);
-				if (hdg < 0) continue;
-				double len = ParseLength(rwyClean[i]);
-				headings.Add(hdg); lengths.Add(len); end1.Add(d1); end2.Add(d2);
-			}
-			if (headings.Count == 0) return "";
-
-			double maxLen = 0;
-			foreach (double l in lengths) if (l > maxLen) maxLen = l;
-			if (maxLen <= 0) maxLen = 1;
-
-			StringBuilder shapes = new StringBuilder();
-			StringBuilder labels = new StringBuilder();
-			double spacing = 11;
-			for (int i = 0; i < headings.Count; i++)
-			{
-				double half = maxHalf * (lengths[i] > 0 ? lengths[i] / maxLen : 1.0);
-				if (half < 10) half = 10;
-				double rad = headings[i] * Math.PI / 180.0;
-				double dx = Math.Sin(rad) * half;
-				double dy = -Math.Cos(rad) * half;
-
-				int parallelIdx = 0;
-				for (int k = 0; k < i; k++) if (headings[k] == headings[i]) parallelIdx++;
-				double offMag = parallelIdx * spacing;
-				double ocx = cx + Math.Cos(rad) * offMag;
-				double ocy = cy + Math.Sin(rad) * offMag;
-
-				double x1 = ocx - dx, y1 = ocy - dy;
-				double x2 = ocx + dx, y2 = ocy + dy;
-
-				shapes.Append("<v:line style=\"position:absolute\" from=\"" + F(x1) + "," + F(y1) +
-					"\" to=\"" + F(x2) + "," + F(y2) + "\" strokecolor=\"#222222\" strokeweight=\"2px\"><v:stroke endcap=\"round\"/></v:line>");
-				labels.Append(RwyLabelMini(end1[i], x1, y1, ocx, ocy, W, H));
-				if (end2[i] != "") labels.Append(RwyLabelMini(end2[i], x2, y2, ocx, ocy, W, H));
-			}
-
-			return "<div style=\"position:relative;width:" + W + "px;height:" + H + "px\">" + shapes + labels + "</div>";
-		}
-
-		// Mini twin of BuildRwySvgGeo — real threshold-coordinate geometry, scaled to the
-		// smaller viewBox, solid black line(s) and QFU labels only.
-		private static string BuildRwySvgGeoMini(List<RwyGeo> rs)
-		{
-			int W = 96, H = 72, pad = 12;
-			int n = rs.Count;
-			double lat0 = 0, lon0 = 0; int cnt = 0;
-			for (int i = 0; i < n; i++) if (HasCoords(rs[i])) { lat0 += rs[i].Lat; lon0 += rs[i].Lon; cnt++; }
-			if (cnt == 0) return "";
-			lat0 /= cnt; lon0 /= cnt;
-			double cosLat = Math.Cos(lat0 * Math.PI / 180.0);
-
-			List<double[]> segs = new List<double[]>();
-			List<object[]> ends = new List<object[]>();
-			for (int i = 0; i < n; i += 2)
-			{
-				RwyGeo a = rs[i];
-				bool hasB = (i + 1 < n);
-				RwyGeo b = hasB ? rs[i + 1] : new RwyGeo();
-				bool aOk = HasCoords(a), bOk = hasB && HasCoords(b);
-				if (!aOk && !bOk) continue;
-
-				double ax, ay, bx, by; string aq = a.Qfu, bq = hasB ? b.Qfu : "";
-				if (aOk) { ax = (a.Lon - lon0) * cosLat; ay = -(a.Lat - lat0); } else { ax = 0; ay = 0; }
-				if (bOk) { bx = (b.Lon - lon0) * cosLat; by = -(b.Lat - lat0); } else { bx = 0; by = 0; }
-
-				if (aOk && !bOk) { double L = a.DistM / 111320.0, rad = a.Hdg * Math.PI / 180.0; bx = ax + Math.Sin(rad) * L; by = ay - Math.Cos(rad) * L; if (!hasB) bq = ""; }
-				else if (bOk && !aOk) { double L = b.DistM / 111320.0, rad = b.Hdg * Math.PI / 180.0; ax = bx + Math.Sin(rad) * L; ay = by - Math.Cos(rad) * L; }
-
-				segs.Add(new double[] { ax, ay, bx, by });
-				ends.Add(new object[] { aq, ax, ay });
-				if (bq != "") ends.Add(new object[] { bq, bx, by });
-			}
-			if (segs.Count == 0) return "";
-
-			double minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
-			foreach (double[] s in segs)
-			{
-				minX = Math.Min(minX, Math.Min(s[0], s[2])); maxX = Math.Max(maxX, Math.Max(s[0], s[2]));
-				minY = Math.Min(minY, Math.Min(s[1], s[3])); maxY = Math.Max(maxY, Math.Max(s[1], s[3]));
-			}
-			double spanX = Math.Max(maxX - minX, 1e-6), spanY = Math.Max(maxY - minY, 1e-6);
-			double scale = Math.Min((W - 2.0 * pad) / spanX, (H - 2.0 * pad) / spanY);
-			double offX = (W - spanX * scale) / 2.0, offY = (H - spanY * scale) / 2.0;
-
-			StringBuilder shapes = new StringBuilder();
-			StringBuilder labels = new StringBuilder();
-			foreach (double[] s in segs)
-			{
-				double x1 = offX + (s[0] - minX) * scale, y1 = offY + (s[1] - minY) * scale;
-				double x2 = offX + (s[2] - minX) * scale, y2 = offY + (s[3] - minY) * scale;
-				shapes.Append("<v:line style=\"position:absolute\" from=\"" + F(x1) + "," + F(y1) +
-					"\" to=\"" + F(x2) + "," + F(y2) + "\" strokecolor=\"#222222\" strokeweight=\"2px\"><v:stroke endcap=\"round\"/></v:line>");
-			}
-			foreach (object[] e in ends)
-			{
-				double x = offX + ((double)e[1] - minX) * scale, y = offY + ((double)e[2] - minY) * scale;
-				labels.Append(RwyLabelMini((string)e[0], x, y, W / 2.0, H / 2.0, W, H));
-			}
-			return "<div style=\"position:relative;width:" + W + "px;height:" + H + "px\">" + shapes + labels + "</div>";
-		}
-
-		// Clamped to stay fully inside the [0,W]x[0,H] diagram box (a label nudged outward from
-		// a threshold near the edge could otherwise land partly outside the box — which, since
-		// the box sits in its own narrow table cell next to the airport name, bled visually into
-		// the neighboring text instead of just looking a little off-center).
-		private static string RwyLabelMini(string text, double x, double y, double cx, double cy, int W, int H)
-		{
-			const int labelW = 22, labelH = 13;
-			double ox = (x - cx) * 0.3, oy = (y - cy) * 0.3;
-			double lx = x + ox - labelW / 2.0, ly = y + oy - labelH / 2.0;
-			lx = Math.Max(0, Math.Min(W - labelW, lx));
-			ly = Math.Max(0, Math.Min(H - labelH, ly));
-			return "<div style=\"position:absolute;left:" + F(lx) + "px;top:" + F(ly) +
-				"px;width:" + labelW + "px;text-align:center;font-size:9px;font-weight:bold;color:#222;font-family:'Segoe UI',Arial\">" + text + "</div>";
 		}
 
 		// Raster mini twins of BuildRwyImage/BuildRwyImageGeo (MainForm.NotamFilter.cs) — same
@@ -1366,9 +1241,8 @@ namespace ICAO_CSV
 				using (Brush brush = new SolidBrush(Color.Black))
 				using (StringFormat fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
 				{
-					// Clamped to stay inside the bitmap — same reasoning as RwyLabelMini's VML
-					// twin: an unclamped label near the edge could otherwise be cut off/spill
-					// outside the diagram.
+					// Clamped to stay inside the bitmap — an unclamped label near the edge could
+					// otherwise be cut off/spill outside the diagram.
 					const int halfLabelW = 11, halfLabelH = 7;
 					foreach (object[] e in ends)
 					{
