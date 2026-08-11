@@ -618,7 +618,7 @@ namespace ICAO_CSV
 				".rKeyPeriod .k{font-weight:600}" +
 				".rKeyPeriod .p{color:#90a4ae;font-family:'Courier New',monospace;margin-left:8px}" +
 				".rText{color:#455a64;padding-top:4px}" +
-				".rFlag{font-size:10.5px;font-weight:bold;color:#8a6d00;background:#ffe9a8;padding:1px 6px;border-radius:8px;white-space:nowrap;margin-left:8px}" +
+				".rFlag{float:right;font-size:10.5px;font-weight:bold;color:#8a6d00;background:#ffe9a8;padding:1px 6px;border-radius:8px;white-space:nowrap;margin-left:8px}" +
 				"</style></head><body>" + body + "</body></html>";
 
 			return html;
