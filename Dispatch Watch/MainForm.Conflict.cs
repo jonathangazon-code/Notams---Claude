@@ -423,7 +423,11 @@ namespace ICAO_CSV
 			List<string> impactOrder = new List<string> { "A", "N", "C", "F", "M", "D" };
 			StringBuilder body = new StringBuilder();
 
-			body.Append("<p class=\"introLine\">Below is a summary of operational impacts on the network over the next 7 days, cross-referenced against the flight schedule.</p>");
+			// Second sentence spells out the two matching windows in effect (both Admin-tab
+			// configurable, _conflictWindowHours/_altnConflictWindowHours) so the dispatcher
+			// doesn't have to guess/remember them while reading the sections below.
+			body.Append("<p class=\"introLine\">Below is a summary of operational impacts on the network over the next 7 days, cross-referenced against the flight schedule. " +
+				"For Origin/Dest, a conflict is checked at STD/STA &plusmn;" + _conflictWindowHours + "hr; for Not ALTN, at STD + flight time + diversion time &plusmn;" + _altnConflictWindowHours + "hr.</p>");
 
 			if (flights.Count == 0)
 				body.Append(
@@ -532,7 +536,7 @@ namespace ICAO_CSV
 					if (notAltnOtherRows.Count > 0)
 					{
 						if (cards.Count > 0) body.Append("<hr class=\"sep\">");
-						body.Append("<div class=\"explainText\">The NOTAMs below restrict this station's use as an alternate, but none of them is currently matched against any flight's actual filed alternate in the schedule.</div>");
+						body.Append("<div class=\"explainText\">The NOTAMs below restrict this station's use as an alternate, but none of them is currently matched against any computed Flightplan.</div>");
 						foreach (Tuple<DateTime, string> row in notAltnOtherRows) body.Append(row.Item2);
 					}
 				}
@@ -656,6 +660,13 @@ namespace ICAO_CSV
 			@"\b(MON|TUE|WED|THU|FRI|SAT|SUN)\b(?:\s*-\s*\b(MON|TUE|WED|THU|FRI|SAT|SUN)\b)?\s+(\d{4})\s*-\s*(\d{4})",
 			RegexOptions.IgnoreCase);
 		private static readonly Regex _dailyRe = new Regex(@"\bDAILY\b\s+(\d{4})\s*-\s*(\d{4})", RegexOptions.IgnoreCase);
+		// A bare "HHMM-HHMM" with no day/date qualifier at all in front of it (e.g. a D)-item
+		// that's just "2130-0100 RWY 04 ILS ... U/S DUE TO MAINT") — standard NOTAM convention
+		// for an unqualified time range is that it recurs daily within the overall validity
+		// period, same meaning as an explicit "DAILY" prefix. Tried only as the last resort,
+		// after day-of-week/month-day/explicit-DAILY have all failed to match, since those are
+		// strictly more specific reads of the same text.
+		private static readonly Regex _bareTimeRangeRe = new Regex(@"\b(\d{4})\s*-\s*(\d{4})\b");
 		// Day-of-month, optionally prefixed by a month abbreviation, optionally a same-month
 		// day range (e.g. "11 2330-0245", "AUG 10 1100-1600", "AUG 11-13 0530-1600"). Can't
 		// collide with _dayItemRe: that one requires a MON/TUE/... token where this one
@@ -722,6 +733,16 @@ namespace ICAO_CSV
 						int startMin, endMin;
 						if (TryHhmm(d.Groups[1].Value, out startMin) && TryHhmm(d.Groups[2].Value, out endMin))
 							entries.Add(new ScheduleEntry { Kind = ScheduleKindDaily, StartMin = startMin, EndMin = endMin });
+					}
+					else
+					{
+						MatchCollection bareMatches = _bareTimeRangeRe.Matches(text);
+						foreach (Match bm in bareMatches)
+						{
+							int startMin, endMin;
+							if (TryHhmm(bm.Groups[1].Value, out startMin) && TryHhmm(bm.Groups[2].Value, out endMin))
+								entries.Add(new ScheduleEntry { Kind = ScheduleKindDaily, StartMin = startMin, EndMin = endMin });
+						}
 					}
 				}
 			}
@@ -882,9 +903,26 @@ namespace ICAO_CSV
 				flightChips +
 				remarkLine +
 				keyLine +
-				"<div class=\"notamtext\">" + notamText.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" +
+				"<div class=\"notamtext\">" + StripLeadingNoMarker(notamText).Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" +
 				"</div>" +
 				"</div>";
+		}
+
+		// GetXML/Split (MainForm.NotamData.cs) prepends a literal "No" line to the "all" text
+		// field whenever the NOTAM's D) (schedule) field is absent — the same marker
+		// NotamRemarkDefault (MainForm.NotamFilter.cs) already checks for to fall back to the
+		// validity period instead of using it as a remark. Left in place for the schedule-regex
+		// matching above (OverlapsSchedule reads the raw "all" text, before this strip), but
+		// stripped here purely for display — showing a NOTAM's full text prefixed with a bare
+		// "No" line reads as a parsing glitch, not as data.
+		private static string StripLeadingNoMarker(string text)
+		{
+			text = text ?? "";
+			string trimmed = text.TrimStart('\r', '\n');
+			int nlIdx = trimmed.IndexOfAny(new[] { '\r', '\n' });
+			string firstLine = nlIdx >= 0 ? trimmed.Substring(0, nlIdx) : trimmed;
+			if (!firstLine.Trim().Equals("No", StringComparison.OrdinalIgnoreCase)) return text;
+			return nlIdx >= 0 ? trimmed.Substring(nlIdx).TrimStart('\r', '\n') : "";
 		}
 
 		// The airport header block (ICAO/IATA/name/RWY table/diagram, i.e. the ".ahead" div)
@@ -1013,7 +1051,7 @@ namespace ICAO_CSV
 				"<span class=\"p\">" + period.Replace("&", "&amp;").Replace("<", "&lt;") + "</span></span>" +
 				flagSpan +
 				"</div>" +
-				"<div class=\"rText\">" + notamText.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" +
+				"<div class=\"rText\">" + StripLeadingNoMarker(notamText).Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" +
 				"</div>" +
 				"</div>";
 		}

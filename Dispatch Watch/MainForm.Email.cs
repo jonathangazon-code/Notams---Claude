@@ -189,7 +189,8 @@ namespace ICAO_CSV
 			// class is available here without repeating the styling inline.
 			string attachmentNote =
 				"<p class=\"attachNote\">" +
-				"Attached: the full NOTAMs Report, AIP SUP List, and Flight Schedule (next 7 days) for " + titleDate + ".</p>";
+				"In attachment you will find the complete NOTAMs analysis (Impact summary + complete Network), " +
+				"the list of AIP SUPs loaded in Aviobook, and the Flight Schedule used for the coming 7 days.</p>";
 
 			string step = "init";
 			try
