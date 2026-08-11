@@ -611,10 +611,10 @@ namespace ICAO_CSV
 				".notamRow td{padding:8px 10px;vertical-align:top}" +
 				".rDiagram{width:120px;text-align:center;vertical-align:middle}" +
 				".rHeadTable{width:100%;table-layout:fixed}" +
-				".rApt{font-weight:bold;color:#37474f;text-align:left;word-wrap:break-word}" +
+				".rApt{width:50%;font-weight:bold;color:#37474f;text-align:left;word-wrap:break-word}" +
 				".rApt .iata{font-weight:normal;color:#78909c;margin-left:6px}" +
 				".rApt .name{font-weight:normal;color:#90a4ae;margin-left:6px;font-style:italic}" +
-				".rKeyPeriod{color:#607d8b;font-size:11.5px;text-align:left;width:280px;word-wrap:break-word}" +
+				".rKeyPeriod{width:50%;color:#607d8b;font-size:11.5px;text-align:left;word-wrap:break-word}" +
 				".rKeyPeriod .k{font-weight:600}" +
 				".rKeyPeriod .p{color:#90a4ae;font-family:'Courier New',monospace;margin-left:8px}" +
 				".rText{color:#455a64;padding-top:4px}" +
