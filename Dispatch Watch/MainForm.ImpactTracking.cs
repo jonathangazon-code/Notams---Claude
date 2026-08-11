@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using System.Windows.Forms;
 
 namespace ICAO_CSV
 {
@@ -20,7 +19,15 @@ namespace ICAO_CSV
 		}
 		private Dictionary<int, NotamSnapshot> _pendSnapshot = new Dictionary<int, NotamSnapshot>();
 
-		private static string ImpactCorrectionsLogPath { get { return Path.Combine(Application.StartupPath, "ImpactCorrections.csv"); } }
+		// Shared on V: (same folder as ICAO_storedNotams.mdb), not Application.StartupPath —
+		// since the multi-user deployment gives every dispatcher their own local install
+		// (MainForm.Deployment.cs), a local-only log would only ever capture that one
+		// dispatcher's corrections, with no way to review the fleet's combined signal.
+		// File.AppendAllText opens/closes per write, so concurrent appends from different
+		// dispatchers are short enough to not meaningfully collide; a failure here (e.g. V:
+		// briefly unreachable) is swallowed by LogImpactCorrection's own try/catch — logging
+		// must never block the dispatcher's actual Keep/Impact workflow.
+		private static string ImpactCorrectionsLogPath { get { return @"V:\TAY Ops Control Centre\Flight Dispatch\AIP SUP -  Notams report\NOTAMS APP\ImpactCorrections.csv"; } }
 
 		// Formats the exact runway config the engine used for its suggestion (Desig +
 		// CatMax), e.g. "05:CAT1; 23:CAT3" — the same RwyInfo list passed into

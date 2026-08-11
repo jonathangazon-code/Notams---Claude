@@ -183,8 +183,12 @@ namespace ICAO_CSV
 			// doesn't render data-URI images in an HTML body, only CID-attached ones.
 			Dictionary<string, string> inlineImages;
 			string bodyHtml = BuildConflictReportHtml(true, true, out inlineImages);
+			// .attachNote is defined in the shared <style> block BuildConflictReportHtml just
+			// built (bigger, green-accented, same treatment as the report's other explanatory
+			// text) — this paragraph gets inserted into that same HTML document below, so the
+			// class is available here without repeating the styling inline.
 			string attachmentNote =
-				"<p style=\"font-family:'Segoe UI',Arial,sans-serif;font-size:13px;color:#455a64;margin:16px 0 0 0\">" +
+				"<p class=\"attachNote\">" +
 				"Attached: the full NOTAMs Report, AIP SUP List, and Flight Schedule (next 7 days) for " + titleDate + ".</p>";
 
 			string step = "init";

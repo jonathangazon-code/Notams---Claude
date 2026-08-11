@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Data.OleDb;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -349,7 +352,7 @@ namespace ICAO_CSV
 			int ordEnddate   = reader.GetOrdinal("enddate");
 			int ordImpact    = reader.GetOrdinal("Impact");
 
-			HashSet<string> validImpacts = new HashSet<string> { "A", "N", "C", "F", "D" };
+			HashSet<string> validImpacts = new HashSet<string> { "A", "N", "C", "F", "M", "D" };
 			while (reader.Read())
 			{
 				string impact = reader.IsDBNull(ordImpact) ? "" : reader.GetString(ordImpact);
@@ -412,9 +415,12 @@ namespace ICAO_CSV
 			DateTime nowUtc = DateTime.UtcNow;
 			DateTime windowEnd = nowUtc.AddDays(7);
 
-			// Fuel listed before Not ALTN — same ordering used in the NOTAM Report tab's
-			// Section() sub-headers, so the two surfaces read consistently.
-			List<string> impactOrder = new List<string> { "A", "N", "C", "F", "D" };
+			// Fuel listed before MISC before Not ALTN — same relative Fuel/Not-ALTN ordering
+			// used in the NOTAM Report tab's Section() sub-headers, MISC inserted here since
+			// this tab has no equivalent section for it yet. MISC flows through the same
+			// generic (non-"D") branch of TryComputeConflictMatches as every other non-Not-ALTN
+			// code — no special-case logic needed for it anywhere else in this file.
+			List<string> impactOrder = new List<string> { "A", "N", "C", "F", "M", "D" };
 			StringBuilder body = new StringBuilder();
 
 			body.Append("<p class=\"introLine\">Below is a summary of operational impacts on the network over the next 7 days, cross-referenced against the flight schedule.</p>");
@@ -442,6 +448,11 @@ namespace ICAO_CSV
 			// all matching NOTAMs for that code are known (needed for the count badge).
 			Dictionary<string, List<string>> cardsByImpact = new Dictionary<string, List<string>>();
 			foreach (string code in impactOrder) cardsByImpact[code] = new List<string>();
+			// Not-ALTN NOTAMs with no real diversion match (highlight==false) are collected
+			// separately as (notamStart, rowHtml) so they can be sorted chronologically and
+			// rendered as compact informational rows below the "confirmed conflicts" cards,
+			// instead of mixing into cardsByImpact["D"] in DB read order.
+			List<Tuple<DateTime, string>> notAltnOtherRows = new List<Tuple<DateTime, string>>();
 
 			while (reader.Read())
 			{
@@ -473,11 +484,25 @@ namespace ICAO_CSV
 				// "dd MMM yyyy HH:mmz" formatter NotamRemarkDefault already uses for this exact
 				// date shape elsewhere, so the two read consistently wherever both show up.
 				string period = FormatDate(startRaw) + " - " + FormatDate(endRaw);
+
+				// A Not-ALTN NOTAM with no real diversion match isn't a "conflict" — it's shown
+				// as a compact informational row (no flight ties, so no card/diagram/chips needed)
+				// instead of a full card, sorted chronologically further down.
+				if (impact == "D" && !highlight)
+				{
+					bool activeNext24h = notamStart <= nowUtc.AddHours(24) && notamEnd >= nowUtc;
+					string rowHtml = BuildNotAltnRowHtml(location, key, period, all, activeNext24h, rasterDiagrams, cidImages, inlineImages);
+					notAltnOtherRows.Add(new Tuple<DateTime, string>(notamStart, rowHtml));
+					continue;
+				}
+
 				string cardHtml = BuildConflictCardHtml(location, key, period, all, remark, matches, rasterDiagrams, cidImages, inlineImages, highlight, interactive);
 				if (highlight) cardsByImpact[impact].Insert(0, cardHtml);
 				else cardsByImpact[impact].Add(cardHtml);
 			}
 			conn.Close();
+
+			notAltnOtherRows.Sort(delegate(Tuple<DateTime, string> a, Tuple<DateTime, string> b) { return a.Item1.CompareTo(b.Item1); });
 
 			foreach (string code in impactOrder)
 			{
@@ -492,7 +517,29 @@ namespace ICAO_CSV
 					"<span class=\"sectionTitle\">" + label + "</span>" +
 					"<span class=\"count\" style=\"background:" + hex + "\">" + cards.Count + " conflit" + (cards.Count == 1 ? "" : "s") + "</span>" +
 					"</div>");
-				foreach (string card in cards) body.Append(card);
+
+				if (code == "D")
+				{
+					// Not ALTN is split into two visually distinct groups: confirmed diversion
+					// conflicts (cards.Count above — real matches against a flight's actual filed
+					// alternate, or a dispatcher's manual override) first, then every other Kept
+					// Not-ALTN NOTAM as a compact, chronologically-sorted informational row below
+					// a divider, since those aren't tied to any flight at all.
+					if (cards.Count > 0)
+						body.Append("<div class=\"subGroupHead\">Confirmed diversion conflicts <span class=\"tag\">(Checked Vs actual Flightplan)</span></div>");
+					foreach (string card in cards) body.Append(card);
+
+					if (notAltnOtherRows.Count > 0)
+					{
+						if (cards.Count > 0) body.Append("<hr class=\"sep\">");
+						body.Append("<div class=\"explainText\">The NOTAMs below restrict this station's use as an alternate, but none of them is currently matched against any flight's actual filed alternate in the schedule.</div>");
+						foreach (Tuple<DateTime, string> row in notAltnOtherRows) body.Append(row.Item2);
+					}
+				}
+				else
+				{
+					foreach (string card in cards) body.Append(card);
+				}
 			}
 
 			string html =
@@ -502,7 +549,12 @@ namespace ICAO_CSV
 				".sectionHeader{position:relative;display:block;padding:10px 14px;border-left:4px solid;border-radius:6px;margin:0 0 8px 0}" +
 				".dot{display:inline-block;width:10px;height:10px;border-radius:5px;margin-right:8px}" +
 				".sectionTitle{font-size:15px;font-weight:bold;color:#222}" +
-				".introLine{font-size:13.5px;color:#455a64;margin:0 0 16px 0}" +
+				// Explanatory/introductory copy (the top summary line, the Not-ALTN sub-group
+				// sentence) reads as commentary the dispatcher should actually read, not just
+				// another data row — bigger, bold, and a blue accent bar/tint to pull the eye
+				// ahead of the colored section badges below it.
+				".introLine,.explainText{font-size:15.5px;font-weight:600;color:#0d47a1;background:#eef3fb;border-left:3px solid #1565c0;padding:8px 12px;border-radius:0 4px 4px 0;margin:0 0 16px 0;line-height:1.4}" +
+				".attachNote{font-size:14.5px;font-weight:600;color:#1b5e20;background:#eef7ee;border-left:3px solid #2e7d32;padding:8px 12px;border-radius:0 4px 4px 0;margin:16px 0 0 0}" +
 				// Absolute rather than float:right — in the IE7-mode WebBrowser, a floated
 				// span after inline content doesn't get cleared by the section header (whose
 				// height then collapses around it), so the badge visually escapes its own
@@ -528,6 +580,27 @@ namespace ICAO_CSV
 				".notamtext{background:#f5f5f5;border-radius:6px;padding:10px 12px;font-family:'Courier New',monospace;font-size:12.5px;white-space:pre-wrap;line-height:1.6}" +
 				".warnBanner{background:#fff3e0;color:#7a4a00;border:1px solid #ffcc80;border-radius:6px;padding:10px 14px;margin:0 0 16px 0;font-size:13px}" +
 				".warnIcon{margin-right:8px}" +
+				// Not-ALTN sub-group heading ("Confirmed diversion conflicts (Checked Vs actual
+				// Flightplan)") and the dashed divider separating it from the informational rows.
+				".subGroupHead{font-size:13px;font-weight:bold;color:#455a64;text-transform:uppercase;letter-spacing:.03em;margin:14px 0 8px 0;padding-bottom:4px;border-bottom:1px solid #cfd8dc}" +
+				".subGroupHead .tag{font-weight:normal;text-transform:none;letter-spacing:0;color:#78909c;font-size:12px}" +
+				".sep{border:none;border-top:2px dashed #cfd8dc;margin:18px 0}" +
+				// Compact informational row for a Not-ALTN NOTAM with no real diversion match —
+				// diagram + ICAO/IATA/name + ref/period on one line, full text below. No flight
+				// chips/checkbox/dist-CAT blocks, since these aren't tied to any specific flight.
+				".notamRow{display:flex;align-items:stretch;gap:12px;padding:8px 10px;border:1px solid #e0e4e7;border-radius:6px;margin:0 0 8px 0;font-size:12.5px;background:#fafbfb}" +
+				".notamRow.h24{background:#fff8dc;border-color:#f2d675}" +
+				".rDiagram{flex:0 0 66px;display:flex;align-items:center;justify-content:center}" +
+				".rMain{flex:1;min-width:0}" +
+				".rHead{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 12px;margin-bottom:3px}" +
+				".rApt{font-weight:bold;color:#37474f}" +
+				".rApt .iata{font-weight:normal;color:#78909c;margin-left:6px}" +
+				".rApt .name{font-weight:normal;color:#90a4ae;margin-left:6px;font-style:italic}" +
+				".rKeyPeriod{color:#607d8b;font-size:11.5px;white-space:nowrap}" +
+				".rKeyPeriod .k{font-weight:600}" +
+				".rKeyPeriod .p{color:#90a4ae;font-family:'Courier New',monospace;margin-left:8px}" +
+				".rText{color:#455a64}" +
+				".rFlag{font-size:10.5px;font-weight:bold;color:#8a6d00;background:#ffe9a8;padding:1px 6px;border-radius:8px;white-space:nowrap;margin-left:8px}" +
 				"</style></head><body>" + body + "</body></html>";
 
 			return html;
@@ -912,6 +985,366 @@ namespace ICAO_CSV
 
 			string src = cidImages ? "cid:" + cid : new Uri(tempPath).AbsoluteUri;
 			return "<img width=\"130\" height=\"110\" src=\"" + src + "\">";
+		}
+
+		// One compact informational row for a Not-ALTN NOTAM with no real diversion match
+		// (BuildConflictReportHtml's notAltnOtherRows) — mini runway diagram, then
+		// ICAO/IATA/name and ref/period on one line, full NOTAM text below. No flight chips,
+		// no dismiss checkbox, no RWY dist/CAT blocks: this row isn't tied to any specific
+		// flight, unlike every other card in this report.
+		private string BuildNotAltnRowHtml(string AP, string key, string period, string notamText, bool activeNext24h,
+			bool rasterDiagram, bool cidImages, Dictionary<string, string> inlineImages)
+		{
+			string iata = GetIATA(AP);
+			string name = GetAirportName(AP);
+			string diagram = BuildNotAltnMiniDiagram(AP, rasterDiagram, cidImages, inlineImages);
+
+			string iataSpan = (iata != "" && iata != AP) ? "<span class=\"iata\">" + iata + "</span>" : "";
+			string nameSpan = name != "" ? "<span class=\"name\">" + name.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" : "";
+			string flagSpan = activeNext24h ? "<span class=\"rFlag\">ACTIVE &lt;24H</span>" : "";
+
+			return
+				"<div class=\"notamRow" + (activeNext24h ? " h24" : "") + "\">" +
+				"<div class=\"rDiagram\">" + diagram + "</div>" +
+				"<div class=\"rMain\">" +
+				"<div class=\"rHead\">" +
+				"<span class=\"rApt\">" + AP + iataSpan + nameSpan + "</span>" +
+				"<span class=\"rKeyPeriod\"><span class=\"k\">" + key.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" +
+				"<span class=\"p\">" + period.Replace("&", "&amp;").Replace("<", "&lt;") + "</span></span>" +
+				flagSpan +
+				"</div>" +
+				"<div class=\"rText\">" + notamText.Replace("&", "&amp;").Replace("<", "&lt;") + "</div>" +
+				"</div>" +
+				"</div>";
+		}
+
+		// Loads the same RWY memo/geo data BuildAirportHeaderHtml does (small, deliberate
+		// duplication — same precedent as the raster/VML diagram twins below, so this new,
+		// less-tested row layout can never affect the proven-working airport card renderer)
+		// and renders it as a simplified mini diagram: black line(s), black QFU labels, no
+		// distance/CAT text. rasterDiagram/cidImages/inlineImages follow the same convention
+		// as BuildAirportHeaderHtml (VML for the live tab, a cid/file PNG for the email).
+		private string BuildNotAltnMiniDiagram(string AP, bool rasterDiagram, bool cidImages, Dictionary<string, string> inlineImages)
+		{
+			string RWYs = "";
+			OleDbConnection connOCC = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+			connOCC.Open();
+			OleDbCommand cmdOCC = new OleDbCommand("SELECT * FROM Stations_ICAO_IATA WHERE ICAO=?", connOCC);
+			cmdOCC.Parameters.AddWithValue("?", AP);
+			OleDbDataReader OCCreader = cmdOCC.ExecuteReader();
+			while (OCCreader.Read()) if (!OCCreader.IsDBNull(6)) RWYs = OCCreader.GetString(6);
+			connOCC.Close();
+
+			string[] rwyLines = RWYs.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+			List<string> rwyClean = new List<string>();
+			foreach (string rl in rwyLines) if (rl.Trim() != "") rwyClean.Add(rl.Trim());
+
+			List<RwyGeo> geo = LoadRwyGeo(AP);
+
+			if (!rasterDiagram)
+				return HasGeo(geo) ? BuildRwySvgGeoMini(geo) : BuildRwySvgMini(rwyClean);
+
+			return BuildRwyDiagramImageTagMini(AP, geo, rwyClean, cidImages, inlineImages);
+		}
+
+		// Mini twin of BuildRwySvg (MainForm.NotamFilter.cs) — same schematic-fallback geometry
+		// (heading/length only, no real coordinates), scaled down and drawn in solid black
+		// instead of the full card's light-on-dark thick+dashed line, with no dist/CAT text.
+		private static string BuildRwySvgMini(List<string> rwyClean)
+		{
+			int W = 66, H = 50, cx = 33, cy = 25, maxHalf = 20;
+
+			List<int> headings = new List<int>();
+			List<double> lengths = new List<double>();
+			List<string> end1 = new List<string>();
+			List<string> end2 = new List<string>();
+			for (int i = 0; i < rwyClean.Count; i += 2)
+			{
+				string d1 = ParseDesignator(rwyClean[i]);
+				string d2 = (i + 1 < rwyClean.Count) ? ParseDesignator(rwyClean[i + 1]) : "";
+				int hdg = ParseHeading(d1);
+				if (hdg < 0) continue;
+				double len = ParseLength(rwyClean[i]);
+				headings.Add(hdg); lengths.Add(len); end1.Add(d1); end2.Add(d2);
+			}
+			if (headings.Count == 0) return "";
+
+			double maxLen = 0;
+			foreach (double l in lengths) if (l > maxLen) maxLen = l;
+			if (maxLen <= 0) maxLen = 1;
+
+			StringBuilder shapes = new StringBuilder();
+			StringBuilder labels = new StringBuilder();
+			double spacing = 6;
+			for (int i = 0; i < headings.Count; i++)
+			{
+				double half = maxHalf * (lengths[i] > 0 ? lengths[i] / maxLen : 1.0);
+				if (half < 8) half = 8;
+				double rad = headings[i] * Math.PI / 180.0;
+				double dx = Math.Sin(rad) * half;
+				double dy = -Math.Cos(rad) * half;
+
+				int parallelIdx = 0;
+				for (int k = 0; k < i; k++) if (headings[k] == headings[i]) parallelIdx++;
+				double offMag = parallelIdx * spacing;
+				double ocx = cx + Math.Cos(rad) * offMag;
+				double ocy = cy + Math.Sin(rad) * offMag;
+
+				double x1 = ocx - dx, y1 = ocy - dy;
+				double x2 = ocx + dx, y2 = ocy + dy;
+
+				shapes.Append("<v:line style=\"position:absolute\" from=\"" + F(x1) + "," + F(y1) +
+					"\" to=\"" + F(x2) + "," + F(y2) + "\" strokecolor=\"#222222\" strokeweight=\"2px\"><v:stroke endcap=\"round\"/></v:line>");
+				labels.Append(RwyLabelMini(end1[i], x1, y1, ocx, ocy));
+				if (end2[i] != "") labels.Append(RwyLabelMini(end2[i], x2, y2, ocx, ocy));
+			}
+
+			return "<div style=\"position:relative;width:" + W + "px;height:" + H + "px\">" + shapes + labels + "</div>";
+		}
+
+		// Mini twin of BuildRwySvgGeo — real threshold-coordinate geometry, scaled to the
+		// smaller viewBox, solid black line(s) and QFU labels only.
+		private static string BuildRwySvgGeoMini(List<RwyGeo> rs)
+		{
+			int W = 66, H = 50, pad = 8;
+			int n = rs.Count;
+			double lat0 = 0, lon0 = 0; int cnt = 0;
+			for (int i = 0; i < n; i++) if (HasCoords(rs[i])) { lat0 += rs[i].Lat; lon0 += rs[i].Lon; cnt++; }
+			if (cnt == 0) return "";
+			lat0 /= cnt; lon0 /= cnt;
+			double cosLat = Math.Cos(lat0 * Math.PI / 180.0);
+
+			List<double[]> segs = new List<double[]>();
+			List<object[]> ends = new List<object[]>();
+			for (int i = 0; i < n; i += 2)
+			{
+				RwyGeo a = rs[i];
+				bool hasB = (i + 1 < n);
+				RwyGeo b = hasB ? rs[i + 1] : new RwyGeo();
+				bool aOk = HasCoords(a), bOk = hasB && HasCoords(b);
+				if (!aOk && !bOk) continue;
+
+				double ax, ay, bx, by; string aq = a.Qfu, bq = hasB ? b.Qfu : "";
+				if (aOk) { ax = (a.Lon - lon0) * cosLat; ay = -(a.Lat - lat0); } else { ax = 0; ay = 0; }
+				if (bOk) { bx = (b.Lon - lon0) * cosLat; by = -(b.Lat - lat0); } else { bx = 0; by = 0; }
+
+				if (aOk && !bOk) { double L = a.DistM / 111320.0, rad = a.Hdg * Math.PI / 180.0; bx = ax + Math.Sin(rad) * L; by = ay - Math.Cos(rad) * L; if (!hasB) bq = ""; }
+				else if (bOk && !aOk) { double L = b.DistM / 111320.0, rad = b.Hdg * Math.PI / 180.0; ax = bx + Math.Sin(rad) * L; ay = by - Math.Cos(rad) * L; }
+
+				segs.Add(new double[] { ax, ay, bx, by });
+				ends.Add(new object[] { aq, ax, ay });
+				if (bq != "") ends.Add(new object[] { bq, bx, by });
+			}
+			if (segs.Count == 0) return "";
+
+			double minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+			foreach (double[] s in segs)
+			{
+				minX = Math.Min(minX, Math.Min(s[0], s[2])); maxX = Math.Max(maxX, Math.Max(s[0], s[2]));
+				minY = Math.Min(minY, Math.Min(s[1], s[3])); maxY = Math.Max(maxY, Math.Max(s[1], s[3]));
+			}
+			double spanX = Math.Max(maxX - minX, 1e-6), spanY = Math.Max(maxY - minY, 1e-6);
+			double scale = Math.Min((W - 2.0 * pad) / spanX, (H - 2.0 * pad) / spanY);
+			double offX = (W - spanX * scale) / 2.0, offY = (H - spanY * scale) / 2.0;
+
+			StringBuilder shapes = new StringBuilder();
+			StringBuilder labels = new StringBuilder();
+			foreach (double[] s in segs)
+			{
+				double x1 = offX + (s[0] - minX) * scale, y1 = offY + (s[1] - minY) * scale;
+				double x2 = offX + (s[2] - minX) * scale, y2 = offY + (s[3] - minY) * scale;
+				shapes.Append("<v:line style=\"position:absolute\" from=\"" + F(x1) + "," + F(y1) +
+					"\" to=\"" + F(x2) + "," + F(y2) + "\" strokecolor=\"#222222\" strokeweight=\"2px\"><v:stroke endcap=\"round\"/></v:line>");
+			}
+			foreach (object[] e in ends)
+			{
+				double x = offX + ((double)e[1] - minX) * scale, y = offY + ((double)e[2] - minY) * scale;
+				labels.Append(RwyLabelMini((string)e[0], x, y, W / 2.0, H / 2.0));
+			}
+			return "<div style=\"position:relative;width:" + W + "px;height:" + H + "px\">" + shapes + labels + "</div>";
+		}
+
+		private static string RwyLabelMini(string text, double x, double y, double cx, double cy)
+		{
+			double ox = (x - cx) * 0.3, oy = (y - cy) * 0.3;
+			double lx = x + ox - 9, ly = y + oy - 6;
+			return "<div style=\"position:absolute;left:" + F(lx) + "px;top:" + F(ly) +
+				"px;width:18px;text-align:center;font-size:9px;font-weight:bold;color:#222;font-family:'Segoe UI',Arial\">" + text + "</div>";
+		}
+
+		// Raster mini twins of BuildRwyImage/BuildRwyImageGeo (MainForm.NotamFilter.cs) — same
+		// geometry, white background instead of the full card's dark ".ahead" background, a
+		// single solid black line per runway instead of the thick+dashed pair, black QFU labels.
+		private static byte[] BuildRwyImageMini(List<string> rwyClean)
+		{
+			int W = 66, H = 50, cx = 33, cy = 25, maxHalf = 20;
+
+			List<int> headings = new List<int>();
+			List<double> lengths = new List<double>();
+			List<string> end1 = new List<string>();
+			List<string> end2 = new List<string>();
+			for (int i = 0; i < rwyClean.Count; i += 2)
+			{
+				string d1 = ParseDesignator(rwyClean[i]);
+				string d2 = (i + 1 < rwyClean.Count) ? ParseDesignator(rwyClean[i + 1]) : "";
+				int hdg = ParseHeading(d1);
+				if (hdg < 0) continue;
+				double len = ParseLength(rwyClean[i]);
+				headings.Add(hdg); lengths.Add(len); end1.Add(d1); end2.Add(d2);
+			}
+			if (headings.Count == 0) return null;
+
+			double maxLen = 0;
+			foreach (double l in lengths) if (l > maxLen) maxLen = l;
+			if (maxLen <= 0) maxLen = 1;
+
+			List<double[]> segs = new List<double[]>();
+			List<object[]> ends = new List<object[]>();
+			double spacing = 6;
+			for (int i = 0; i < headings.Count; i++)
+			{
+				double half = maxHalf * (lengths[i] > 0 ? lengths[i] / maxLen : 1.0);
+				if (half < 8) half = 8;
+				double rad = headings[i] * Math.PI / 180.0;
+				double dx = Math.Sin(rad) * half;
+				double dy = -Math.Cos(rad) * half;
+
+				int parallelIdx = 0;
+				for (int k = 0; k < i; k++) if (headings[k] == headings[i]) parallelIdx++;
+				double offMag = parallelIdx * spacing;
+				double ocx = cx + Math.Cos(rad) * offMag;
+				double ocy = cy + Math.Sin(rad) * offMag;
+
+				double x1 = ocx - dx, y1 = ocy - dy;
+				double x2 = ocx + dx, y2 = ocy + dy;
+
+				segs.Add(new double[] { x1, y1, x2, y2 });
+				ends.Add(new object[] { end1[i], x1, y1, ocx, ocy });
+				if (end2[i] != "") ends.Add(new object[] { end2[i], x2, y2, ocx, ocy });
+			}
+
+			return RenderRwyDiagramPngMini(W, H, segs, ends);
+		}
+
+		private static byte[] BuildRwyImageGeoMini(List<RwyGeo> rs)
+		{
+			int W = 66, H = 50, pad = 8;
+			int n = rs.Count;
+			double lat0 = 0, lon0 = 0; int cnt = 0;
+			for (int i = 0; i < n; i++) if (HasCoords(rs[i])) { lat0 += rs[i].Lat; lon0 += rs[i].Lon; cnt++; }
+			if (cnt == 0) return null;
+			lat0 /= cnt; lon0 /= cnt;
+			double cosLat = Math.Cos(lat0 * Math.PI / 180.0);
+
+			List<double[]> rawSegs = new List<double[]>();
+			List<object[]> rawEnds = new List<object[]>();
+			for (int i = 0; i < n; i += 2)
+			{
+				RwyGeo a = rs[i];
+				bool hasB = (i + 1 < n);
+				RwyGeo b = hasB ? rs[i + 1] : new RwyGeo();
+				bool aOk = HasCoords(a), bOk = hasB && HasCoords(b);
+				if (!aOk && !bOk) continue;
+
+				double ax, ay, bx, by; string aq = a.Qfu, bq = hasB ? b.Qfu : "";
+				if (aOk) { ax = (a.Lon - lon0) * cosLat; ay = -(a.Lat - lat0); } else { ax = 0; ay = 0; }
+				if (bOk) { bx = (b.Lon - lon0) * cosLat; by = -(b.Lat - lat0); } else { bx = 0; by = 0; }
+
+				if (aOk && !bOk) { double L = a.DistM / 111320.0, rad = a.Hdg * Math.PI / 180.0; bx = ax + Math.Sin(rad) * L; by = ay - Math.Cos(rad) * L; if (!hasB) bq = ""; }
+				else if (bOk && !aOk) { double L = b.DistM / 111320.0, rad = b.Hdg * Math.PI / 180.0; ax = bx + Math.Sin(rad) * L; ay = by - Math.Cos(rad) * L; }
+
+				rawSegs.Add(new double[] { ax, ay, bx, by });
+				rawEnds.Add(new object[] { aq, ax, ay });
+				if (bq != "") rawEnds.Add(new object[] { bq, bx, by });
+			}
+			if (rawSegs.Count == 0) return null;
+
+			double minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+			foreach (double[] s in rawSegs)
+			{
+				minX = Math.Min(minX, Math.Min(s[0], s[2])); maxX = Math.Max(maxX, Math.Max(s[0], s[2]));
+				minY = Math.Min(minY, Math.Min(s[1], s[3])); maxY = Math.Max(maxY, Math.Max(s[1], s[3]));
+			}
+			double spanX = Math.Max(maxX - minX, 1e-6), spanY = Math.Max(maxY - minY, 1e-6);
+			double scale = Math.Min((W - 2.0 * pad) / spanX, (H - 2.0 * pad) / spanY);
+			double offX = (W - spanX * scale) / 2.0, offY = (H - spanY * scale) / 2.0;
+
+			List<double[]> segs = new List<double[]>();
+			List<object[]> ends = new List<object[]>();
+			foreach (double[] s in rawSegs)
+			{
+				double x1 = offX + (s[0] - minX) * scale, y1 = offY + (s[1] - minY) * scale;
+				double x2 = offX + (s[2] - minX) * scale, y2 = offY + (s[3] - minY) * scale;
+				segs.Add(new double[] { x1, y1, x2, y2 });
+			}
+			foreach (object[] e in rawEnds)
+			{
+				double x = offX + ((double)e[1] - minX) * scale, y = offY + ((double)e[2] - minY) * scale;
+				ends.Add(new object[] { (string)e[0], x, y, W / 2.0, H / 2.0 });
+			}
+
+			return RenderRwyDiagramPngMini(W, H, segs, ends);
+		}
+
+		// Shared bitmap renderer for the mini diagrams — white background (these rows sit on
+		// the report's white body, unlike the full card's dark ".ahead" block), solid black
+		// line(s), black QFU labels only (no dist/CAT text).
+		private static byte[] RenderRwyDiagramPngMini(int W, int H, List<double[]> segs, List<object[]> ends)
+		{
+			using (Bitmap bmp = new Bitmap(W, H))
+			using (Graphics g = Graphics.FromImage(bmp))
+			{
+				g.SmoothingMode = SmoothingMode.AntiAlias;
+				g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+				g.Clear(Color.White);
+
+				using (Pen pen = new Pen(Color.Black, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+					foreach (double[] s in segs) g.DrawLine(pen, (float)s[0], (float)s[1], (float)s[2], (float)s[3]);
+
+				using (Font font = new Font("Segoe UI", 7.5f, System.Drawing.FontStyle.Bold))
+				using (Brush brush = new SolidBrush(Color.Black))
+				using (StringFormat fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+				{
+					foreach (object[] e in ends)
+					{
+						string text = (string)e[0];
+						double x = (double)e[1], y = (double)e[2], refCx = (double)e[3], refCy = (double)e[4];
+						double ox = (x - refCx) * 0.3, oy = (y - refCy) * 0.3;
+						g.DrawString(text, font, brush, (float)(x + ox), (float)(y + oy), fmt);
+					}
+				}
+
+				using (MemoryStream ms = new MemoryStream())
+				{
+					bmp.Save(ms, ImageFormat.Png);
+					return ms.ToArray();
+				}
+			}
+		}
+
+		// Mini twin of BuildRwyDiagramImageTag — separate temp-file/cid cache key
+		// ("rwymini_" + AP) so it can never collide with the full-size diagram's cache entry
+		// for the same airport elsewhere in the same report.
+		private static string BuildRwyDiagramImageTagMini(string AP, List<RwyGeo> geo, List<string> rwyClean, bool cidImages, Dictionary<string, string> inlineImages)
+		{
+			byte[] png = HasGeo(geo) ? BuildRwyImageGeoMini(geo) : BuildRwyImageMini(rwyClean);
+			if (png == null || png.Length == 0) return "";
+
+			string cid = "rwymini_" + AP;
+			string tempPath;
+			if (inlineImages != null && inlineImages.ContainsKey(cid))
+			{
+				tempPath = inlineImages[cid];
+			}
+			else
+			{
+				tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), cid + ".png");
+				System.IO.File.WriteAllBytes(tempPath, png);
+				if (inlineImages != null) inlineImages[cid] = tempPath;
+			}
+
+			string src = cidImages ? "cid:" + cid : new Uri(tempPath).AbsoluteUri;
+			return "<img width=\"66\" height=\"50\" src=\"" + src + "\">";
 		}
 	}
 }
