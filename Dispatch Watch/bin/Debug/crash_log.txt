@@ -1,0 +1,13 @@
+=== 2026-08-11T13:02:51 ===
+System.Data.OleDb.OleDbException (0x80040E37): The Microsoft Jet database engine cannot find the input table or query 'Stations_ICAO_IATA'.  Make sure it exists and that its name is spelled correctly.
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextErrorHandling(OleDbHResult hr)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandTextForSingleResult(tagDBPARAMS dbParams, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommandText(Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteCommand(CommandBehavior behavior, Object& executeResult)
+   at System.Data.OleDb.OleDbCommand.ExecuteReaderInternal(CommandBehavior behavior, String method)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader(CommandBehavior behavior)
+   at System.Data.OleDb.OleDbCommand.ExecuteReader()
+   at ICAO_CSV.MainForm.LoadStationsCache() in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\MainForm.Stations.cs:line 16
+   at ICAO_CSV.MainForm..ctor() in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\MainForm.cs:line 56
+   at ICAO_CSV.Program.Main(String[] args) in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\Program.cs:line 46
+

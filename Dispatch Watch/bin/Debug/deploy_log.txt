@@ -1,0 +1,66 @@
+2026-08-06T16:40:34 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\bin\Debug localFolder=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch alreadyLocal=False vExeExists=True
+2026-08-06T16:40:34 First run for this folder — installing to C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch
+2026-08-06T16:40:34 Install copy done — relaunching from C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch\Dispatch Watch.exe
+2026-08-06T16:54:53 EnsureOccMigrated: imported table Stations_ICAO_IATA.
+2026-08-06T16:54:54 EnsureOccMigrated: imported table Runways.
+2026-08-06T16:54:55 EnsureOccMigrated: imported table Notams_ICAO_CSV.
+2026-08-06T16:54:55 EnsureOccMigrated: done.
+2026-08-06T16:54:56 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\bin\Debug localFolder=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch alreadyLocal=False vExeExists=True
+2026-08-06T16:54:56 First run for this folder — installing to C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch
+2026-08-06T16:54:56 Install copy done — relaunching from C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch\Dispatch Watch.exe
+2026-08-06T17:01:24 EnsureOccMigrated: Stations_ICAO_IATA already present — skipping.
+2026-08-06T17:01:25 EnsureOccMigrated: Runways already present — skipping.
+2026-08-06T17:01:25 EnsureOccMigrated: Notams_ICAO_CSV already present — skipping.
+2026-08-06T17:01:25 EnsureOccMigrated: done.
+2026-08-06T17:01:25 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\bin\Debug localFolder=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch alreadyLocal=False vExeExists=True
+2026-08-06T17:01:25 First run for this folder — installing to C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch
+2026-08-06T17:01:25 Install copy done — relaunching from C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\Dispatch Watch\Dispatch Watch.exe
+2026-08-06T17:11:31 EnsureOccMigrated: Stations_ICAO_IATA already present — skipping.
+2026-08-06T17:11:31 EnsureOccMigrated: Runways already present — skipping.
+2026-08-06T17:11:31 EnsureOccMigrated: Notams_ICAO_CSV already present — skipping.
+2026-08-06T17:11:31 EnsureOccMigrated: done.
+2026-08-06T17:11:32 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\bin\Debug localFolder=C:\Users\jgazon\AppData\Local\Dispatch Watch alreadyLocal=False vExeExists=True
+2026-08-06T17:11:32 First run for this folder — installing to C:\Users\jgazon\AppData\Local\Dispatch Watch
+2026-08-06T17:11:32 Install copy done — relaunching from C:\Users\jgazon\AppData\Local\Dispatch Watch\Dispatch Watch.exe
+2026-08-07T11:13:29 EnsureOccMigrated: Stations_ICAO_IATA already present — skipping.
+2026-08-07T11:13:29 EnsureOccMigrated: Runways already present — skipping.
+2026-08-07T11:13:29 EnsureOccMigrated: Notams_ICAO_CSV already present — skipping.
+2026-08-07T11:13:29 EnsureOccMigrated: done.
+2026-08-07T11:13:29 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\bin\Debug localFolder=C:\Users\jgazon\AppData\Local\Dispatch Watch alreadyLocal=False vExeExists=True
+2026-08-07T11:13:29 First run for this folder — installing to C:\Users\jgazon\AppData\Local\Dispatch Watch
+2026-08-07T11:13:29 Install copy done — relaunching from C:\Users\jgazon\AppData\Local\Dispatch Watch\Dispatch Watch.exe
+2026-08-10T11:13:51 EnsureOccMigrated: Stations_ICAO_IATA already present — skipping.
+2026-08-10T11:13:51 EnsureOccMigrated: Runways already present — skipping.
+2026-08-10T11:13:51 EnsureOccMigrated: Notams_ICAO_CSV already present — skipping.
+2026-08-10T11:13:51 EnsureOccMigrated: done.
+2026-08-10T11:13:51 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\bin\Debug localFolder=C:\Users\jgazon\AppData\Local\Dispatch Watch alreadyLocal=False vExeExists=True
+2026-08-10T11:13:51 First run for this folder — installing to C:\Users\jgazon\AppData\Local\Dispatch Watch
+2026-08-10T11:13:51 Install copy done — relaunching from C:\Users\jgazon\AppData\Local\Dispatch Watch\Dispatch Watch.exe
+2026-08-10T11:37:43 EnsureOccMigrated: Stations_ICAO_IATA already present — skipping.
+2026-08-10T11:37:43 EnsureOccMigrated: Runways already present — skipping.
+2026-08-10T11:37:43 EnsureOccMigrated: Notams_ICAO_CSV already present — skipping.
+2026-08-10T11:37:43 EnsureOccMigrated: done.
+2026-08-10T11:37:43 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\bin\Debug localFolder=C:\Users\jgazon\AppData\Local\Dispatch Watch alreadyLocal=False vExeExists=True
+2026-08-10T11:37:43 First run for this folder — installing to C:\Users\jgazon\AppData\Local\Dispatch Watch
+2026-08-10T11:37:43 Install copy done — relaunching from C:\Users\jgazon\AppData\Local\Dispatch Watch\Dispatch Watch.exe
+2026-08-10T11:49:59 EnsureOccMigrated: Stations_ICAO_IATA already present — skipping.
+2026-08-10T11:49:59 EnsureOccMigrated: Runways already present — skipping.
+2026-08-10T11:49:59 EnsureOccMigrated: Notams_ICAO_CSV already present — skipping.
+2026-08-10T11:49:59 EnsureOccMigrated: done.
+2026-08-10T11:49:59 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\bin\Debug localFolder=C:\Users\jgazon\AppData\Local\Dispatch Watch alreadyLocal=False vExeExists=True
+2026-08-10T11:49:59 First run for this folder — installing to C:\Users\jgazon\AppData\Local\Dispatch Watch
+2026-08-10T11:50:00 Install copy done — relaunching from C:\Users\jgazon\AppData\Local\Dispatch Watch\Dispatch Watch.exe
+2026-08-11T13:02:49 EnsureOccMigrated: Stations_ICAO_IATA already present — skipping.
+2026-08-11T13:02:49 EnsureOccMigrated: Runways already present — skipping.
+2026-08-11T13:02:49 EnsureOccMigrated: Notams_ICAO_CSV already present — skipping.
+2026-08-11T13:02:49 EnsureOccMigrated: done.
+2026-08-11T13:02:49 EnsureLocalInstall: StartupPath=C:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\bin\Debug localFolder=C:\Users\jgazon\AppData\Local\Dispatch Watch alreadyLocal=False vExeExists=True
+2026-08-11T13:02:49 First run for this folder — installing to C:\Users\jgazon\AppData\Local\Dispatch Watch
+2026-08-11T13:02:49 EXCEPTION: System.IO.IOException: The process cannot access the file 'C:\Users\jgazon\AppData\Local\Dispatch Watch\Dispatch Watch.exe' because it is being used by another process.
+   at System.IO.__Error.WinIOError(Int32 errorCode, String maybeFullPath)
+   at System.IO.File.InternalCopy(String sourceFileName, String destFileName, Boolean overwrite, Boolean checkHost)
+   at System.IO.File.Copy(String sourceFileName, String destFileName, Boolean overwrite)
+   at ICAO_CSV.MainForm.CopyAppFiles(String sourceDir, String destDir) in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\MainForm.Deployment.cs:line 121
+   at ICAO_CSV.MainForm.EnsureLocalInstall() in c:\Users\jgazon\OneDrive - ASL AVIATION GROUP\Documents\GitHub\Notams---Claude\Dispatch Watch\MainForm.Deployment.cs:line 82
+2026-08-11T13:02:50 StartApp: destExists=True destTime=2026-08-11T13:02:50.6214988+02:00 sourceTime=2026-08-11T12:25:36.0540734+02:00
+2026-08-11T13:02:50 StartApp: local DB considered up to date — no download.
