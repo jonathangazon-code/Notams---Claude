@@ -274,8 +274,8 @@ namespace ICAO_CSV
 			this.tabControl1.Controls.Add(this.tabPage4);
 			this.tabControl1.Controls.Add(this.AIP_SUP_report);
 			this.tabControl1.Controls.Add(this.tabPage_Conflict);
-			this.tabControl1.Controls.Add(this.APT_List);
 			this.tabControl1.Controls.Add(this.tabPage_FlightSchedule);
+			this.tabControl1.Controls.Add(this.APT_List);
 			this.tabControl1.Controls.Add(this.tabPage5);
 			this.tabControl1.Controls.Add(this.tabPage_Keywords);
 			// tabPage3 ("DB Update") is deliberately not added — dev/test-only now, the

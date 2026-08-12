@@ -240,6 +240,13 @@ namespace ICAO_CSV
 				catch { }
 				CloseFsProgressForm();
 				_lastFsRefreshCompletedUtc = DateTime.UtcNow;
+				// LoadFlightScheduleGrid() above already keeps the Flight Schedule tab's own grid
+				// current regardless of which tab triggered this refresh. The Conflict tab isn't
+				// self-updating the same way — Build_Conflict_Report() only runs on TabPage.Enter,
+				// so if the dispatcher is sitting on Conflict while a refresh it kicked off (or
+				// one kicked off elsewhere, e.g. finishing NOTAM triage) completes, re-render it
+				// now so the fresh flight data actually shows up without switching tabs away and back.
+				if (tabControl1.SelectedTab == tabPage_Conflict) Build_Conflict_Report();
 			};
 			_fsWorker.RunWorkerAsync();
 		}
