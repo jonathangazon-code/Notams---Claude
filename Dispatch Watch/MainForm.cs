@@ -79,6 +79,22 @@ namespace ICAO_CSV
 		private bool _formShown;
 		private Timer _resizeDebounce;
 
+		// Ctrl+S on the NOTAM Filter tab == clicking SUBMIT. ProcessCmdKey (not a control's own
+		// KeyDown) catches the shortcut regardless of which child control currently has focus —
+		// the NOTAM cards/chips/textboxes on this tab are all dynamically built, so there's no
+		// single control to attach a KeyDown handler to. Only fires in the automatic Filter New
+		// NOTAMS flow (Btn_submitNotams.Visible is false in the manual ICAO station view, which
+		// has no Submit step at all — every edit there already saves immediately).
+		protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+		{
+			if (keyData == (Keys.Control | Keys.S) && tabControl1.SelectedTab == tabPage1 && Btn_submitNotams.Visible)
+			{
+				Btn_submitNotamsClick(this, EventArgs.Empty);
+				return true;
+			}
+			return base.ProcessCmdKey(ref msg, keyData);
+		}
+
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
 			if (_lockHeartbeatTimer != null) _lockHeartbeatTimer.Stop();

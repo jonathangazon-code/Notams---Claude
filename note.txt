@@ -1,3 +1,18 @@
-Below is a summary of operational impacts on the network over the next 7 days, cross-referenced against the flight schedule for both B737 and B747 fleets. 
-For Origin/Dest, a conflict is checked at STD/STA ±1hr.
-For ALTN use, the conflict check is only performed once an OFP has been computed in FPM. The check is done at STD + flight time + diversion time ±2hr.
+l'affichage de l'app se passe nickel pour tous les utilisateur que ce soit sur laptop ou plus grand écran.
+Un seul collègue a des soucis sur son laptop. Il a pourtant tous les bons réglges de résolutions et zoom à 125%. Il rencontre le même problème avec d'autres applications professionelles.
+Iici, quand la liste de NOTAM devient longue, il n'arrive pas à scroller jusqu'en bas de la page, comme s'il était bloqué.
+Que proposerais-tu comme solution qui n'altérerait pas la présentation actuelle qui fonctionne très bien pour ts les autres ?
+Possibilité de scroller avec la flèche du bas, possibilité de dézoomer (maj scroll ou bouton + -), autre ?
+
+Ce que tu décris (bloqué avant la fin, réglages DPI/zoom corrects, même souci avec d'autres apps pro) correspond très précisément à un bug connu de WinForms avec la mise à l'échelle Windows à 125% (souvent le mode "System" ou "System (Enhanced)") : le contrôle AutoScroll calcule sa hauteur scrollable (AutoScrollMinSize) en pixels logiques, mais l'affichage réel est étiré par Windows au niveau OS quand l'appli n'est pas déclarée "DPI aware" — résultat : la zone de défilement calculée est plus courte que le contenu réel, et aucune méthode de scroll ne peut compenser (molette, ascenseur, flèches) puisque la limite elle-même est fausse, pas juste l'interaction.
+
+C'est cohérent avec "même souci sur d'autres applications pro" : ce n'est presque certainement pas un problème propre à Dispatch Watch, mais une config Windows sur ce poste précis.
+
+Proposition, par ordre de risque croissant :
+
+Fix côté Windows, zéro risque pour les autres (à essayer en premier) : sur le poste du collègue, clic droit sur le raccourci/exe → Propriétés → Compatibilité → "Modifier les paramètres hauts DPI" → cocher "Remplacer le comportement de mise à l'échelle DPI élevée effectué par : Application" (ou tester "Système (amélioré)"). Ça ne touche ni le code ni l'affichage des autres utilisateurs — c'est spécifique à ce raccourci sur cette machine.
+Si ça ne suffit pas, patch défensif dans le code (additif, invisible pour tout le monde d'autre) : recalculer manuellement tabPage1.AutoScrollMinSize à partir de la position Bottom réelle du dernier contrôle ajouté, au lieu de laisser WinForms le déduire automatiquement (c'est précisément ce calcul automatique qui part de travers sous DPI non-natif). Pour les autres utilisateurs, la valeur recalculée serait identique à celle que WinForms trouve déjà correctement — donc rien ne change pour eux, mais ça contourne le bug pour lui.
+Sur tes deux pistes :
+
+Flèche du bas : ne réglera probablement rien si c'est bien un problème de limite de scroll mal calculée (la flèche buterait sur la même limite fausse) — mais ça coûte peu à ajouter en secours, au cas où le vrai problème est plutôt une interaction ascenseur cassée.
+Dézoom (Ctrl+molette ou bouton +/-) : techniquement lourd ici, puisque tout le layout de cet onglet est positionné en pixels bruts (pas de mise à l'échelle relative) — il faudrait rescaler chaque coordonnée à la volée. Je le garderais en dernier recours si les deux options ci-dessus échouent.

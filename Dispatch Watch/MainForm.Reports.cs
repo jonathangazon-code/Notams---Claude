@@ -86,13 +86,16 @@ namespace ICAO_CSV
 		// Yellow-background legend (matches AppendImpactRow's "Yellow" bgcolor for a NOTAM
 		// active within 24h) + a one-line pointer to how to get airport/NOTAM detail — shown
 		// right under the date, above the summary table, on both the live tab and the export.
+		// 13px — a notch below the 14px date line above it (Report()/BuildFullNotamReportHtml
+		// give reportDate an explicit font-size:14px for exactly this comparison), still bigger
+		// than the small 11px "Full detail... use Export PDF" note further down the page.
 		private static string ReportLegendAndRemarkHtml()
 		{
 			return
-				"<div style=\"font-size:11px;margin:2px 0 10px 0\">" +
+				"<div style=\"font-size:13px;margin:2px 0 10px 0\">" +
 				"<span style=\"display:inline-block;width:12px;height:12px;background:Yellow;border:1px solid #999;vertical-align:middle;margin-right:5px\"></span>" +
 				"Yellow background = NOTAM active &lt;24H</div>" +
-				"<p style=\"color:#607d8b;font-size:11px;margin:0 0 10px 0\">For Airport and NOTAM details, click on the NOTAM Ref or search the document.</p>";
+				"<p style=\"color:#607d8b;font-size:13px;margin:0 0 10px 0\">For Airport and NOTAM details, click on the NOTAM Ref or search the document.</p>";
 		}
 
 		// Fast path: the summary table only, no per-airport detail sections (those require a
@@ -111,7 +114,7 @@ namespace ICAO_CSV
 			string html = "<html><head><title>NOTAM REPORT</title><style>" +
 				".notamlink{color:#003399;text-decoration:underline;cursor:pointer}" +
 				"</style><body style=\"font-family:Calibri\">" +
-				"<h1>Notam Report - " + windowLabel + "</h1><p>" + reportDate + "</p>" +
+				"<h1>Notam Report - " + windowLabel + "</h1><p style=\"font-size:14px\">" + reportDate + "</p>" +
 				ReportLegendAndRemarkHtml() +
 				summaryTable +
 				"<p style=\"color:#607d8b;font-size:11px\">Full per-airport detail (RWY diagrams, Kept NOTAMs) is generated on demand — use Export PDF.</p>" +
@@ -184,7 +187,7 @@ namespace ICAO_CSV
 				".notamlink{color:#003399;text-decoration:underline}" +
 				BuildAirportDetailStyleBlock() +
 				"</style><body style=\"font-family:Calibri\">" +
-				"<h1>Notam Report - " + windowLabel + "</h1><p>" + reportDate + "</p>" +
+				"<h1>Notam Report - " + windowLabel + "</h1><p style=\"font-size:14px\">" + reportDate + "</p>" +
 				ReportLegendAndRemarkHtml() +
 				summaryTable +
 				details +
