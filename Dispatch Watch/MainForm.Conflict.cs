@@ -499,12 +499,15 @@ namespace ICAO_CSV
 
 				// MISC is entirely out of the flight-matching machinery — every Kept MISC NOTAM
 				// in the 7-day window is just listed as a compact, always-purple informational
-				// row, same treatment as an unmatched Not-ALTN NOTAM (no flight ties, so no
-				// card/diagram-in-a-card/chips), sorted chronologically further down.
+				// row (same treatment as an unmatched Not-ALTN NOTAM, no flight ties so no
+				// card/diagram-in-a-card/chips), sorted chronologically further down. It still
+				// gets the same "ACTIVE <24H" badge Not-ALTN's rows do when genuinely active
+				// within the next 24h — just purple instead of yellow, to match the row.
 				if (impact == "M")
 				{
 					if (notamEnd < nowUtc || notamStart > windowEnd) continue;
-					string miscRowHtml = BuildNotAltnRowHtml(location, key, period, all, "miscBg", false, cidImages, inlineImages);
+					bool miscActiveNext24h = notamStart <= nowUtc.AddHours(24) && notamEnd >= nowUtc;
+					string miscRowHtml = BuildNotAltnRowHtml(location, key, period, all, "miscBg", miscActiveNext24h, cidImages, inlineImages);
 					miscRows.Add(new Tuple<DateTime, string>(notamStart, miscRowHtml));
 					continue;
 				}
@@ -663,6 +666,7 @@ namespace ICAO_CSV
 				".rKeyPeriod .p{color:#90a4ae;font-family:'Courier New',monospace;margin-left:8px}" +
 				".rText{color:#455a64;padding-top:4px}" +
 				".rFlag{float:right;font-size:10.5px;font-weight:bold;color:#8a6d00;background:#ffe9a8;padding:1px 6px;border-radius:8px;white-space:nowrap;margin-left:8px}" +
+				".rFlag.purple{color:#4a148c;background:#e3c6f0}" +
 				"</style></head><body>" + body + "</body></html>";
 
 			return html;
@@ -1089,12 +1093,11 @@ namespace ICAO_CSV
 		// no dismiss checkbox, no RWY dist/CAT blocks: this row isn't tied to any specific
 		// flight, unlike every other card in this report.
 		//
-		// bgClass/showActiveFlag are independent: an unmatched Not-ALTN row only turns yellow
-		// (class "h24", and shows the "ACTIVE <24H" badge) when it's genuinely active within the
-		// next 24h, but every MISC row is always purple-tinted (class "miscBg", matching the
-		// purple MISC banner above it) with no badge, since MISC isn't matched against the
-		// schedule at all — there's no "active soon" signal to compute, and the flag text itself
-		// ("ACTIVE <24H") doesn't apply to it.
+		// bgClass drives the row's own tint ("h24" yellow for an unmatched Not-ALTN row, "miscBg"
+		// purple for a MISC row — both always shown for MISC, only when active within the next
+		// 24h for Not-ALTN). showActiveFlag is independent and behaves identically for both: the
+		// "ACTIVE <24H" badge shows whenever the NOTAM is genuinely active within the next 24h,
+		// colored to match the row (purple on a MISC row, yellow everywhere else).
 		private string BuildNotAltnRowHtml(string AP, string key, string period, string notamText, string bgClass, bool showActiveFlag,
 			bool cidImages, Dictionary<string, string> inlineImages)
 		{
@@ -1104,7 +1107,9 @@ namespace ICAO_CSV
 
 			string iataSpan = (iata != "" && iata != AP) ? "<span class=\"iata\">" + iata + "</span>" : "";
 			string nameSpan = name != "" ? "<span class=\"name\">" + name.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" : "";
-			string flagSpan = showActiveFlag ? "<span class=\"rFlag\">ACTIVE &lt;24H</span>" : "";
+			string flagSpan = showActiveFlag
+				? "<span class=\"rFlag" + (bgClass == "miscBg" ? " purple" : "") + "\">ACTIVE &lt;24H</span>"
+				: "";
 
 			// Table-based (diagram cell + main cell) — see the .notamRow CSS comment for why
 			// this is safe now (the diagram is a plain raster <img>, not VML).
