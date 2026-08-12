@@ -1049,6 +1049,10 @@ namespace ICAO_CSV
 				Lbl_notamsUnchecked.Text = "Notams Unchecked : 0";
 				Btn_submitNotams.Visible = false;
 				tabPage1.AutoScrollPosition = new Point(0, 0);
+				// Triage just finished (or this render found it already finished) — nudge the
+				// Flight Schedule to catch up, throttled to once per 5 min so re-rendering this
+				// same "all checked" state repeatedly doesn't spam refreshes.
+				TryAutoRefreshFlightSchedule();
 				return;
 			}
 			Btn_submitNotams.Visible = true;

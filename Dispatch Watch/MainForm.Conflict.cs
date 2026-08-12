@@ -51,7 +51,11 @@ namespace ICAO_CSV
 			public bool Manual;
 		}
 
-		void ConflictTabEnter(object sender, EventArgs e) { Build_Conflict_Report(); }
+		// TryAutoRefreshFlightSchedule (MainForm.FlightSchedule.cs) kicks a throttled (5 min),
+		// silent-for-Readers background refresh — this render pass still builds from whatever's
+		// already in FlightSchedule (the refresh runs on a BackgroundWorker), so freshly-fetched
+		// data only shows up the next time this tab re-renders.
+		void ConflictTabEnter(object sender, EventArgs e) { TryAutoRefreshFlightSchedule(); Build_Conflict_Report(); }
 
 		// Cross-references every Kept, impact-classified NOTAM against FlightSchedule:
 		// a conflict exists when the NOTAM's validity window overlaps the ±window (Admin

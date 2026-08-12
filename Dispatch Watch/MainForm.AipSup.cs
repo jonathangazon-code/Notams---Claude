@@ -147,16 +147,27 @@ namespace ICAO_CSV
 				: radBtn_Sup_7days.Checked  ? "Next 7 days"
 				: "Next 31 days";
 
-			string reportDate = DateTime.Now.ToString("ddMMMMyyyy HHmm") + "CET";
+			// FormatReportDate() — MainForm.Reports.cs, same "12AUG2026 1530CET" English-locale
+			// format used for the NOTAM Report tab, for the same reason: DateTime.Now.ToString
+			// with no culture rendered the month name in the dispatcher's Windows locale
+			// (French, lowercase, e.g. "12août2026").
+			string reportDate = FormatReportDate();
 			string js = "<script type=\"text/javascript\">" +
 				"function updateCheckbox(id,isYes){" +
 				"var chk=document.getElementById('chk_'+id);" +
 				"if(chk){chk.style.background=isYes?'#2e7d52':'#c62828';chk.innerHTML=isYes?'&#10003;':'';}}" +
 				"</script>";
+			// Yellow-background legend, matching the NOTAM Report tab's — same "Yellow" bgcolor
+			// used a few lines up for a SUP effective within the next 24h (fromDateInt <= tomorrowInt).
+			string legend =
+				"<div style=\"font-size:13px;margin:2px 0 10px 0\">" +
+				"<span style=\"display:inline-block;width:12px;height:12px;background:Yellow;border:1px solid #999;vertical-align:middle;margin-right:5px\"></span>" +
+				"Yellow background = AIP SUP effective within 24H</div>";
 			string report = "<html><head><title>AIP SUP Listing</title>" + js + "</head>" +
 				"<body style=\"font-family:Calibri\">" +
 				"<h1>AIP SUP Listing - " + window + "</h1>" +
-				"<p>" + reportDate + "</p>" +
+				"<p style=\"font-size:14px\">" + reportDate + "</p>" +
+				legend +
 				"<table border=\"1\" style=\"width:700px;text-align:left;font-family:Calibri;font-size:12px;border:1px solid black;border-collapse:collapse\">" +
 				"<tr bgcolor=\"Black\" style=\"color:white;font-size:14px;\"><th>IATA</th><th>Notam Ref</th><th>From-Till</th><th>Avio</th><th>AIP SUP Ref</th></tr>" +
 				twenty4H_AIP_Sup_list + AIP_Sup_list +

@@ -82,6 +82,27 @@ namespace ICAO_CSV
 		void FlightScheduleTabEnter(object sender, EventArgs e)
 		{
 			if (_fsDgv == null) BuildFlightScheduleGrid();
+			LoadFlightScheduleGrid();        // always show what's already stored — cheap, local-only
+			TryAutoRefreshFlightSchedule();  // possibly kick a background refresh if stale (see below)
+		}
+
+		// Session-local timestamp of the last *successful* refresh completion, manual or
+		// automatic alike (set in RefreshFlightSchedule()'s RunWorkerCompleted below) — the
+		// single throttle every automatic trigger (NOTAM triage completing, opening this tab,
+		// opening the Conflict tab) checks against, so a full network refresh (a getFlightList
+		// call per day 0-7, the MM backlog, the CSV pass, one getBriefing call per flight) isn't
+		// re-run on every tab click when the data is only seconds old.
+		private static DateTime _lastFsRefreshCompletedUtc = DateTime.MinValue;
+
+		// Silent, throttled auto-trigger — deliberately does NOT call EnsureWriterOrWarn (that
+		// pops a blocking "Reader mode" MessageBox, fine for a deliberate button click but not
+		// for something that fires just from opening a tab); a Reader simply gets no automatic
+		// refresh, same as if nothing happened.
+		private void TryAutoRefreshFlightSchedule()
+		{
+			if (!IsWriter) return;
+			if (_fsWorker != null && _fsWorker.IsBusy) return;
+			if (DateTime.UtcNow - _lastFsRefreshCompletedUtc < TimeSpan.FromMinutes(5)) return;
 			RefreshFlightSchedule();
 		}
 
@@ -207,6 +228,7 @@ namespace ICAO_CSV
 				}
 				LoadFlightScheduleGrid();
 				CloseFsProgressForm();
+				_lastFsRefreshCompletedUtc = DateTime.UtcNow;
 			};
 			_fsWorker.RunWorkerAsync();
 		}
