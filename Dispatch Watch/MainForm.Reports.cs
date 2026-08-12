@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -73,6 +74,27 @@ namespace ICAO_CSV
 				: "Next 31 days";
 		}
 
+		// "12AUG2026 1530CET" — CultureInfo.InvariantCulture so the month abbreviation is always
+		// English regardless of the dispatcher's Windows locale (a French-locale PC previously
+		// rendered this in French, lowercase, e.g. "12août2026"). Same convention already used
+		// for the email subject/attachment date (MainForm.Email.cs's titleDate).
+		private static string FormatReportDate()
+		{
+			return DateTime.Now.ToString("ddMMMyyyy HHmm", CultureInfo.InvariantCulture).ToUpper() + "CET";
+		}
+
+		// Yellow-background legend (matches AppendImpactRow's "Yellow" bgcolor for a NOTAM
+		// active within 24h) + a one-line pointer to how to get airport/NOTAM detail — shown
+		// right under the date, above the summary table, on both the live tab and the export.
+		private static string ReportLegendAndRemarkHtml()
+		{
+			return
+				"<div style=\"font-size:11px;margin:2px 0 10px 0\">" +
+				"<span style=\"display:inline-block;width:12px;height:12px;background:Yellow;border:1px solid #999;vertical-align:middle;margin-right:5px\"></span>" +
+				"Yellow background = NOTAM active &lt;24H</div>" +
+				"<p style=\"color:#607d8b;font-size:11px;margin:0 0 10px 0\">For Airport and NOTAM details, click on the NOTAM Ref or search the document.</p>";
+		}
+
 		// Fast path: the summary table only, no per-airport detail sections (those require a
 		// runway-diagram image per Airport List station — the whole reason this tab used to be
 		// slow to open). Auto-runs on tab enter / window-radio change, so it has to stay light.
@@ -85,11 +107,12 @@ namespace ICAO_CSV
 
 			string summaryTable = BuildSummaryHtml(todayInt, endWindowInt, tomorrowInt, /*interactiveLinks*/true);
 
-			string reportDate = DateTime.Now.ToString("ddMMMMyyyy HHmm") + "CET";
+			string reportDate = FormatReportDate();
 			string html = "<html><head><title>NOTAM REPORT</title><style>" +
 				".notamlink{color:#003399;text-decoration:underline;cursor:pointer}" +
 				"</style><body style=\"font-family:Calibri\">" +
 				"<h1>Notam Report - " + windowLabel + "</h1><p>" + reportDate + "</p>" +
+				ReportLegendAndRemarkHtml() +
 				summaryTable +
 				"<p style=\"color:#607d8b;font-size:11px\">Full per-airport detail (RWY diagrams, Kept NOTAMs) is generated on demand — use Export PDF.</p>" +
 				"</body></html>";
@@ -156,12 +179,13 @@ namespace ICAO_CSV
 			string details = BuildAirportDetailSectionsHtml(orderedIcaos, onProgress);
 
 			if (onProgress != null) onProgress(99, "Assembling report...");
-			string reportDate = DateTime.Now.ToString("ddMMMMyyyy HHmm") + "CET";
+			string reportDate = FormatReportDate();
 			string html = "<html><head><title>NOTAM REPORT</title><style>" +
 				".notamlink{color:#003399;text-decoration:underline}" +
 				BuildAirportDetailStyleBlock() +
 				"</style><body style=\"font-family:Calibri\">" +
 				"<h1>Notam Report - " + windowLabel + "</h1><p>" + reportDate + "</p>" +
+				ReportLegendAndRemarkHtml() +
 				summaryTable +
 				details +
 				"</body></html>";
