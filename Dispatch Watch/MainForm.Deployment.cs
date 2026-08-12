@@ -494,9 +494,14 @@ namespace ICAO_CSV
 				Btn_filterNew.Enabled = false;
 				Btn_dbUpdateQuick.Enabled = false;
 				Btn_updateDB.Enabled = false;
-				Btn_sendReports.Enabled = false;
-				Btn_addRecipient.Enabled = false;
-				Btn_removeRecipient.Enabled = false;
+				// Btn_sendReports moved from the (now removed) Email tab to a runtime-built
+				// button on the Conflict tab's top bar (MainForm.Conflict.cs) — only exists
+				// once that tab has been visited at least once, hence the try/catch below.
+				// Add/Remove Recipients no longer have pre-existing controls to disable at
+				// all (they live inside ShowRecipientsDialog, built fresh each time it's
+				// opened) — same EnsureWriterOrWarn() gate at click time as the AIP SUP tab's
+				// Avio checkboxes, rather than pre-disabling.
+				if (_conflictSendReportsBtn != null) _conflictSendReportsBtn.Enabled = false;
 			}
 			catch { /* a control not existing yet (very early startup) shouldn't block the rest */ }
 		}

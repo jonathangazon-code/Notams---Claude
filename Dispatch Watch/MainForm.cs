@@ -57,7 +57,8 @@ namespace ICAO_CSV
 			tab_RWYs();
 			Airport_List();
 			Keywords_Refresh();
-			Recipients_Refresh();
+			// Recipients no longer have a persistent list control to prime at startup — the
+			// Update Recipients dialog (MainForm.Conflict.cs) loads them fresh each time it opens.
 			if (!IsWriter) ApplyReaderModeUi();
 			StartIdleAutoSave();
 			this.FormClosing += MainForm_FormClosing;

@@ -11,16 +11,21 @@ namespace ICAO_CSV
 			ExportToPdf(browser.DocumentText, baseName);
 		}
 
-		void ExportToPdf(string html, string baseName)
+		// silent=true (RefreshFlightSchedule's automatic PDF export) skips both the success and
+		// failure MessageBox — the caller folds a mention into its own progress-dialog status
+		// line instead, so the dispatcher isn't shown two separate "it worked" confirmations.
+		// Existing manual "Export PDF" buttons keep silent=false (the default) unchanged.
+		bool ExportToPdf(string html, string baseName, bool silent = false)
 		{
 			string wkhtmlExe = Path.Combine(Application.StartupPath, "wkhtmltopdf.exe");
 			if (!File.Exists(wkhtmlExe))
 			{
-				MessageBox.Show(
-					"wkhtmltopdf.exe not found in app folder:\n" + wkhtmlExe +
-					"\n\nDownload it free from https://wkhtmltopdf.org and place it next to the app.",
-					"Export PDF", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-				return;
+				if (!silent)
+					MessageBox.Show(
+						"wkhtmltopdf.exe not found in app folder:\n" + wkhtmlExe +
+						"\n\nDownload it free from https://wkhtmltopdf.org and place it next to the app.",
+						"Export PDF", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return false;
 			}
 
 			string tempHtml = Path.Combine(Application.StartupPath, "_export_temp.html");
@@ -67,13 +72,20 @@ namespace ICAO_CSV
 				File.Delete(tempHtml);
 
 				if (File.Exists(pdfPath))
-					MessageBox.Show("PDF exported:\n" + pdfPath, "Export PDF", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				{
+					if (!silent) MessageBox.Show("PDF exported:\n" + pdfPath, "Export PDF", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					return true;
+				}
 				else
-					MessageBox.Show("Export failed — wkhtmltopdf returned no file.", "Export PDF", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				{
+					if (!silent) MessageBox.Show("Export failed — wkhtmltopdf returned no file.", "Export PDF", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					return false;
+				}
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("Export error:\n" + ex.Message, "Export PDF", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				if (!silent) MessageBox.Show("Export error:\n" + ex.Message, "Export PDF", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return false;
 			}
 		}
 	}

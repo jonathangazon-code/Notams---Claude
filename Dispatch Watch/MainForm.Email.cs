@@ -44,52 +44,6 @@ namespace ICAO_CSV
 			return list;
 		}
 
-		void Recipients_Refresh()
-		{
-			Lst_Recipients.Items.Clear();
-			foreach (string a in LoadRecipients()) Lst_Recipients.Items.Add(a);
-		}
-
-		void Btn_addRecipientClick(object sender, EventArgs e)
-		{
-			if (!EnsureWriterOrWarn()) return;
-			string a = TxtBox_recipient.Text.Trim();
-			if (a == "" || !a.Contains("@")) return;
-			foreach (object it in Lst_Recipients.Items)
-				if (string.Equals(it.ToString(), a, StringComparison.OrdinalIgnoreCase)) { TxtBox_recipient.Clear(); return; }
-
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
-			conn.Open();
-			OleDbCommand ins = new OleDbCommand("INSERT INTO EmailRecipients ([Email]) VALUES (?)", conn);
-			ins.Parameters.AddWithValue("?", a);
-			ins.ExecuteNonQuery();
-			conn.Close();
-
-			TxtBox_recipient.Clear();
-			Recipients_Refresh();
-		}
-
-		void TxtBox_recipientKeyDown(object sender, KeyEventArgs e)
-		{
-			if (e.KeyCode == Keys.Enter) { Btn_addRecipientClick(sender, e); e.SuppressKeyPress = true; }
-		}
-
-		void Btn_removeRecipientClick(object sender, EventArgs e)
-		{
-			if (!EnsureWriterOrWarn()) return;
-			if (Lst_Recipients.SelectedItem == null) return;
-			string a = Lst_Recipients.SelectedItem.ToString();
-
-			OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
-			conn.Open();
-			OleDbCommand del = new OleDbCommand("DELETE FROM EmailRecipients WHERE Email=?", conn);
-			del.Parameters.AddWithValue("?", a);
-			del.ExecuteNonQuery();
-			conn.Close();
-
-			Recipients_Refresh();
-		}
-
 		// Returns the user's default Outlook signature as HTML (read from the signature files),
 		// or "" if none. Avoids GetInspector, which breaks programmatic .Send.
 		string ReadDefaultSignatureHtml()
@@ -186,11 +140,16 @@ namespace ICAO_CSV
 			// .attachNote is defined in the shared <style> block BuildConflictReportHtml just
 			// built (bigger, green-accented, same treatment as the report's other explanatory
 			// text) — this paragraph gets inserted into that same HTML document below, so the
-			// class is available here without repeating the styling inline.
+			// class is available here without repeating the styling inline. Each report name is
+			// also a real, underlined file:// link straight to its V: path (same as the reports
+			// already attached) — since Reports lives on the shared drive, any recipient with
+			// access to V: can open the live file directly, not just the attached snapshot.
+			string notamLink = "<a href=\"" + new Uri(notamPdf).AbsoluteUri + "\" style=\"color:inherit;text-decoration:underline\">the complete NOTAMs analysis (Impact summary + complete Network)</a>";
+			string supLink   = "<a href=\"" + new Uri(supPdf).AbsoluteUri   + "\" style=\"color:inherit;text-decoration:underline\">the list of AIP SUPs loaded in Aviobook</a>";
+			string fsLink    = "<a href=\"" + new Uri(fsPdf).AbsoluteUri    + "\" style=\"color:inherit;text-decoration:underline\">the Flight Schedule used for the coming 7 days</a>";
 			string attachmentNote =
 				"<p class=\"attachNote\">" +
-				"In attachment you will find the complete NOTAMs analysis (Impact summary + complete Network), " +
-				"the list of AIP SUPs loaded in Aviobook, and the Flight Schedule used for the coming 7 days.</p>";
+				"In attachment you will find " + notamLink + ", " + supLink + ", and " + fsLink + ".</p>";
 
 			string step = "init";
 			try

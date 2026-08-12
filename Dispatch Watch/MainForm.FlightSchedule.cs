@@ -227,6 +227,17 @@ namespace ICAO_CSV
 					return;
 				}
 				LoadFlightScheduleGrid();
+				// Auto-save the Flight Schedule PDF as the last step of every refresh (manual or
+				// automatic alike) — folded into this same progress dialog's status line rather
+				// than a second, separate confirmation popup (ExportToPdf's own success/failure
+				// MessageBox is suppressed via silent=true). Wrapped so a PDF failure (missing
+				// wkhtmltopdf.exe, V: unreachable) can't take down the refresh completion itself.
+				try
+				{
+					UpdateFsProgress(100, "Saving Flight Schedule PDF...");
+					ExportToPdf(BuildFlightScheduleHtml(), "Flight_Schedule", true);
+				}
+				catch { }
 				CloseFsProgressForm();
 				_lastFsRefreshCompletedUtc = DateTime.UtcNow;
 			};

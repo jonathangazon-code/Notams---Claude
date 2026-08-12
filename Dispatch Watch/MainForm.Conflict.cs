@@ -9,6 +9,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Windows.Forms;
 
 namespace ICAO_CSV
 {
@@ -51,11 +52,131 @@ namespace ICAO_CSV
 			public bool Manual;
 		}
 
+		// Runtime-built top bar (Send Reports / Update Recipients) — the Email tab was removed
+		// and folded into this one, since the email body *is* the Conflict report
+		// (BuildConflictReportHtml). Built once, lazily, same idiom as FlightScheduleTabEnter's
+		// "if (_fsDgv == null) BuildFlightScheduleGrid();". _conflictSendReportsBtn is also
+		// referenced from MainForm.Deployment.cs's ApplyReaderModeUi.
+		private Panel _conflictTopBar;
+		private Button _conflictSendReportsBtn;
+
 		// TryAutoRefreshFlightSchedule (MainForm.FlightSchedule.cs) kicks a throttled (5 min),
 		// silent-for-Readers background refresh — this render pass still builds from whatever's
 		// already in FlightSchedule (the refresh runs on a BackgroundWorker), so freshly-fetched
 		// data only shows up the next time this tab re-renders.
-		void ConflictTabEnter(object sender, EventArgs e) { TryAutoRefreshFlightSchedule(); Build_Conflict_Report(); }
+		void ConflictTabEnter(object sender, EventArgs e)
+		{
+			if (_conflictTopBar == null) BuildConflictTopBar();
+			TryAutoRefreshFlightSchedule();
+			Build_Conflict_Report();
+		}
+
+		private void BuildConflictTopBar()
+		{
+			_conflictTopBar = new Panel { Dock = DockStyle.Top, Height = 50 };
+
+			_conflictSendReportsBtn = new Button { Top = 10, Left = 14, Width = 160, Height = 30,
+				Text = "✉  Send Reports", Font = new Font("Microsoft Sans Serif", 10f, FontStyle.Bold),
+				BackColor = Color.FromArgb(21, 101, 192), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false };
+			_conflictSendReportsBtn.Click += Btn_sendReportsClick;
+			_conflictTopBar.Controls.Add(_conflictSendReportsBtn);
+
+			Button updateRecipientsBtn = new Button { Top = 10, Left = 184, Width = 160, Height = 30,
+				Text = "Update Recipients", BackColor = Color.FromArgb(21, 101, 192), ForeColor = Color.White,
+				FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false };
+			updateRecipientsBtn.Click += delegate { ShowRecipientsDialog(); };
+			_conflictTopBar.Controls.Add(updateRecipientsBtn);
+
+			// Dock=Fill (Web_Conflict) occupies whatever's left over regardless of add order,
+			// but Top-docked bars are conventionally added before it elsewhere in this app
+			// (e.g. MainForm.FlightSchedule.cs's topBar) — matched here for consistency.
+			tabPage_Conflict.Controls.Add(_conflictTopBar);
+			Web_Conflict.BringToFront();
+		}
+
+		// Recipient list editor, replacing the old Email tab's Add/Remove UI — same dark-theme
+		// hand-built Form pattern as ShowForceConflictDialog (MainForm.FlightSchedule.cs) /
+		// ShowLockPromptDialog (MainForm.Deployment.cs). Add/Remove write straight to
+		// EmailRecipients, same shape the old Btn_addRecipientClick/Btn_removeRecipientClick
+		// used, each gated by EnsureWriterOrWarn() at click time (no pre-disabling — this
+		// dialog is built fresh every time it's opened, so there are no persistent controls for
+		// ApplyReaderModeUi to reach into, same as the AIP SUP tab's Avio checkboxes).
+		private void ShowRecipientsDialog()
+		{
+			using (Form dlg = new Form
+			{
+				Text = "Dispatch Watch", FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterScreen,
+				ControlBox = false, MinimizeBox = false, MaximizeBox = false, Width = 440, Height = 480, BackColor = Color.FromArgb(38, 50, 56)
+			})
+			{
+				Label title = new Label { Text = "Default recipients", ForeColor = Color.White,
+					Font = new Font("Segoe UI", 11f, FontStyle.Bold), Top = 14, Left = 20, AutoSize = true };
+				dlg.Controls.Add(title);
+
+				ListBox list = new ListBox { Top = 48, Left = 20, Width = 380, Height = 300, BackColor = Color.White, ForeColor = Color.Black };
+				foreach (string a in LoadRecipients()) list.Items.Add(a);
+				dlg.Controls.Add(list);
+
+				TextBox addBox = new TextBox { Top = 358, Left = 20, Width = 270, BackColor = Color.White, ForeColor = Color.Black };
+				dlg.Controls.Add(addBox);
+
+				Button add = new Button { Text = "Add", Top = 356, Left = 300, Width = 100, Height = 26,
+					BackColor = Color.FromArgb(46, 125, 82), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+				add.FlatAppearance.BorderColor = Color.FromArgb(96, 125, 139);
+				dlg.Controls.Add(add);
+
+				Action doAdd = delegate
+				{
+					string a = addBox.Text.Trim();
+					if (a == "" || !a.Contains("@")) return;
+					foreach (object it in list.Items)
+						if (string.Equals(it.ToString(), a, StringComparison.OrdinalIgnoreCase)) { addBox.Clear(); return; }
+					if (!EnsureWriterOrWarn()) return;
+
+					OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+					conn.Open();
+					OleDbCommand ins = new OleDbCommand("INSERT INTO EmailRecipients ([Email]) VALUES (?)", conn);
+					ins.Parameters.AddWithValue("?", a);
+					ins.ExecuteNonQuery();
+					conn.Close();
+
+					addBox.Clear();
+					list.Items.Clear();
+					foreach (string r in LoadRecipients()) list.Items.Add(r);
+				};
+				add.Click += delegate { doAdd(); };
+				addBox.KeyDown += delegate(object s, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) { doAdd(); e.SuppressKeyPress = true; } };
+
+				Button remove = new Button { Text = "Remove selected", Top = 392, Left = 20, Width = 380, Height = 28,
+					BackColor = Color.FromArgb(200, 40, 40), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+				remove.FlatAppearance.BorderColor = Color.FromArgb(96, 125, 139);
+				remove.Click += delegate
+				{
+					if (list.SelectedItem == null) return;
+					string a = list.SelectedItem.ToString();
+					if (!EnsureWriterOrWarn()) return;
+
+					OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+					conn.Open();
+					OleDbCommand del = new OleDbCommand("DELETE FROM EmailRecipients WHERE Email=?", conn);
+					del.Parameters.AddWithValue("?", a);
+					del.ExecuteNonQuery();
+					conn.Close();
+
+					list.Items.Clear();
+					foreach (string r in LoadRecipients()) list.Items.Add(r);
+				};
+				dlg.Controls.Add(remove);
+
+				Button close = new Button { Text = "Close", Top = 430, Left = 20, Width = 380, Height = 28,
+					BackColor = Color.FromArgb(69, 90, 100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+				close.FlatAppearance.BorderColor = Color.FromArgb(96, 125, 139);
+				close.Click += delegate { dlg.Close(); };
+				dlg.Controls.Add(close);
+
+				dlg.ShowDialog();
+			}
+		}
 
 		// Cross-references every Kept, impact-classified NOTAM against FlightSchedule:
 		// a conflict exists when the NOTAM's validity window overlaps the ±window (Admin
