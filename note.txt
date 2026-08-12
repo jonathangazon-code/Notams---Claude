@@ -1,0 +1,3 @@
+Below is a summary of operational impacts on the network over the next 7 days, cross-referenced against the flight schedule for both B737 and B747 fleets. 
+For Origin/Dest, a conflict is checked at STD/STA ±1hr.
+For ALTN use, the conflict check is only performed once an OFP has been computed in FPM. The check is done at STD + flight time + diversion time ±2hr.
