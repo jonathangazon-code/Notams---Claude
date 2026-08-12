@@ -427,11 +427,13 @@ namespace ICAO_CSV
 			List<string> impactOrder = new List<string> { "A", "N", "C", "F", "D", "M" };
 			StringBuilder body = new StringBuilder();
 
-			// Second sentence spells out the two matching windows in effect (both Admin-tab
-			// configurable, _conflictWindowHours/_altnConflictWindowHours) so the dispatcher
-			// doesn't have to guess/remember them while reading the sections below.
-			body.Append("<p class=\"introLine\">Below is a summary of operational impacts on the network over the next 7 days, cross-referenced against the flight schedule. " +
-				"For Origin/Dest, a conflict is checked at STD/STA &plusmn;" + _conflictWindowHours + "hr; for Not ALTN, at STD + flight time + diversion time &plusmn;" + _altnConflictWindowHours + "hr.</p>");
+			// Wording matches note.txt (repo root) — the dispatcher's own approved copy for this
+			// intro. The two windows are still spelled out dynamically (both Admin-tab
+			// configurable, _conflictWindowHours/_altnConflictWindowHours) so the text can't
+			// drift out of sync with what's actually being checked.
+			body.Append("<p class=\"introLine\">Below is a summary of operational impacts on the network over the next 7 days, cross-referenced against the flight schedule for both B737 and B747 fleets.<br>" +
+				"For Origin/Dest, a conflict is checked at STD/STA &plusmn;" + _conflictWindowHours + "hr.<br>" +
+				"For ALTN use, the conflict check is only performed once an OFP has been computed in FPM. The check is done at STD + flight time + diversion time &plusmn;" + _altnConflictWindowHours + "hr.</p>");
 
 			if (flights.Count == 0)
 				body.Append(
@@ -496,13 +498,13 @@ namespace ICAO_CSV
 				string period = FormatDate(startRaw) + " - " + FormatDate(endRaw);
 
 				// MISC is entirely out of the flight-matching machinery — every Kept MISC NOTAM
-				// in the 7-day window is just listed as a compact, always-yellow informational
+				// in the 7-day window is just listed as a compact, always-purple informational
 				// row, same treatment as an unmatched Not-ALTN NOTAM (no flight ties, so no
 				// card/diagram-in-a-card/chips), sorted chronologically further down.
 				if (impact == "M")
 				{
 					if (notamEnd < nowUtc || notamStart > windowEnd) continue;
-					string miscRowHtml = BuildNotAltnRowHtml(location, key, period, all, true, false, cidImages, inlineImages);
+					string miscRowHtml = BuildNotAltnRowHtml(location, key, period, all, "miscBg", false, cidImages, inlineImages);
 					miscRows.Add(new Tuple<DateTime, string>(notamStart, miscRowHtml));
 					continue;
 				}
@@ -519,7 +521,7 @@ namespace ICAO_CSV
 				if (impact == "D" && !highlight)
 				{
 					bool activeNext24h = notamStart <= nowUtc.AddHours(24) && notamEnd >= nowUtc;
-					string rowHtml = BuildNotAltnRowHtml(location, key, period, all, activeNext24h, activeNext24h, cidImages, inlineImages);
+					string rowHtml = BuildNotAltnRowHtml(location, key, period, all, activeNext24h ? "h24" : "", activeNext24h, cidImages, inlineImages);
 					notAltnOtherRows.Add(new Tuple<DateTime, string>(notamStart, rowHtml));
 					continue;
 				}
@@ -535,20 +537,26 @@ namespace ICAO_CSV
 
 			foreach (string code in impactOrder)
 			{
+				// MISC has no colored dot/pill section header at all anymore — just the purple
+				// banner below, since it's no longer "in conflict" with anything to badge.
+				if (code == "M")
+				{
+					body.Append("<div class=\"banner purple\">MISC NOTAMs active in the coming 7 days<span class=\"bCount\">" +
+						miscRows.Count + " NOTAM" + (miscRows.Count == 1 ? "" : "s") + "</span></div>");
+					foreach (Tuple<DateTime, string> row in miscRows) body.Append(row.Item2);
+					continue;
+				}
+
 				Color c = ImpactColor(code);
 				string hex = ColorTranslator.ToHtml(c);
 				string label = ImpactLabel(code);
 				List<string> cards = cardsByImpact[code];
-				// MISC is never "in conflict" (it's not matched against the schedule at all), so
-				// its badge counts the listed NOTAMs and says so rather than "conflit(s)".
-				int badgeCount = code == "M" ? miscRows.Count : cards.Count;
-				string badgeWord = code == "M" ? "NOTAM" : "conflit";
 
 				body.Append("<div class=\"sectionHeader\" style=\"border-left-color:" + hex + ";background:" + hex + "22" +
-					(badgeCount == 0 ? ";opacity:.6" : "") + "\">" +
+					(cards.Count == 0 ? ";opacity:.6" : "") + "\">" +
 					"<span class=\"dot\" style=\"background:" + hex + "\"></span>" +
 					"<span class=\"sectionTitle\">" + label + "</span>" +
-					"<span class=\"count\" style=\"background:" + hex + "\">" + badgeCount + " " + badgeWord + (badgeCount == 1 ? "" : "s") + "</span>" +
+					"<span class=\"count\" style=\"background:" + hex + "\">" + cards.Count + " conflict" + (cards.Count == 1 ? "" : "s") + "</span>" +
 					"</div>");
 
 				if (code == "D")
@@ -557,23 +565,18 @@ namespace ICAO_CSV
 					// conflicts (cards.Count above — real matches against a flight's actual filed
 					// alternate, or a dispatcher's manual override) first, then every other Kept
 					// Not-ALTN NOTAM as a compact, chronologically-sorted informational row below
-					// a divider, since those aren't tied to any flight at all.
+					// a clear separator, since those aren't tied to any flight at all.
 					if (cards.Count > 0)
 						body.Append("<div class=\"subGroupHead\">Confirmed diversion conflicts <span class=\"tag\">(Checked Vs actual Flightplan)</span></div>");
 					foreach (string card in cards) body.Append(card);
 
 					if (notAltnOtherRows.Count > 0)
 					{
-						if (cards.Count > 0) body.Append("<hr class=\"sep\">");
-						body.Append("<div class=\"explainText\">The NOTAMs below restrict this station's use as an alternate, but none of them is currently matched against any computed Flightplan.</div>");
+						body.Append("<hr class=\"sepline\">");
+						body.Append("<div class=\"banner yellow\">Not as Alternate NOTAMs active in the coming 7 days<span class=\"bCount\">" +
+							notAltnOtherRows.Count + " NOTAM" + (notAltnOtherRows.Count == 1 ? "" : "s") + "</span></div>");
 						foreach (Tuple<DateTime, string> row in notAltnOtherRows) body.Append(row.Item2);
 					}
-				}
-				else if (code == "M")
-				{
-					// MISC is never matched against the flight schedule — every Kept MISC NOTAM
-					// in the window is just listed, chronologically, as an always-yellow row.
-					foreach (Tuple<DateTime, string> row in miscRows) body.Append(row.Item2);
 				}
 				else
 				{
@@ -592,7 +595,7 @@ namespace ICAO_CSV
 				// sentence) reads as commentary the dispatcher should actually read, not just
 				// another data row — bigger, bold, and a blue accent bar/tint to pull the eye
 				// ahead of the colored section badges below it.
-				".introLine,.explainText{font-size:15.5px;font-weight:600;color:#0d47a1;background:#eef3fb;border-left:3px solid #1565c0;padding:8px 12px;border-radius:0 4px 4px 0;margin:0 0 16px 0;line-height:1.4}" +
+				".introLine{font-size:15.5px;font-weight:600;color:#0d47a1;background:#eef3fb;border-left:3px solid #1565c0;padding:8px 12px;border-radius:0 4px 4px 0;margin:0 0 16px 0;line-height:1.4}" +
 				".attachNote{font-size:14.5px;font-weight:600;color:#1b5e20;background:#eef7ee;border-left:3px solid #2e7d32;padding:8px 12px;border-radius:0 4px 4px 0;margin:16px 0 0 0}" +
 				// Absolute rather than float:right — in the IE7-mode WebBrowser, a floated
 				// span after inline content doesn't get cleared by the section header (whose
@@ -620,10 +623,20 @@ namespace ICAO_CSV
 				".warnBanner{background:#fff3e0;color:#7a4a00;border:1px solid #ffcc80;border-radius:6px;padding:10px 14px;margin:0 0 16px 0;font-size:13px}" +
 				".warnIcon{margin-right:8px}" +
 				// Not-ALTN sub-group heading ("Confirmed diversion conflicts (Checked Vs actual
-				// Flightplan)") and the dashed divider separating it from the informational rows.
+				// Flightplan)") above the confirmed-conflict cards.
 				".subGroupHead{font-size:13px;font-weight:bold;color:#455a64;text-transform:uppercase;letter-spacing:.03em;margin:14px 0 8px 0;padding-bottom:4px;border-bottom:1px solid #cfd8dc}" +
 				".subGroupHead .tag{font-weight:normal;text-transform:none;letter-spacing:0;color:#78909c;font-size:12px}" +
-				".sep{border:none;border-top:2px dashed #cfd8dc;margin:18px 0}" +
+				// Solid separator + real vertical spacing before the "active in the coming 7
+				// days" banner, so it reads as a clearly distinct block from the cards above it.
+				".sepline{border:none;border-top:2px solid #cfd8dc;margin:24px 0 20px 0}" +
+				// Banner replacing both the old Not-ALTN explanatory sentence and MISC's own
+				// colored section header — plain text on the left, a solid rectangular count
+				// badge on the right (yellow for Not-ALTN's "active" rows, purple for MISC,
+				// matching each group's row-background tint below).
+				".banner{position:relative;display:block;padding:10px 14px;border-radius:6px;margin:0 0 12px 0;background:#eceff1;font-size:14px;font-weight:600;color:#37474f}" +
+				".banner .bCount{position:absolute;top:8px;right:10px;text-align:center;font-size:13px;font-weight:bold;padding:4px 10px;border-radius:3px}" +
+				".banner.yellow .bCount{background:#ffe9a8;color:#7a5b00}" +
+				".banner.purple .bCount{background:#e3c6f0;color:#4a148c}" +
 				// Compact informational row for a Not-ALTN NOTAM with no real diversion match —
 				// diagram + ICAO/IATA/name + ref/period on one line, full text below. No flight
 				// chips/checkbox/dist-CAT blocks, since these aren't tied to any specific flight.
@@ -638,6 +651,7 @@ namespace ICAO_CSV
 				// within the page width regardless of how long the key/period/text content is.
 				".notamRow{width:100%;table-layout:fixed;border:1px solid #e0e4e7;border-radius:6px;margin:0 0 8px 0;font-size:12.5px;background:#fafbfb}" +
 				".notamRow.h24{background:#fff8dc;border-color:#f2d675}" +
+				".notamRow.miscBg{background:#f3e5f5;border-color:#ce93d8}" +
 				".notamRow td{padding:8px 10px;vertical-align:top}" +
 				".rDiagram{width:120px;text-align:center;vertical-align:middle}" +
 				".rHeadTable{width:100%;table-layout:fixed}" +
@@ -1075,12 +1089,13 @@ namespace ICAO_CSV
 		// no dismiss checkbox, no RWY dist/CAT blocks: this row isn't tied to any specific
 		// flight, unlike every other card in this report.
 		//
-		// yellowBg/showActiveFlag are independent: an unmatched Not-ALTN row only turns yellow
-		// (and shows the "ACTIVE <24H" badge) when it's genuinely active within the next 24h,
-		// but every MISC row is always yellow-tinted (MISC isn't matched against the schedule at
-		// all, so there's no "active soon" signal to compute) with no badge, since the flag text
-		// itself ("ACTIVE <24H") doesn't apply to it.
-		private string BuildNotAltnRowHtml(string AP, string key, string period, string notamText, bool yellowBg, bool showActiveFlag,
+		// bgClass/showActiveFlag are independent: an unmatched Not-ALTN row only turns yellow
+		// (class "h24", and shows the "ACTIVE <24H" badge) when it's genuinely active within the
+		// next 24h, but every MISC row is always purple-tinted (class "miscBg", matching the
+		// purple MISC banner above it) with no badge, since MISC isn't matched against the
+		// schedule at all — there's no "active soon" signal to compute, and the flag text itself
+		// ("ACTIVE <24H") doesn't apply to it.
+		private string BuildNotAltnRowHtml(string AP, string key, string period, string notamText, string bgClass, bool showActiveFlag,
 			bool cidImages, Dictionary<string, string> inlineImages)
 		{
 			string iata = GetIATA(AP);
@@ -1094,7 +1109,7 @@ namespace ICAO_CSV
 			// Table-based (diagram cell + main cell) — see the .notamRow CSS comment for why
 			// this is safe now (the diagram is a plain raster <img>, not VML).
 			return
-				"<table class=\"notamRow" + (yellowBg ? " h24" : "") + "\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
+				"<table class=\"notamRow" + (bgClass != "" ? " " + bgClass : "") + "\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
 				"<td class=\"rDiagram\">" + diagram + "</td>" +
 				"<td class=\"rMain\">" +
 				"<table class=\"rHeadTable\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
