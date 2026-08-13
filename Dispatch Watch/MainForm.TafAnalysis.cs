@@ -191,7 +191,7 @@ namespace ICAO_CSV
 
 		private void BuildTafTopBar()
 		{
-			_tafTopBar = new Panel { Dock = DockStyle.Top, Height = 92 };
+			_tafTopBar = new Panel { Dock = DockStyle.Top, Height = 130 };
 
 			Button analyzeBtn = new Button
 			{
@@ -202,29 +202,29 @@ namespace ICAO_CSV
 			analyzeBtn.Click += delegate { DownloadAndAnalyzeTafs(); };
 			_tafTopBar.Controls.Add(analyzeBtn);
 
-			Button sendBtn = new Button
-			{
-				Top = 8, Left = 164, Width = 160, Height = 30, Text = "✉  Send TAF Report",
-				BackColor = Color.FromArgb(21, 101, 192), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false
-			};
-			sendBtn.Click += Btn_sendTafReportClick;
-			_tafTopBar.Controls.Add(sendBtn);
+			// Send / Update Recipients — right-aligned, anchored so they stay pinned to the
+			// right edge if the tab is ever resized. ClientSize.Width is already valid here since
+			// this is built lazily on the tab's first Enter, after the form has been shown/sized.
+			int rightEdge = tabPage_TafAnalysis.ClientSize.Width;
+			int recipientsWidth = 170, sendWidth = 160, rightMargin = 14, gap = 10;
 
 			Button recipientsBtn = new Button
 			{
-				Top = 8, Left = 334, Width = 170, Height = 30, Text = "Update TAF Recipients",
-				BackColor = Color.FromArgb(21, 101, 192), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false
+				Top = 8, Left = rightEdge - rightMargin - recipientsWidth, Width = recipientsWidth, Height = 30,
+				Text = "Update TAF Recipients", Anchor = AnchorStyles.Top | AnchorStyles.Right,
+				BackColor = Color.SkyBlue, ForeColor = Color.Black, FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false
 			};
 			recipientsBtn.Click += delegate { ShowTafRecipientsDialog(); };
 			_tafTopBar.Controls.Add(recipientsBtn);
 
-			Button attachBtn = new Button
+			Button sendBtn = new Button
 			{
-				Top = 8, Left = 514, Width = 130, Height = 30, Text = "Attach Image",
-				BackColor = Color.FromArgb(69, 90, 100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false
+				Top = 8, Left = recipientsBtn.Left - gap - sendWidth, Width = sendWidth, Height = 30,
+				Text = "✉  Send TAF Report", Anchor = AnchorStyles.Top | AnchorStyles.Right,
+				BackColor = Color.FromArgb(21, 101, 192), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false
 			};
-			attachBtn.Click += delegate { AttachImageToTafReport(); };
-			_tafTopBar.Controls.Add(attachBtn);
+			sendBtn.Click += Btn_sendTafReportClick;
+			_tafTopBar.Controls.Add(sendBtn);
 
 			int labelTop = 46, boxTop = 62, fieldWidth = 55, spacing = 92, x = 14;
 			Font smallFont = new Font("Microsoft Sans Serif", 7.5f);
@@ -285,8 +285,77 @@ namespace ICAO_CSV
 			saveThresholds.Click += delegate { SaveTafThresholds(); };
 			_tafTopBar.Controls.Add(saveThresholds);
 
+			// Row 3, below the threshold fields: Attach Image, then a small text-editing toolbar
+			// (Bold/Italic/Underline + 4 color swatches) that applies to whatever's currently
+			// selected in the editable report body via the WebBrowser's own Document.ExecCommand
+			// — the standard MSHTML rich-text-toolbar technique, no JS bridge needed.
+			int row3Top = 94;
+
+			Button attachBtn = new Button
+			{
+				Top = row3Top, Left = 14, Width = 130, Height = 28, Text = "Attach Image",
+				BackColor = Color.FromArgb(69, 90, 100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false
+			};
+			attachBtn.Click += delegate { AttachImageToTafReport(); };
+			_tafTopBar.Controls.Add(attachBtn);
+
+			int fx = 156;
+			Font boldFont = new Font("Microsoft Sans Serif", 9f, FontStyle.Bold);
+			Font italicFont = new Font("Microsoft Sans Serif", 9f, FontStyle.Italic);
+			Font underlineFont = new Font("Microsoft Sans Serif", 9f, FontStyle.Underline);
+
+			Button boldBtn = new Button { Top = row3Top, Left = fx, Width = 30, Height = 28, Text = "B", Font = boldFont,
+				BackColor = Color.FromArgb(69, 90, 100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false };
+			boldBtn.Click += delegate { ExecTafFormat("Bold", null); };
+			_tafTopBar.Controls.Add(boldBtn);
+			fx += 34;
+
+			Button italicBtn = new Button { Top = row3Top, Left = fx, Width = 30, Height = 28, Text = "I", Font = italicFont,
+				BackColor = Color.FromArgb(69, 90, 100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false };
+			italicBtn.Click += delegate { ExecTafFormat("Italic", null); };
+			_tafTopBar.Controls.Add(italicBtn);
+			fx += 34;
+
+			Button underlineBtn = new Button { Top = row3Top, Left = fx, Width = 30, Height = 28, Text = "U", Font = underlineFont,
+				BackColor = Color.FromArgb(69, 90, 100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, UseVisualStyleBackColor = false };
+			underlineBtn.Click += delegate { ExecTafFormat("Underline", null); };
+			_tafTopBar.Controls.Add(underlineBtn);
+			fx += 44;
+
+			fx = AddTafColorSwatch(fx, row3Top, Color.Black, "black");
+			fx = AddTafColorSwatch(fx, row3Top, Color.Red, "red");
+			fx = AddTafColorSwatch(fx, row3Top, Color.FromArgb(0xB8, 0x86, 0x0B), "#B8860B");
+			fx = AddTafColorSwatch(fx, row3Top, Color.Blue, "blue");
+
 			tabPage_TafAnalysis.Controls.Add(_tafTopBar);
 			Web_TafAnalysis.BringToFront();
+		}
+
+		// One small square color-swatch button applying ForeColor to the current selection in
+		// the editable report. Returns the Left for the next swatch.
+		private int AddTafColorSwatch(int left, int top, Color color, string execColor)
+		{
+			Button swatch = new Button { Top = top, Left = left, Width = 24, Height = 28, Text = "",
+				BackColor = color, FlatStyle = FlatStyle.Flat };
+			swatch.FlatAppearance.BorderColor = Color.FromArgb(96, 125, 139);
+			swatch.Click += delegate { ExecTafFormat("ForeColor", execColor); };
+			_tafTopBar.Controls.Add(swatch);
+			return left + 30;
+		}
+
+		// Applies a rich-text command to whatever's currently selected in the editable report
+		// body (Bold/Italic/Underline/ForeColor), then persists the result — same
+		// EnsureWriterOrWarn() gate as every other edit to the shared report.
+		private void ExecTafFormat(string command, string value)
+		{
+			if (!EnsureWriterOrWarn()) return;
+			try
+			{
+				if (Web_TafAnalysis.Document == null) return;
+				Web_TafAnalysis.Document.ExecCommand(command, false, value);
+				SaveEditedTafReport();
+			}
+			catch { }
 		}
 
 		private void SaveTafThresholds()
@@ -562,8 +631,8 @@ namespace ICAO_CSV
 				}
 				// TS / snow / freezing precip — always flagged red, no threshold tiers
 				// (unconditional, same trigger set as the legacy app's TS+=valueBr / SN+=valueBr).
-				if (Regex.IsMatch(token, "TS")) AppendBlock(ts, token, "red");
-				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) AppendBlock(snow, token, "red");
+				if (Regex.IsMatch(token, "TS")) AppendBlockHighlighted(ts, token, "TS");
+				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) AppendBlockHighlighted(snow, token, "SN|FZRA|FZDZ");
 			}
 
 			TafFragments frag;
@@ -574,11 +643,22 @@ namespace ICAO_CSV
 			return frag;
 		}
 
-		// Appends the whole trend-group block/clause wrapped in a color span — red (CAT I / TS /
-		// Snow), amber (advisory tier), or blue (trend recovery); every caller now passes one.
+		// Appends the whole trend-group block/clause wrapped in a color span — red (CAT I),
+		// amber (advisory tier), or blue (trend recovery); every Vis/Ceiling/Wind caller passes one.
 		private static void AppendBlock(StringBuilder sb, string block, string color)
 		{
 			sb.Append("<span style=\"color:").Append(color).Append(color == "red" ? ";font-weight:bold\">" : "\">").Append(block).Append("</span>");
+		}
+
+		// TS/Snow: keep the whole block/clause visible (same context-preserving reasoning as
+		// AppendBlock), but only the matched keyword itself (TS/TSRA/SN/FZRA/FZDZ/...) is
+		// colored red — the rest of the block stays plain text.
+		private static void AppendBlockHighlighted(StringBuilder sb, string block, string keywordPattern)
+		{
+			sb.Append(Regex.Replace(block, keywordPattern, delegate(Match m)
+			{
+				return "<span style=\"color:red;font-weight:bold\">" + m.Value + "</span>";
+			}));
 		}
 
 		// ── Attach image (inserted directly into the editable report) ──
