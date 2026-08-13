@@ -147,7 +147,19 @@ namespace ICAO_CSV
 						"[VisCeilWindows] MEMO, [WindWindows] MEMO, [TSWindows] MEMO, [SnowWindows] MEMO)", conn)
 						.ExecuteNonQuery();
 				}
-				catch { /* already exists */ }
+				catch
+				{
+					// Already exists — but may predate the *Windows columns (added after this
+					// table's original CREATE TABLE shipped), in which case SaveTafStationFragments'
+					// INSERT would fail on every single run (unknown column), get swallowed by its
+					// own try/catch, and silently leave the table empty forever. Each ALTER is its
+					// own try/catch since Jet/ACE has no "ADD COLUMN IF NOT EXISTS" — failure here
+					// just means that particular column already exists.
+					try { new OleDbCommand("ALTER TABLE TafStationFragments ADD COLUMN [VisCeilWindows] MEMO", conn).ExecuteNonQuery(); } catch { }
+					try { new OleDbCommand("ALTER TABLE TafStationFragments ADD COLUMN [WindWindows] MEMO", conn).ExecuteNonQuery(); } catch { }
+					try { new OleDbCommand("ALTER TABLE TafStationFragments ADD COLUMN [TSWindows] MEMO", conn).ExecuteNonQuery(); } catch { }
+					try { new OleDbCommand("ALTER TABLE TafStationFragments ADD COLUMN [SnowWindows] MEMO", conn).ExecuteNonQuery(); } catch { }
+				}
 				conn.Close();
 			}
 			catch { /* DB not ready */ }
@@ -168,19 +180,27 @@ namespace ICAO_CSV
 					bool anyRed = ContainsRed(f.VisCeil) || ContainsRed(f.Wind) || ContainsRed(f.TS) || ContainsRed(f.Snow);
 					if (!anyRed) continue;
 
-					OleDbCommand ins = new OleDbCommand(
-						"INSERT INTO TafStationFragments ([ICAO],[VisCeil],[Wind],[TS],[Snow]," +
-						"[VisCeilWindows],[WindWindows],[TSWindows],[SnowWindows]) VALUES (?,?,?,?,?,?,?,?,?)", conn);
-					ins.Parameters.AddWithValue("?", kv.Key);
-					ins.Parameters.AddWithValue("?", f.VisCeil ?? "");
-					ins.Parameters.AddWithValue("?", f.Wind ?? "");
-					ins.Parameters.AddWithValue("?", f.TS ?? "");
-					ins.Parameters.AddWithValue("?", f.Snow ?? "");
-					ins.Parameters.AddWithValue("?", SerializeWindows(f.VisCeilWindows));
-					ins.Parameters.AddWithValue("?", SerializeWindows(f.WindWindows));
-					ins.Parameters.AddWithValue("?", SerializeWindows(f.TSWindows));
-					ins.Parameters.AddWithValue("?", SerializeWindows(f.SnowWindows));
-					ins.ExecuteNonQuery();
+					// Per-row try/catch: one station's row failing to insert (e.g. a schema still
+					// missing a column despite EnsureTafStationFragmentsTable's migration) must not
+					// silently drop every other station too — the previous single try/catch around
+					// the whole method did exactly that.
+					try
+					{
+						OleDbCommand ins = new OleDbCommand(
+							"INSERT INTO TafStationFragments ([ICAO],[VisCeil],[Wind],[TS],[Snow]," +
+							"[VisCeilWindows],[WindWindows],[TSWindows],[SnowWindows]) VALUES (?,?,?,?,?,?,?,?,?)", conn);
+						ins.Parameters.AddWithValue("?", kv.Key);
+						ins.Parameters.AddWithValue("?", f.VisCeil ?? "");
+						ins.Parameters.AddWithValue("?", f.Wind ?? "");
+						ins.Parameters.AddWithValue("?", f.TS ?? "");
+						ins.Parameters.AddWithValue("?", f.Snow ?? "");
+						ins.Parameters.AddWithValue("?", SerializeWindows(f.VisCeilWindows));
+						ins.Parameters.AddWithValue("?", SerializeWindows(f.WindWindows));
+						ins.Parameters.AddWithValue("?", SerializeWindows(f.TSWindows));
+						ins.Parameters.AddWithValue("?", SerializeWindows(f.SnowWindows));
+						ins.ExecuteNonQuery();
+					}
+					catch { }
 				}
 				conn.Close();
 			}
