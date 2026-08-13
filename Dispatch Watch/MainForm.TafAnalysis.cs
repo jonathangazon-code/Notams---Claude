@@ -610,7 +610,9 @@ namespace ICAO_CSV
 				else if (isTrendMarker && visTrend) { AppendBlock(visCeil, token, "blue"); visTrend = false; }
 
 				// Wind KT/MPS append per match (as the legacy app does), since a token normally
-				// carries at most one wind group.
+				// carries at most one wind group. The speed/gust portion of the matched wind
+				// group (everything after the 3-char direction, e.g. "35KT" or "25G35KT") is
+				// bolded within the block — the direction itself stays plain weight.
 				foreach (Match m in Regex.Matches(token, @"([a-zA-Z0-9]{5,8})KT"))
 				{
 					string w = m.Value;
@@ -618,9 +620,10 @@ namespace ICAO_CSV
 					int kt;
 					if (int.TryParse(spd, out kt))
 					{
-						if (kt > _tafWindCatIKt) { AppendBlock(wind, token, "red"); if (isTrendMarker) windTrend = true; }
-						else if (kt >= _tafWindAdvisoryKt) { AppendBlock(wind, token, "#B8860B"); if (isTrendMarker) windTrend = true; }
-						else if (isTrendMarker && windTrend) { AppendBlock(wind, token, "blue"); windTrend = false; }
+						string boldedToken = BoldWindSpeed(token, m);
+						if (kt > _tafWindCatIKt) { AppendBlock(wind, boldedToken, "red"); if (isTrendMarker) windTrend = true; }
+						else if (kt >= _tafWindAdvisoryKt) { AppendBlock(wind, boldedToken, "#B8860B"); if (isTrendMarker) windTrend = true; }
+						else if (isTrendMarker && windTrend) { AppendBlock(wind, boldedToken, "blue"); windTrend = false; }
 					}
 				}
 				foreach (Match m in Regex.Matches(token, @"([a-zA-Z0-9]{5,8})MPS"))
@@ -630,15 +633,20 @@ namespace ICAO_CSV
 					int mps;
 					if (int.TryParse(spd, out mps))
 					{
-						if (mps > _tafWindCatIMps) { AppendBlock(wind, token, "red"); if (isTrendMarker) windTrend = true; }
-						else if (mps >= _tafWindAdvisoryMps) { AppendBlock(wind, token, "#B8860B"); if (isTrendMarker) windTrend = true; }
-						else if (isTrendMarker && windTrend) { AppendBlock(wind, token, "blue"); windTrend = false; }
+						string boldedToken = BoldWindSpeed(token, m);
+						if (mps > _tafWindCatIMps) { AppendBlock(wind, boldedToken, "red"); if (isTrendMarker) windTrend = true; }
+						else if (mps >= _tafWindAdvisoryMps) { AppendBlock(wind, boldedToken, "#B8860B"); if (isTrendMarker) windTrend = true; }
+						else if (isTrendMarker && windTrend) { AppendBlock(wind, boldedToken, "blue"); windTrend = false; }
 					}
 				}
 				// TS / snow / freezing precip — always flagged red, no threshold tiers
 				// (unconditional, same trigger set as the legacy app's TS+=valueBr / SN+=valueBr).
-				if (Regex.IsMatch(token, "TS")) AppendBlockHighlighted(ts, token, "TS");
-				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) AppendBlockHighlighted(snow, token, "SN|FZRA|FZDZ");
+				// Highlight the WHOLE weather group (e.g. "TSRA", "TSGS", "VCTS", "+TSRA"), not
+				// just the bare "TS"/"SN" substring — \w*TS\w* extends the match to the full
+				// alphanumeric run around it, and the optional leading +/- keeps intensity
+				// prefixes attached.
+				if (Regex.IsMatch(token, "TS")) AppendBlockHighlighted(ts, token, @"[+\-]?\b\w*TS\w*\b");
+				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) AppendBlockHighlighted(snow, token, @"[+\-]?\b\w*(?:SN|FZRA|FZDZ)\w*\b");
 			}
 
 			TafFragments frag;
@@ -665,6 +673,20 @@ namespace ICAO_CSV
 			{
 				return "<span style=\"color:red;font-weight:bold\">" + m.Value + "</span>";
 			}));
+		}
+
+		// Bolds the speed/gust portion of a matched wind group within its containing token/block
+		// — everything after the 3-char direction (e.g. "020" in "02035KT"/"02025G35KT"), so
+		// "35KT"/"25G35KT" ends up bold while the direction stays plain weight. windMatch is the
+		// match against the ORIGINAL (unmodified) token, so its Index/Length are still valid here.
+		private static string BoldWindSpeed(string token, Match windMatch)
+		{
+			string w = windMatch.Value;
+			if (w.Length <= 3) return token;
+			string dir = w.Substring(0, 3);
+			string speedPart = w.Substring(3);
+			string bolded = dir + "<b>" + speedPart + "</b>";
+			return token.Substring(0, windMatch.Index) + bolded + token.Substring(windMatch.Index + windMatch.Length);
 		}
 
 		// ── Attach image (inserted directly into the editable report) ──
