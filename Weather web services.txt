@@ -1,0 +1,44 @@
+http://10.48.12.43:65080/efb-webservice/?METHOD=getAdHocMET&METTYPE=FT&REQUEST=LFPG-EBLG-EHAM&PERIODSTART=13AUG26&PERIODEND=13AUG26
+
+This XML file does not appear to have any style information associated with it. The document tree is shown below.
+<AirportWeather xmlns="http://aeec.aviation-ia.net/633" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" creationTime="2026-08-13T08:47:03.282Z" fullPackage="true" xsi:schemaLocation="http://aeec.aviation-ia.net/633 AirportWeather.xsd">
+<M633Header versionNumber="3" timestamp="2026-08-13T08:47:03.282Z"/>
+<WeatherBulletins>
+<WeatherBulletin source="WSI" sequence="1">
+<Airport>
+<AirportICAOCode>EBLG</AirportICAOCode>
+</Airport>
+<Forecast forecastTime="2026-08-12T23:07:00.000Z" forecastType="FT" forecastStartTime="2026-08-13T00:00:00.000Z" forecastEndTime="2026-08-14T06:00:00.000Z">
+<ForecastText>
+<Paragraph sequence="1">
+<Text>13005KT CAVOK=</Text>
+</Paragraph>
+</ForecastText>
+</Forecast>
+</WeatherBulletin>
+<WeatherBulletin source="WSI" sequence="2">
+<Airport>
+<AirportICAOCode>EHAM</AirportICAOCode>
+</Airport>
+<Forecast forecastTime="2026-08-12T22:55:00.000Z" forecastType="FT" forecastStartTime="2026-08-13T00:00:00.000Z" forecastEndTime="2026-08-14T06:00:00.000Z">
+<ForecastText>
+<Paragraph sequence="1">
+<Text>09007KT CAVOK=</Text>
+</Paragraph>
+</ForecastText>
+</Forecast>
+</WeatherBulletin>
+<WeatherBulletin source="WSI" sequence="3">
+<Airport>
+<AirportICAOCode>LFPG</AirportICAOCode>
+</Airport>
+<Forecast forecastTime="2026-08-12T23:00:00.000Z" forecastType="FT" forecastStartTime="2026-08-13T00:00:00.000Z" forecastEndTime="2026-08-14T06:00:00.000Z">
+<ForecastText>
+<Paragraph sequence="1">
+<Text>04008KT CAVOK TX36/1315Z TN21/1305Z BECMG 1310/1312 34012KT BECMG 1318/1320 05010KT=</Text>
+</Paragraph>
+</ForecastText>
+</Forecast>
+</WeatherBulletin>
+</WeatherBulletins>
+</AirportWeather>
