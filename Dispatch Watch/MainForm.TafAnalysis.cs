@@ -462,8 +462,10 @@ namespace ICAO_CSV
 			// chronological order, so a breach followed later by its recovery (BECMG/FM back
 			// above threshold) both land in the same fragment, one after another — the
 			// surrounding trend is visible without extra bookkeeping. Colors match the legacy
-			// app exactly: red for a CAT I breach, plain/uncolored text for the advisory tier,
-			// blue for a trend-group recovery — no third "amber" color exists there.
+			// app: red for a CAT I breach, blue for a trend-group recovery — plus amber
+			// (`#B8860B`) for the advisory tier, so a below/above-threshold-but-not-CAT-I block
+			// is still visually distinguishable from unflagged text. TS/Snow stay plain/uncolored
+			// (unconditional flags, no threshold tiers to color-differentiate).
 			// Trend markers: BECMG/TEMPO/PROB30/PROB40/FM groups. The pattern's capturing group
 			// means Regex.Split also returns each matched marker as its own array element.
 			string patternTrend = @"(BECMG [0-9]{4}|TEMPO [0-9]{4}|PROB30 [0-9]{4}|PROB40 [0-9]{4}|FM[0-9]{4})";
@@ -528,7 +530,7 @@ namespace ICAO_CSV
 					else if (val <= _tafCeilAdvisoryHundredFt) { ceilTresh = true; if (isTrendMarker) visTrend = true; }
 				}
 				if (ceilCatI || visCatI) AppendBlock(visCeil, token, "red");
-				else if (ceilTresh || visTresh) AppendBlock(visCeil, token, null);
+				else if (ceilTresh || visTresh) AppendBlock(visCeil, token, "#B8860B");
 				else if (isTrendMarker && visTrend) { AppendBlock(visCeil, token, "blue"); visTrend = false; }
 
 				// Wind KT/MPS append per match (as the legacy app does), since a token normally
@@ -541,7 +543,7 @@ namespace ICAO_CSV
 					if (int.TryParse(spd, out kt))
 					{
 						if (kt > _tafWindCatIKt) { AppendBlock(wind, token, "red"); if (isTrendMarker) windTrend = true; }
-						else if (kt >= _tafWindAdvisoryKt) { AppendBlock(wind, token, null); if (isTrendMarker) windTrend = true; }
+						else if (kt >= _tafWindAdvisoryKt) { AppendBlock(wind, token, "#B8860B"); if (isTrendMarker) windTrend = true; }
 						else if (isTrendMarker && windTrend) { AppendBlock(wind, token, "blue"); windTrend = false; }
 					}
 				}
@@ -553,7 +555,7 @@ namespace ICAO_CSV
 					if (int.TryParse(spd, out mps))
 					{
 						if (mps > _tafWindCatIMps) { AppendBlock(wind, token, "red"); if (isTrendMarker) windTrend = true; }
-						else if (mps >= _tafWindAdvisoryMps) { AppendBlock(wind, token, null); if (isTrendMarker) windTrend = true; }
+						else if (mps >= _tafWindAdvisoryMps) { AppendBlock(wind, token, "#B8860B"); if (isTrendMarker) windTrend = true; }
 						else if (isTrendMarker && windTrend) { AppendBlock(wind, token, "blue"); windTrend = false; }
 					}
 				}
@@ -572,7 +574,7 @@ namespace ICAO_CSV
 		}
 
 		// Appends the whole trend-group block/clause, colored (or plain, when color is null —
-		// the advisory tier's uncolored text, matching the legacy app's plain "sb+=valueBr").
+		// used only for TS/Snow, which have no threshold tiers to color-differentiate).
 		private static void AppendBlock(StringBuilder sb, string block, string color)
 		{
 			if (color == null) { sb.Append(block); return; }
