@@ -1136,7 +1136,10 @@ namespace ICAO_CSV
 		//       the bad conditions could persist all the way to the next group's OWN END (the
 		//       latest point the transition could still be completing);
 		//     - if there's no next persisting group at all, extend 24h forward from this block's
-		//       own start (capped at the TAF's own validity end).
+		//       own start — deliberately NOT capped at the TAF's own validity end: the TAF simply
+		//       has nothing more to say past that point, which is not the same as "conditions are
+		//       known to improve" — a dispatcher reading "still bad, nothing else forecast" treats
+		//       that as persisting, not as clearing.
 		private static TafWindow ComputeWindow(List<TafTokenMeta> metas, int idx, DateTime validFrom, DateTime validTo, Func<TafTokenMeta, bool> redSelector)
 		{
 			TafTokenMeta meta = metas[idx];
@@ -1157,7 +1160,6 @@ namespace ICAO_CSV
 			if (next < 0)
 			{
 				w.End = meta.OwnStart.AddHours(24);
-				if (w.End > validTo) w.End = validTo;
 			}
 			else
 			{
