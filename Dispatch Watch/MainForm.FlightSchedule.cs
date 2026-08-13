@@ -88,10 +88,12 @@ namespace ICAO_CSV
 
 		// Session-local timestamp of the last *successful* refresh completion, manual or
 		// automatic alike (set in RefreshFlightSchedule()'s RunWorkerCompleted below) — the
-		// single throttle every automatic trigger (NOTAM triage completing, opening this tab,
-		// opening the Conflict tab) checks against, so a full network refresh (a getFlightList
-		// call per day 0-7, the MM backlog, the CSV pass, one getBriefing call per flight) isn't
-		// re-run on every tab click when the data is only seconds old.
+		// single throttle every automatic trigger (opening this tab, opening the Conflict tab —
+		// NOTAM triage completion used to trigger it too, removed since a refresh shouldn't fire
+		// on a run where the dispatcher never actually opens either tab) checks against, so a
+		// full network refresh (a getFlightList call per day 0-7, the MM backlog, the CSV pass,
+		// one getBriefing call per flight) isn't re-run on every tab click when the data is only
+		// seconds old.
 		private static DateTime _lastFsRefreshCompletedUtc = DateTime.MinValue;
 
 		// Silent, throttled auto-trigger — deliberately does NOT call EnsureWriterOrWarn (that

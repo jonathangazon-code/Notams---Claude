@@ -1049,10 +1049,12 @@ namespace ICAO_CSV
 				Lbl_notamsUnchecked.Text = "Notams Unchecked : 0";
 				Btn_submitNotams.Visible = false;
 				tabPage1.AutoScrollPosition = new Point(0, 0);
-				// Triage just finished (or this render found it already finished) — nudge the
-				// Flight Schedule to catch up, throttled to once per 5 min so re-rendering this
-				// same "all checked" state repeatedly doesn't spam refreshes.
-				TryAutoRefreshFlightSchedule();
+				// Flight Schedule auto-refresh no longer fires from here — only from actually
+				// opening the Flight Schedule or Conflict/Email tab (MainForm.FlightSchedule.cs's
+				// FlightScheduleTabEnter / MainForm.Conflict.cs's ConflictTabEnter), each still
+				// throttled to once per 5 min via TryAutoRefreshFlightSchedule. Triggering it from
+				// NOTAM triage completion too meant a refresh could kick off even on a run where
+				// the dispatcher never looks at either of those tabs.
 				return;
 			}
 			Btn_submitNotams.Visible = true;
