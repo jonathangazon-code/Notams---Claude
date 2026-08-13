@@ -192,6 +192,13 @@ namespace ICAO_CSV
 		private void BuildTafTopBar()
 		{
 			_tafTopBar = new Panel { Dock = DockStyle.Top, Height = 130 };
+			// Parented immediately, before any child controls are added — Dock=Top only takes
+			// on the tab's real width once the panel actually has a parent, and the right-aligned
+			// buttons below need that real width (via Anchor) at the moment they're added, not
+			// the Panel's ~200px design-time default. Adding children first and parenting the
+			// panel last (the original order) anchored them against that bogus 200px width
+			// instead, pushing them off the visible area entirely.
+			tabPage_TafAnalysis.Controls.Add(_tafTopBar);
 
 			Button analyzeBtn = new Button
 			{
@@ -327,7 +334,6 @@ namespace ICAO_CSV
 			fx = AddTafColorSwatch(fx, row3Top, Color.FromArgb(0xB8, 0x86, 0x0B), "#B8860B");
 			fx = AddTafColorSwatch(fx, row3Top, Color.Blue, "blue");
 
-			tabPage_TafAnalysis.Controls.Add(_tafTopBar);
 			Web_TafAnalysis.BringToFront();
 		}
 
