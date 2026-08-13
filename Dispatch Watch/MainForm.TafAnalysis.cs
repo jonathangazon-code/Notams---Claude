@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data.OleDb;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -142,7 +143,8 @@ namespace ICAO_CSV
 				try
 				{
 					new OleDbCommand(
-						"CREATE TABLE TafStationFragments ([ICAO] TEXT(4), [VisCeil] MEMO, [Wind] MEMO, [TS] MEMO, [Snow] MEMO)", conn)
+						"CREATE TABLE TafStationFragments ([ICAO] TEXT(4), [VisCeil] MEMO, [Wind] MEMO, [TS] MEMO, [Snow] MEMO, " +
+						"[VisCeilWindows] MEMO, [WindWindows] MEMO, [TSWindows] MEMO, [SnowWindows] MEMO)", conn)
 						.ExecuteNonQuery();
 				}
 				catch { /* already exists */ }
@@ -167,12 +169,17 @@ namespace ICAO_CSV
 					if (!anyRed) continue;
 
 					OleDbCommand ins = new OleDbCommand(
-						"INSERT INTO TafStationFragments ([ICAO],[VisCeil],[Wind],[TS],[Snow]) VALUES (?,?,?,?,?)", conn);
+						"INSERT INTO TafStationFragments ([ICAO],[VisCeil],[Wind],[TS],[Snow]," +
+						"[VisCeilWindows],[WindWindows],[TSWindows],[SnowWindows]) VALUES (?,?,?,?,?,?,?,?,?)", conn);
 					ins.Parameters.AddWithValue("?", kv.Key);
 					ins.Parameters.AddWithValue("?", f.VisCeil ?? "");
 					ins.Parameters.AddWithValue("?", f.Wind ?? "");
 					ins.Parameters.AddWithValue("?", f.TS ?? "");
 					ins.Parameters.AddWithValue("?", f.Snow ?? "");
+					ins.Parameters.AddWithValue("?", SerializeWindows(f.VisCeilWindows));
+					ins.Parameters.AddWithValue("?", SerializeWindows(f.WindWindows));
+					ins.Parameters.AddWithValue("?", SerializeWindows(f.TSWindows));
+					ins.Parameters.AddWithValue("?", SerializeWindows(f.SnowWindows));
 					ins.ExecuteNonQuery();
 				}
 				conn.Close();
@@ -187,7 +194,8 @@ namespace ICAO_CSV
 			{
 				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
 				conn.Open();
-				OleDbDataReader r = new OleDbCommand("SELECT ICAO,VisCeil,Wind,TS,Snow FROM TafStationFragments", conn).ExecuteReader();
+				OleDbDataReader r = new OleDbCommand(
+					"SELECT ICAO,VisCeil,Wind,TS,Snow,VisCeilWindows,WindWindows,TSWindows,SnowWindows FROM TafStationFragments", conn).ExecuteReader();
 				while (r.Read())
 				{
 					if (r.IsDBNull(0)) continue;
@@ -196,6 +204,10 @@ namespace ICAO_CSV
 					f.Wind    = r.IsDBNull(2) ? "" : r.GetString(2);
 					f.TS      = r.IsDBNull(3) ? "" : r.GetString(3);
 					f.Snow    = r.IsDBNull(4) ? "" : r.GetString(4);
+					f.VisCeilWindows = DeserializeWindows(r.IsDBNull(5) ? "" : r.GetString(5));
+					f.WindWindows    = DeserializeWindows(r.IsDBNull(6) ? "" : r.GetString(6));
+					f.TSWindows      = DeserializeWindows(r.IsDBNull(7) ? "" : r.GetString(7));
+					f.SnowWindows    = DeserializeWindows(r.IsDBNull(8) ? "" : r.GetString(8));
 					result[r.GetString(0)] = f;
 				}
 				conn.Close();
@@ -207,6 +219,39 @@ namespace ICAO_CSV
 		private static bool ContainsRed(string fragment)
 		{
 			return !string.IsNullOrEmpty(fragment) && fragment.IndexOf("color:red", StringComparison.OrdinalIgnoreCase) >= 0;
+		}
+
+		// "yyyyMMddHHmm-yyyyMMddHHmm|yyyyMMddHHmm-yyyyMMddHHmm|..." — compact, sortable-free-form
+		// text encoding for a List<TafWindow>, since TafStationFragments has no room for a proper
+		// child table just for this.
+		private const string WindowFormat = "yyyyMMddHHmm";
+
+		private static string SerializeWindows(List<TafWindow> windows)
+		{
+			if (windows == null || windows.Count == 0) return "";
+			List<string> parts = new List<string>();
+			foreach (TafWindow w in windows)
+				parts.Add(w.Start.ToString(WindowFormat, CultureInfo.InvariantCulture) + "-" + w.End.ToString(WindowFormat, CultureInfo.InvariantCulture));
+			return string.Join("|", parts.ToArray());
+		}
+
+		private static List<TafWindow> DeserializeWindows(string serialized)
+		{
+			List<TafWindow> result = new List<TafWindow>();
+			if (string.IsNullOrEmpty(serialized)) return result;
+			foreach (string part in serialized.Split('|'))
+			{
+				string[] bounds = part.Split('-');
+				if (bounds.Length != 2) continue;
+				DateTime s, e;
+				if (!DateTime.TryParseExact(bounds[0], WindowFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out s)) continue;
+				if (!DateTime.TryParseExact(bounds[1], WindowFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out e)) continue;
+				TafWindow w;
+				w.Start = s;
+				w.End = e;
+				result.Add(w);
+			}
+			return result;
 		}
 
 		// ── Check vs Schedule: cross-references every CAT I (red)-flagged station against
@@ -237,6 +282,11 @@ namespace ICAO_CSV
 
 			List<FsFlight> flights = LoadFsFlights();
 
+			// Only the next 24h counts — a flight scheduled tomorrow evening isn't meaningfully
+			// "checked vs" a TAF issued for today.
+			DateTime nowUtc = DateTime.UtcNow;
+			DateTime next24hEnd = nowUtc.AddHours(24);
+
 			string[] catLabels = { "Ceiling/Vis", "Wind", "Thunderstorms", "Snow" };
 			string[] catDotColors = { "#1565c0", "#00838f", "#c62828", "#5e35b1" };
 
@@ -254,8 +304,12 @@ namespace ICAO_CSV
 						TafFragments frag = kv.Value;
 						string fragText = ci == 0 ? frag.VisCeil : ci == 1 ? frag.Wind : ci == 2 ? frag.TS : frag.Snow;
 						if (!ContainsRed(fragText)) continue;
+						List<TafWindow> windows = ci == 0 ? frag.VisCeilWindows : ci == 1 ? frag.WindWindows : ci == 2 ? frag.TSWindows : frag.SnowWindows;
 
-						List<ConflictMatch> matches = BuildTafFlightMatches(icao, flights);
+						// Only a flight whose relevant time falls both in the next 24h AND inside
+						// the flagged block's own hours counts as a real impact — not just "any
+						// flight today at that station".
+						List<ConflictMatch> matches = BuildTafFlightMatches(icao, flights, windows, nowUtc, next24hEnd);
 						if (matches.Count == 0) continue;
 
 						string flightChips = "";
@@ -284,8 +338,9 @@ namespace ICAO_CSV
 			if (!anyCategory && flights.Count > 0) return "";
 
 			StringBuilder sb = new StringBuilder();
-			sb.Append("<p class=\"introLine\">Check vs schedule — today's CAT I TAF conditions cross-referenced against the flight schedule. " +
-				"Only flights actually exposed are listed below.</p>");
+			sb.Append("<p class=\"introLine\">Check vs schedule — CAT I TAF conditions cross-referenced against flights in the next 24h. " +
+				"A flight only counts if its STD/STA/diversion time actually falls within the flagged block's own hours — " +
+				"only flights with a real, time-verified impact are listed below.</p>");
 			if (flights.Count == 0)
 				sb.Append("<div class=\"warnBanner\"><span class=\"warnIcon\">&#9888;</span>" +
 					"Flight Schedule is empty — no flights to cross-reference. Load the Flight Schedule tab first.</div>");
@@ -294,37 +349,52 @@ namespace ICAO_CSV
 			return CvsStartMarker + "<div id=\"tafCheckVsSchedule\" contenteditable=\"false\">" + sb + "</div>" + CvsEndMarker;
 		}
 
-		// Matches a station (by ICAO) against today's Flight Schedule the same way the Conflict
-		// tab does — Origin/Dest by IATA, plus filed Alt1/Alt2 diversion-estimate arrivals by
-		// ICAO — but with no ±hour window (unlike the NOTAM Conflict check): TAF coverage is
-		// same-day, so any flight scheduled today at that station counts. Chip text format
-		// matches Build_Conflict_Report()'s own ConflictMatch.Text exactly (MainForm.Conflict.cs).
-		private List<ConflictMatch> BuildTafFlightMatches(string icao, List<FsFlight> flights)
+		// Matches a station (by ICAO) against the Flight Schedule the same way the Conflict tab
+		// does — Origin/Dest by IATA, plus filed Alt1/Alt2 diversion-estimate arrivals by ICAO —
+		// but restricted to (a) the next 24h (nowUtc..next24hEnd) and (b) the flagged block's own
+		// hours: a flight only counts as a real impact if its relevant time actually falls inside
+		// at least one of the category's red TafWindows (MatchesWindows falls back to "any time
+		// in the 24h range counts" if no window could be parsed at all, so an unparseable TAF
+		// format never silently hides a real breach). Chip text format matches
+		// Build_Conflict_Report()'s own ConflictMatch.Text exactly (MainForm.Conflict.cs).
+		private List<ConflictMatch> BuildTafFlightMatches(string icao, List<FsFlight> flights, List<TafWindow> windows, DateTime nowUtc, DateTime next24hEnd)
 		{
 			List<ConflictMatch> matches = new List<ConflictMatch>();
 			string iata = GetIATA(icao);
 			foreach (FsFlight f in flights)
 			{
-				if (iata != "" && f.Origin == iata && f.HasStd)
+				if (iata != "" && f.Origin == iata && f.HasStd && InNext24h(f.Std, nowUtc, next24hEnd) && MatchesWindows(f.Std, windows))
 					matches.Add(new ConflictMatch { FltlegId = f.FltlegID,
 						Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — origin — STD " + FormatUtc(f.Std) + "Z" });
-				if (iata != "" && f.Dest == iata && f.HasSta)
+				if (iata != "" && f.Dest == iata && f.HasSta && InNext24h(f.Sta, nowUtc, next24hEnd) && MatchesWindows(f.Sta, windows))
 					matches.Add(new ConflictMatch { FltlegId = f.FltlegID,
 						Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — destination — STA " + FormatUtc(f.Sta) + "Z" });
 				if (f.Alt1 == icao && f.FlightTimeMin > 0 && f.Alt1TimeMin > 0)
 				{
 					DateTime altArrival = f.Std.AddMinutes(f.FlightTimeMin + f.Alt1TimeMin);
-					matches.Add(new ConflictMatch { FltlegId = f.FltlegID,
-						Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 1 — est. diversion arrival " + FormatUtc(altArrival) + "Z" });
+					if (InNext24h(altArrival, nowUtc, next24hEnd) && MatchesWindows(altArrival, windows))
+						matches.Add(new ConflictMatch { FltlegId = f.FltlegID,
+							Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 1 — est. diversion arrival " + FormatUtc(altArrival) + "Z" });
 				}
 				if (f.Alt2 == icao && f.FlightTimeMin > 0 && f.Alt2TimeMin > 0)
 				{
 					DateTime altArrival = f.Std.AddMinutes(f.FlightTimeMin + f.Alt2TimeMin);
-					matches.Add(new ConflictMatch { FltlegId = f.FltlegID,
-						Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 2 — est. diversion arrival " + FormatUtc(altArrival) + "Z" });
+					if (InNext24h(altArrival, nowUtc, next24hEnd) && MatchesWindows(altArrival, windows))
+						matches.Add(new ConflictMatch { FltlegId = f.FltlegID,
+							Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 2 — est. diversion arrival " + FormatUtc(altArrival) + "Z" });
 				}
 			}
 			return matches;
+		}
+
+		private static bool InNext24h(DateTime t, DateTime nowUtc, DateTime next24hEnd) { return t >= nowUtc && t <= next24hEnd; }
+
+		private static bool MatchesWindows(DateTime t, List<TafWindow> windows)
+		{
+			if (windows == null || windows.Count == 0) return true; // nothing parsed -> don't hide a real breach
+			foreach (TafWindow w in windows)
+				if (t >= w.Start && t <= w.End) return true;
+			return false;
 		}
 
 		// Subset of MainForm.Conflict.cs's own <style> block (same "twin, not shared" precedent
@@ -685,6 +755,7 @@ namespace ICAO_CSV
 			// XName against the wrapping http://aeec.aviation-ia.net/633 namespace silently finds
 			// nothing.
 			Dictionary<string, string> rawByIcao = new Dictionary<string, string>();
+			Dictionary<string, TafWindow> validByIcao = new Dictionary<string, TafWindow>();
 			try
 			{
 				XDocument doc = XDocument.Parse(xml);
@@ -700,6 +771,25 @@ namespace ICAO_CSV
 					string raw = sb.ToString().Trim().TrimEnd('=').Trim();
 					if (raw == "") continue;
 					rawByIcao[icao] = raw; // last bulletin for a station wins if more than one is returned
+
+					// forecastStartTime/forecastEndTime (e.g. "2026-08-13T00:00:00.000Z") give the
+					// TAF's own overall validity window — needed by AnalyzeTaf to derive real UTC
+					// times for the base/initial group and any FM (open-ended) trend group.
+					TafWindow valid;
+					valid.Start = DateTime.UtcNow.Date;
+					valid.End = valid.Start.AddDays(2);
+					XElement forecastEl = bulletin.Descendants().FirstOrDefault(el => el.Name.LocalName == "Forecast");
+					if (forecastEl != null)
+					{
+						XAttribute fs = forecastEl.Attribute("forecastStartTime");
+						XAttribute fe = forecastEl.Attribute("forecastEndTime");
+						DateTime parsed;
+						if (fs != null && DateTime.TryParse(fs.Value, CultureInfo.InvariantCulture,
+							DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out parsed)) valid.Start = parsed;
+						if (fe != null && DateTime.TryParse(fe.Value, CultureInfo.InvariantCulture,
+							DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out parsed)) valid.End = parsed;
+					}
+					validByIcao[icao] = valid;
 				}
 			}
 			catch (Exception ex)
@@ -713,7 +803,8 @@ namespace ICAO_CSV
 			{
 				string raw;
 				if (!rawByIcao.TryGetValue(icao, out raw)) continue; // no FT returned for this station
-				fragByIcao[icao] = AnalyzeTaf(raw);
+				TafWindow valid = validByIcao[icao];
+				fragByIcao[icao] = AnalyzeTaf(raw, valid.Start, valid.End);
 			}
 
 			// Every station with at least one red (CAT I) fragment is snapshotted into
@@ -753,6 +844,17 @@ namespace ICAO_CSV
 		private struct TafFragments
 		{
 			public string VisCeil, Wind, TS, Snow;
+			// One entry per RED (CAT I) block actually appended to the matching fragment above —
+			// the real-world UTC time window that block's trend group covers (e.g. "BECMG
+			// 1310/1312" -> 13th 10:00-12:00Z), used by Check vs Schedule to verify a flight's
+			// STD/STA/diversion time actually falls inside the flagged period, not just "today".
+			public List<TafWindow> VisCeilWindows, WindWindows, TSWindows, SnowWindows;
+		}
+
+		// A UTC time window derived from one flagged TAF trend-group block.
+		private struct TafWindow
+		{
+			public DateTime Start, End;
 		}
 
 		// One ops-type section (title + hr), each broken into the 4 sub-category blocks below.
@@ -797,7 +899,7 @@ namespace ICAO_CSV
 		// the specific value(s) that breached a threshold are shown per category (not the whole
 		// TAF clause/token) — e.g. "OVC002" or "34012KT", colored by tier — routed into the same
 		// 4 category buckets (VisCeil/Wind/TS/Snow) the report groups by.
-		private static TafFragments AnalyzeTaf(string raw)
+		private static TafFragments AnalyzeTaf(string raw, DateTime validFrom, DateTime validTo)
 		{
 			// Display granularity matches the legacy app exactly: each flagged trend group is
 			// shown as its WHOLE block/clause (e.g. "BECMG 1310/1312 34012KT", not just
@@ -850,12 +952,21 @@ namespace ICAO_CSV
 			string[] tokens = Regex.Split(joined.ToString(), "<br />");
 
 			StringBuilder visCeil = new StringBuilder(), wind = new StringBuilder(), ts = new StringBuilder(), snow = new StringBuilder();
+			List<TafWindow> visCeilWindows = new List<TafWindow>(), windWindows = new List<TafWindow>(),
+				tsWindows = new List<TafWindow>(), snowWindows = new List<TafWindow>();
 			bool visTrend = false, windTrend = false;
 			foreach (string token in tokens)
 			{
 				if (token.Trim() == "") continue;
 				string lead2 = token.Length >= 2 ? token.Substring(0, 2) : "";
 				bool isTrendMarker = lead2 == "BE" || lead2 == "FM" || (token.Length > 0 && char.IsDigit(token[0]));
+
+				// The real-world UTC window this one trend group actually covers — from an
+				// explicit "ddHH/ddHH" period (BECMG/TEMPO/PROBxx), an open-ended "FMddHHmm"
+				// (start -> end of the TAF's own validity), or — for the base/initial group with
+				// no trend marker at all — the whole validity window. Computed once per token and
+				// reused across every category that ends up flagging red for it.
+				TafWindow tokenWindow = ParseTokenWindow(token, isTrendMarker, validFrom, validTo);
 
 				// Vis + ceiling flags are aggregated across every match in this token, then the
 				// WHOLE block is appended once (red wins over the advisory tier over a trend
@@ -874,7 +985,7 @@ namespace ICAO_CSV
 					if (val <= _tafCeilCatIHundredFt) { ceilCatI = true; if (isTrendMarker) visTrend = true; }
 					else if (val <= _tafCeilAdvisoryHundredFt) { ceilTresh = true; if (isTrendMarker) visTrend = true; }
 				}
-				if (ceilCatI || visCatI) AppendBlock(visCeil, token, "red");
+				if (ceilCatI || visCatI) { AppendBlock(visCeil, token, "red"); visCeilWindows.Add(tokenWindow); }
 				else if (ceilTresh || visTresh) AppendBlock(visCeil, token, "#B8860B");
 				else if (isTrendMarker && visTrend) { AppendBlock(visCeil, token, "blue"); visTrend = false; }
 
@@ -890,7 +1001,7 @@ namespace ICAO_CSV
 					if (int.TryParse(spd, out kt))
 					{
 						string boldedToken = BoldWindSpeed(token, m);
-						if (kt > _tafWindCatIKt) { AppendBlock(wind, boldedToken, "red"); if (isTrendMarker) windTrend = true; }
+						if (kt > _tafWindCatIKt) { AppendBlock(wind, boldedToken, "red"); windWindows.Add(tokenWindow); if (isTrendMarker) windTrend = true; }
 						else if (kt >= _tafWindAdvisoryKt) { AppendBlock(wind, boldedToken, "#B8860B"); if (isTrendMarker) windTrend = true; }
 						else if (isTrendMarker && windTrend) { AppendBlock(wind, boldedToken, "blue"); windTrend = false; }
 					}
@@ -903,7 +1014,7 @@ namespace ICAO_CSV
 					if (int.TryParse(spd, out mps))
 					{
 						string boldedToken = BoldWindSpeed(token, m);
-						if (mps > _tafWindCatIMps) { AppendBlock(wind, boldedToken, "red"); if (isTrendMarker) windTrend = true; }
+						if (mps > _tafWindCatIMps) { AppendBlock(wind, boldedToken, "red"); windWindows.Add(tokenWindow); if (isTrendMarker) windTrend = true; }
 						else if (mps >= _tafWindAdvisoryMps) { AppendBlock(wind, boldedToken, "#B8860B"); if (isTrendMarker) windTrend = true; }
 						else if (isTrendMarker && windTrend) { AppendBlock(wind, boldedToken, "blue"); windTrend = false; }
 					}
@@ -914,8 +1025,8 @@ namespace ICAO_CSV
 				// just the bare "TS"/"SN" substring — \w*TS\w* extends the match to the full
 				// alphanumeric run around it, and the optional leading +/- keeps intensity
 				// prefixes attached.
-				if (Regex.IsMatch(token, "TS")) AppendBlockHighlighted(ts, token, @"[+\-]?\b\w*TS\w*\b");
-				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) AppendBlockHighlighted(snow, token, @"[+\-]?\b\w*(?:SN|FZRA|FZDZ)\w*\b");
+				if (Regex.IsMatch(token, "TS")) { AppendBlockHighlighted(ts, token, @"[+\-]?\b\w*TS\w*\b"); tsWindows.Add(tokenWindow); }
+				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) { AppendBlockHighlighted(snow, token, @"[+\-]?\b\w*(?:SN|FZRA|FZDZ)\w*\b"); snowWindows.Add(tokenWindow); }
 			}
 
 			TafFragments frag;
@@ -923,7 +1034,66 @@ namespace ICAO_CSV
 			frag.Wind = wind.ToString();
 			frag.TS = ts.ToString();
 			frag.Snow = snow.ToString();
+			frag.VisCeilWindows = visCeilWindows;
+			frag.WindWindows = windWindows;
+			frag.TSWindows = tsWindows;
+			frag.SnowWindows = snowWindows;
 			return frag;
+		}
+
+		// Derives the real-world UTC window a trend-group token covers. ddHH/ddHH (BECMG/TEMPO/
+		// PROB30/PROB40) gives an explicit start/end; FMddHHmm gives a start with the window
+		// running to the end of the TAF's own validity; anything else (the base/initial group,
+		// or a marker regex that doesn't match for some unforeseen TAF format quirk) falls back
+		// to the whole validity window — same "unparseable -> fall back to the wider window, never
+		// silently hide a real breach" principle as the NOTAM Conflict tab's own schedule parser
+		// (ParseNotamActiveWindows, MainForm.Conflict.cs).
+		private static TafWindow ParseTokenWindow(string token, bool isTrendMarker, DateTime validFrom, DateTime validTo)
+		{
+			TafWindow w;
+			w.Start = validFrom;
+			w.End = validTo;
+			if (!isTrendMarker) return w;
+
+			Match range = Regex.Match(token, @"\b(\d{2})(\d{2})/(\d{2})(\d{2})\b");
+			if (range.Success)
+			{
+				DateTime? s = ParseDdHH(range.Groups[1].Value, range.Groups[2].Value, validFrom);
+				DateTime? e = ParseDdHH(range.Groups[3].Value, range.Groups[4].Value, validFrom);
+				if (s.HasValue) w.Start = s.Value;
+				if (e.HasValue) w.End = e.Value;
+				if (w.End < w.Start) w.End = w.End.AddDays(1); // short range wrapping past midnight
+				return w;
+			}
+			Match fm = Regex.Match(token, @"FM(\d{2})(\d{2})(\d{2})");
+			if (fm.Success)
+			{
+				DateTime? s = ParseDdHH(fm.Groups[1].Value, fm.Groups[2].Value, validFrom);
+				if (s.HasValue) w.Start = s.Value;
+				w.End = validTo; // open-ended forward
+				return w;
+			}
+			return w;
+		}
+
+		// "dd" (day of month) + "HH" (hour, 00-23, or 24 meaning next-day 00) -> a UTC DateTime,
+		// anchored to referenceUtc's month/year and rolled a month either way if the parsed day
+		// ends up more than 15 days from the reference (handles the TAF period crossing a month
+		// boundary, e.g. issued the 31st for a period starting "0100").
+		private static DateTime? ParseDdHH(string dayStr, string hourStr, DateTime referenceUtc)
+		{
+			int day, hour;
+			if (!int.TryParse(dayStr, out day) || !int.TryParse(hourStr, out hour)) return null;
+			if (day < 1 || day > 31) return null;
+			if (hour == 24) hour = 0;
+			if (hour < 0 || hour > 23) return null;
+
+			DateTime candidate;
+			try { candidate = new DateTime(referenceUtc.Year, referenceUtc.Month, 1, hour, 0, 0, DateTimeKind.Utc).AddDays(day - 1); }
+			catch { return null; }
+			if ((referenceUtc - candidate).TotalDays > 15) candidate = candidate.AddMonths(1);
+			else if ((candidate - referenceUtc).TotalDays > 15) candidate = candidate.AddMonths(-1);
+			return candidate;
 		}
 
 		// Appends the whole trend-group block/clause wrapped in a color span — red (CAT I),
