@@ -464,8 +464,9 @@ namespace ICAO_CSV
 			// surrounding trend is visible without extra bookkeeping. Colors match the legacy
 			// app: red for a CAT I breach, blue for a trend-group recovery — plus amber
 			// (`#B8860B`) for the advisory tier, so a below/above-threshold-but-not-CAT-I block
-			// is still visually distinguishable from unflagged text. TS/Snow stay plain/uncolored
-			// (unconditional flags, no threshold tiers to color-differentiate).
+			// is still visually distinguishable from unflagged text. TS/Snow are always red
+			// (unconditional flags — any thunderstorm/snow/freezing-precip keyword is a hazard,
+			// no threshold tiers involved).
 			// Trend markers: BECMG/TEMPO/PROB30/PROB40/FM groups. The pattern's capturing group
 			// means Regex.Split also returns each matched marker as its own array element.
 			string patternTrend = @"(BECMG [0-9]{4}|TEMPO [0-9]{4}|PROB30 [0-9]{4}|PROB40 [0-9]{4}|FM[0-9]{4})";
@@ -559,10 +560,10 @@ namespace ICAO_CSV
 						else if (isTrendMarker && windTrend) { AppendBlock(wind, token, "blue"); windTrend = false; }
 					}
 				}
-				// TS / snow / freezing precip — always flagged, no threshold tiers, plain text
-				// (unconditional, exactly like the legacy app's TS+=valueBr / SN+=valueBr).
-				if (Regex.IsMatch(token, "TS")) AppendBlock(ts, token, null);
-				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) AppendBlock(snow, token, null);
+				// TS / snow / freezing precip — always flagged red, no threshold tiers
+				// (unconditional, same trigger set as the legacy app's TS+=valueBr / SN+=valueBr).
+				if (Regex.IsMatch(token, "TS")) AppendBlock(ts, token, "red");
+				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) AppendBlock(snow, token, "red");
 			}
 
 			TafFragments frag;
@@ -573,11 +574,10 @@ namespace ICAO_CSV
 			return frag;
 		}
 
-		// Appends the whole trend-group block/clause, colored (or plain, when color is null —
-		// used only for TS/Snow, which have no threshold tiers to color-differentiate).
+		// Appends the whole trend-group block/clause wrapped in a color span — red (CAT I / TS /
+		// Snow), amber (advisory tier), or blue (trend recovery); every caller now passes one.
 		private static void AppendBlock(StringBuilder sb, string block, string color)
 		{
-			if (color == null) { sb.Append(block); return; }
 			sb.Append("<span style=\"color:").Append(color).Append(color == "red" ? ";font-weight:bold\">" : "\">").Append(block).Append("</span>");
 		}
 
