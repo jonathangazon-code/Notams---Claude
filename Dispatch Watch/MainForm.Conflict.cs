@@ -1236,12 +1236,18 @@ namespace ICAO_CSV
 				? "<span class=\"rFlag" + (bgClass == "miscBg" ? " purple" : "") + "\">ACTIVE &lt;24H</span>"
 				: "";
 
+			// bgcolor HTML attribute alongside the CSS class — Outlook's Word rendering engine
+			// ignores CSS `background` on tables (same reason the NOTAM Report/AIP SUP reports
+			// use bgcolor="Yellow" on <th>/<td> instead of CSS): the yellow/purple tint showed
+			// fine in the live WebBrowser tab but was silently dropped in the emailed version.
+			string bgColorAttr = bgClass == "h24" ? " bgcolor=\"#fff8dc\"" : bgClass == "miscBg" ? " bgcolor=\"#f3e5f5\"" : "";
+
 			// Table-based (diagram cell + main cell) — see the .notamRow CSS comment for why
 			// this is safe now (the diagram is a plain raster <img>, not VML).
 			return
-				"<table class=\"notamRow" + (bgClass != "" ? " " + bgClass : "") + "\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
-				"<td class=\"rDiagram\">" + diagram + "</td>" +
-				"<td class=\"rMain\">" +
+				"<table class=\"notamRow" + (bgClass != "" ? " " + bgClass : "") + "\"" + bgColorAttr + " cellspacing=\"0\" cellpadding=\"0\"><tr>" +
+				"<td class=\"rDiagram\"" + bgColorAttr + ">" + diagram + "</td>" +
+				"<td class=\"rMain\"" + bgColorAttr + ">" +
 				"<table class=\"rHeadTable\" cellspacing=\"0\" cellpadding=\"0\"><tr>" +
 				"<td class=\"rApt\">" + AP + iataSpan + nameSpan + "</td>" +
 				"<td class=\"rKeyPeriod\"><span class=\"k\">" + key.Replace("&", "&amp;").Replace("<", "&lt;") + "</span>" +

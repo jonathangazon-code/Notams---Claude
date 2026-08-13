@@ -44,6 +44,8 @@ namespace ICAO_CSV
 			EnsureSchema();
 			EnsureKeywordsTable();
 			EnsureEmailTable();
+			EnsureTafRecipientsTable();
+			EnsureTafReportTable();
 			EnsureRunwaysTable();
 			PreloadCsvGeoAsync();   // load runways.csv geo index off the UI thread
 			EnsureAirportNameColumn();

@@ -75,6 +75,8 @@ namespace ICAO_CSV
 		private System.Windows.Forms.TabPage tabPage_Admin;
 		private System.Windows.Forms.TabPage tabPage_Conflict;
 		private System.Windows.Forms.WebBrowser Web_Conflict;
+		private System.Windows.Forms.TabPage tabPage_TafAnalysis;
+		private System.Windows.Forms.WebBrowser Web_TafAnalysis;
 
 		/// <summary>
 		/// Disposes resources used by the form.
@@ -150,6 +152,8 @@ namespace ICAO_CSV
 			this.tabPage_Admin = new System.Windows.Forms.TabPage();
 			this.tabPage_Conflict = new System.Windows.Forms.TabPage();
 			this.Web_Conflict = new System.Windows.Forms.WebBrowser();
+			this.tabPage_TafAnalysis = new System.Windows.Forms.TabPage();
+			this.Web_TafAnalysis = new System.Windows.Forms.WebBrowser();
 			this.Btn_Sup_printReport = new System.Windows.Forms.Button();
 			this.Btn_Sup_exportReport = new System.Windows.Forms.Button();
 			this.radBtn_Sup_31days = new System.Windows.Forms.RadioButton();
@@ -168,6 +172,7 @@ namespace ICAO_CSV
 			this.tabPage_FlightSchedule.SuspendLayout();
 			this.tabPage_Admin.SuspendLayout();
 			this.tabPage_Conflict.SuspendLayout();
+			this.tabPage_TafAnalysis.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// RchTxtCSV
@@ -274,6 +279,7 @@ namespace ICAO_CSV
 			this.tabControl1.Controls.Add(this.tabPage4);
 			this.tabControl1.Controls.Add(this.AIP_SUP_report);
 			this.tabControl1.Controls.Add(this.tabPage_Conflict);
+			this.tabControl1.Controls.Add(this.tabPage_TafAnalysis);
 			this.tabControl1.Controls.Add(this.tabPage_FlightSchedule);
 			this.tabControl1.Controls.Add(this.APT_List);
 			this.tabControl1.Controls.Add(this.tabPage5);
@@ -800,6 +806,28 @@ namespace ICAO_CSV
 			this.tabPage_Conflict.UseVisualStyleBackColor = true;
 			this.tabPage_Conflict.Enter += new System.EventHandler(this.ConflictTabEnter);
 			//
+			// Web_TafAnalysis
+			//
+			this.Web_TafAnalysis.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.Web_TafAnalysis.Location = new System.Drawing.Point(0, 0);
+			this.Web_TafAnalysis.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+			this.Web_TafAnalysis.MinimumSize = new System.Drawing.Size(20, 20);
+			this.Web_TafAnalysis.Name = "Web_TafAnalysis";
+			this.Web_TafAnalysis.TabIndex = 0;
+			//
+			// tabPage_TafAnalysis
+			//
+			this.tabPage_TafAnalysis.Controls.Add(this.Web_TafAnalysis);
+			this.tabPage_TafAnalysis.Location = new System.Drawing.Point(4, 25);
+			this.tabPage_TafAnalysis.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+			this.tabPage_TafAnalysis.Name = "tabPage_TafAnalysis";
+			this.tabPage_TafAnalysis.Size = new System.Drawing.Size(1877, 1239);
+			this.tabPage_TafAnalysis.TabIndex = 12;
+			this.tabPage_TafAnalysis.Text = "TAF Analysis";
+			this.tabPage_TafAnalysis.UseVisualStyleBackColor = true;
+			this.tabPage_TafAnalysis.Enter += new System.EventHandler(this.TafAnalysisTabEnter);
+			this.tabPage_TafAnalysis.Leave += new System.EventHandler(this.TafAnalysisTabLeave);
+			//
 			// Btn_Sup_printReport
 			// 
 			this.Btn_Sup_printReport.BackColor = System.Drawing.Color.Black;
@@ -907,6 +935,7 @@ namespace ICAO_CSV
 			this.tabPage_FlightSchedule.ResumeLayout(false);
 			this.tabPage_Admin.ResumeLayout(false);
 			this.tabPage_Conflict.ResumeLayout(false);
+			this.tabPage_TafAnalysis.ResumeLayout(false);
 			this.ResumeLayout(false);
 
 		}

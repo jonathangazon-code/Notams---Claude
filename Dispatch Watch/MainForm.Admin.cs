@@ -39,6 +39,10 @@ namespace ICAO_CSV
 		// to that one dispatcher's own instance.
 		private static string _flightSchedCsvPath =
 			@"V:\TAY Ops Control Centre\Flight Dispatch\AIP SUP -  Notams report\NOTAMS APP\FlightSched";
+		// TAF Analysis tab's weather webservice base URL (getAdHocMET/METTYPE=FT) — a separate
+		// service/port from the NOTAM and Flight Schedule feeds, editable here for consistency
+		// with the other endpoint settings even though the TAF tab has its own UI for thresholds.
+		private static string _metBaseUrl = "http://10.48.12.43:65080/efb-webservice/";
 		private static bool   _archiveConfigLoaded;
 
 		private TextBox _adminFlightScheduleUrl;
@@ -48,6 +52,7 @@ namespace ICAO_CSV
 		private TextBox _adminAltnConflictWindow;
 		private TextBox _adminMmMessagesPath;
 		private TextBox _adminFlightSchedCsvPath;
+		private TextBox _adminMetUrl;
 		private Label   _adminStatus;
 
 		private static string ArchiveConfigPath { get { return Path.Combine(Application.StartupPath, "ArchiveConfig.xml"); } }
@@ -68,15 +73,37 @@ namespace ICAO_CSV
 					XElement acw = root.Element("AltnConflictWindowHours");
 					XElement mm = root.Element("MmMessagesPath");
 					XElement fc = root.Element("FlightSchedCsvPath");
+					XElement met = root.Element("MetServiceUrl");
 					if (fs != null && !string.IsNullOrEmpty(fs.Value)) _flightScheduleBaseUrl = fs.Value;
 					if (br != null && !string.IsNullOrEmpty(br.Value)) _briefingBaseUrl = br.Value;
 					if (cs != null && !string.IsNullOrEmpty(cs.Value)) _callsignPrefixFilters = ParsePrefixes(cs.Value);
 					if (mm != null && !string.IsNullOrEmpty(mm.Value)) _mmMessagesPath = mm.Value;
 					if (fc != null && !string.IsNullOrEmpty(fc.Value)) _flightSchedCsvPath = fc.Value;
+					if (met != null && !string.IsNullOrEmpty(met.Value)) _metBaseUrl = met.Value;
 					int parsedWindow;
 					if (cw != null && int.TryParse(cw.Value, out parsedWindow) && parsedWindow > 0) _conflictWindowHours = parsedWindow;
 					int parsedAltnWindow;
 					if (acw != null && int.TryParse(acw.Value, out parsedAltnWindow) && parsedAltnWindow > 0) _altnConflictWindowHours = parsedAltnWindow;
+
+					// TAF Analysis tab's 8 threshold values — declared in MainForm.TafAnalysis.cs,
+					// loaded/saved here alongside the other ArchiveConfig-backed settings.
+					XElement visCatI = root.Element("TafVisCatIm");
+					XElement visAdv  = root.Element("TafVisAdvisoryM");
+					XElement ceilCatI = root.Element("TafCeilCatIHundredFt");
+					XElement ceilAdv  = root.Element("TafCeilAdvisoryHundredFt");
+					XElement windKtCatI = root.Element("TafWindCatIKt");
+					XElement windKtAdv  = root.Element("TafWindAdvisoryKt");
+					XElement windMpsCatI = root.Element("TafWindCatIMps");
+					XElement windMpsAdv  = root.Element("TafWindAdvisoryMps");
+					int parsedTaf;
+					if (visCatI != null && int.TryParse(visCatI.Value, out parsedTaf) && parsedTaf > 0) _tafVisCatIm = parsedTaf;
+					if (visAdv != null && int.TryParse(visAdv.Value, out parsedTaf) && parsedTaf > 0) _tafVisAdvisoryM = parsedTaf;
+					if (ceilCatI != null && int.TryParse(ceilCatI.Value, out parsedTaf) && parsedTaf > 0) _tafCeilCatIHundredFt = parsedTaf;
+					if (ceilAdv != null && int.TryParse(ceilAdv.Value, out parsedTaf) && parsedTaf > 0) _tafCeilAdvisoryHundredFt = parsedTaf;
+					if (windKtCatI != null && int.TryParse(windKtCatI.Value, out parsedTaf) && parsedTaf > 0) _tafWindCatIKt = parsedTaf;
+					if (windKtAdv != null && int.TryParse(windKtAdv.Value, out parsedTaf) && parsedTaf > 0) _tafWindAdvisoryKt = parsedTaf;
+					if (windMpsCatI != null && int.TryParse(windMpsCatI.Value, out parsedTaf) && parsedTaf > 0) _tafWindCatIMps = parsedTaf;
+					if (windMpsAdv != null && int.TryParse(windMpsAdv.Value, out parsedTaf) && parsedTaf > 0) _tafWindAdvisoryMps = parsedTaf;
 				}
 				else
 				{
@@ -99,7 +126,16 @@ namespace ICAO_CSV
 						new XElement("ConflictWindowHours", _conflictWindowHours),
 						new XElement("AltnConflictWindowHours", _altnConflictWindowHours),
 						new XElement("MmMessagesPath", _mmMessagesPath),
-						new XElement("FlightSchedCsvPath", _flightSchedCsvPath)));
+						new XElement("FlightSchedCsvPath", _flightSchedCsvPath),
+						new XElement("MetServiceUrl", _metBaseUrl),
+						new XElement("TafVisCatIm", _tafVisCatIm),
+						new XElement("TafVisAdvisoryM", _tafVisAdvisoryM),
+						new XElement("TafCeilCatIHundredFt", _tafCeilCatIHundredFt),
+						new XElement("TafCeilAdvisoryHundredFt", _tafCeilAdvisoryHundredFt),
+						new XElement("TafWindCatIKt", _tafWindCatIKt),
+						new XElement("TafWindAdvisoryKt", _tafWindAdvisoryKt),
+						new XElement("TafWindCatIMps", _tafWindCatIMps),
+						new XElement("TafWindAdvisoryMps", _tafWindAdvisoryMps)));
 				doc.Save(ArchiveConfigPath);
 			}
 			catch { }
@@ -186,7 +222,13 @@ namespace ICAO_CSV
 			_adminFlightSchedCsvPath = new TextBox { Tag = "dispose", Top = 430, Left = 20, Width = 520, Text = _flightSchedCsvPath };
 			tabPage_Admin.Controls.Add(_adminFlightSchedCsvPath);
 
-			Button save = new Button { Tag = "dispose", Top = 466, Left = 20, Width = 100, Height = 30, Text = "Save" };
+			Label lbl7 = new Label { Tag = "dispose", Top = 466, Left = 20, AutoSize = true,
+				Text = "Weather Service URL (getAdHocMET, TAF Analysis tab)" };
+			tabPage_Admin.Controls.Add(lbl7);
+			_adminMetUrl = new TextBox { Tag = "dispose", Top = 488, Left = 20, Width = 520, Text = _metBaseUrl };
+			tabPage_Admin.Controls.Add(_adminMetUrl);
+
+			Button save = new Button { Tag = "dispose", Top = 524, Left = 20, Width = 100, Height = 30, Text = "Save" };
 			save.Click += delegate
 			{
 				if (!EnsureWriterOrWarn()) return;
@@ -195,6 +237,7 @@ namespace ICAO_CSV
 				_callsignPrefixFilters   = ParsePrefixes(_adminCallsignPrefixes.Text);
 				_mmMessagesPath          = _adminMmMessagesPath.Text.Trim();
 				_flightSchedCsvPath      = _adminFlightSchedCsvPath.Text.Trim();
+				_metBaseUrl              = _adminMetUrl.Text.Trim();
 				int parsedWindow;
 				if (int.TryParse(_adminConflictWindow.Text.Trim(), out parsedWindow) && parsedWindow > 0)
 					_conflictWindowHours = parsedWindow;
@@ -207,7 +250,7 @@ namespace ICAO_CSV
 			};
 			tabPage_Admin.Controls.Add(save);
 
-			_adminStatus = new Label { Tag = "dispose", Top = 474, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
+			_adminStatus = new Label { Tag = "dispose", Top = 532, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
 			tabPage_Admin.Controls.Add(_adminStatus);
 		}
 	}

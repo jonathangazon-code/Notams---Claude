@@ -149,7 +149,7 @@ namespace ICAO_CSV
 			string fsLink    = "<a href=\"" + new Uri(fsPdf).AbsoluteUri    + "\" style=\"color:inherit;text-decoration:underline\">the Flight Schedule used for the coming 7 days</a>";
 			string attachmentNote =
 				"<p class=\"attachNote\">" +
-				"In attachment you will find " + notamLink + ", " + supLink + ", and " + fsLink + ".</p>";
+				"In attachment you will find:<br>" + notamLink + "<br>" + supLink + "<br>" + fsLink + "</p>";
 
 			string step = "init";
 			try
