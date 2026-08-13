@@ -971,22 +971,28 @@ namespace ICAO_CSV
 			}
 			string[] tokens = Regex.Split(joined.ToString(), "<br />");
 
+			// Per-token bookkeeping needed to compute windows AFTER the fact (second pass below) —
+			// a token's own text only ever gives its OWN transition/closed bounds; the real
+			// question ("until when do these conditions actually apply?") for a BECMG/FM/base
+			// group depends on what the NEXT persisting group says, which isn't known until the
+			// whole TAF has been walked once.
+			List<TafTokenMeta> metas = new List<TafTokenMeta>();
+
 			StringBuilder visCeil = new StringBuilder(), wind = new StringBuilder(), ts = new StringBuilder(), snow = new StringBuilder();
-			List<TafWindow> visCeilWindows = new List<TafWindow>(), windWindows = new List<TafWindow>(),
-				tsWindows = new List<TafWindow>(), snowWindows = new List<TafWindow>();
 			bool visTrend = false, windTrend = false;
 			foreach (string token in tokens)
 			{
 				if (token.Trim() == "") continue;
 				string lead2 = token.Length >= 2 ? token.Substring(0, 2) : "";
-				bool isTrendMarker = lead2 == "BE" || lead2 == "FM" || (token.Length > 0 && char.IsDigit(token[0]));
+				// "Persisting": BECMG/FM/the base(initial) group — conditions it describes remain
+				// in effect until superseded by the NEXT persisting group. TEMPO/PROB30/PROB40 are
+				// NOT persisting — they're a closed, temporary window; once it ends, conditions
+				// revert to whatever the surrounding persisting group already said.
+				bool isPersisting = lead2 == "BE" || lead2 == "FM" || (token.Length > 0 && char.IsDigit(token[0]));
 
-				// The real-world UTC window this one trend group actually covers — from an
-				// explicit "ddHH/ddHH" period (BECMG/TEMPO/PROBxx), an open-ended "FMddHHmm"
-				// (start -> end of the TAF's own validity), or — for the base/initial group with
-				// no trend marker at all — the whole validity window. Computed once per token and
-				// reused across every category that ends up flagging red for it.
-				TafWindow tokenWindow = ParseTokenWindow(token, isTrendMarker, validFrom, validTo);
+				TafTokenMeta meta = new TafTokenMeta();
+				meta.IsPersisting = isPersisting;
+				ParseOwnBounds(token, validFrom, validTo, out meta.OwnStart, out meta.OwnEnd);
 
 				// Vis + ceiling flags are aggregated across every match in this token, then the
 				// WHOLE block is appended once (red wins over the advisory tier over a trend
@@ -996,18 +1002,18 @@ namespace ICAO_CSV
 				foreach (Match m in Regex.Matches(token, @"(?<= )\b[0-9]{4,4}\b(?= )"))
 				{
 					int val = int.Parse(m.Value);
-					if (val < _tafVisCatIm) { visCatI = true; if (isTrendMarker) visTrend = true; }
-					else if (val <= _tafVisAdvisoryM) { visTresh = true; if (isTrendMarker) visTrend = true; }
+					if (val < _tafVisCatIm) { visCatI = true; if (isPersisting) visTrend = true; }
+					else if (val <= _tafVisAdvisoryM) { visTresh = true; if (isPersisting) visTrend = true; }
 				}
 				foreach (Match m in Regex.Matches(token, @"(?<=BKN|OVC|VV)[0-9]{3}"))
 				{
 					int val = int.Parse(m.Value);
-					if (val <= _tafCeilCatIHundredFt) { ceilCatI = true; if (isTrendMarker) visTrend = true; }
-					else if (val <= _tafCeilAdvisoryHundredFt) { ceilTresh = true; if (isTrendMarker) visTrend = true; }
+					if (val <= _tafCeilCatIHundredFt) { ceilCatI = true; if (isPersisting) visTrend = true; }
+					else if (val <= _tafCeilAdvisoryHundredFt) { ceilTresh = true; if (isPersisting) visTrend = true; }
 				}
-				if (ceilCatI || visCatI) { AppendBlock(visCeil, token, "red"); visCeilWindows.Add(tokenWindow); }
+				if (ceilCatI || visCatI) { AppendBlock(visCeil, token, "red"); meta.VisCeilRed = true; }
 				else if (ceilTresh || visTresh) AppendBlock(visCeil, token, "#B8860B");
-				else if (isTrendMarker && visTrend) { AppendBlock(visCeil, token, "blue"); visTrend = false; }
+				else if (isPersisting && visTrend) { AppendBlock(visCeil, token, "blue"); visTrend = false; }
 
 				// Wind KT/MPS append per match (as the legacy app does), since a token normally
 				// carries at most one wind group. The speed/gust portion of the matched wind
@@ -1021,9 +1027,9 @@ namespace ICAO_CSV
 					if (int.TryParse(spd, out kt))
 					{
 						string boldedToken = BoldWindSpeed(token, m);
-						if (kt > _tafWindCatIKt) { AppendBlock(wind, boldedToken, "red"); windWindows.Add(tokenWindow); if (isTrendMarker) windTrend = true; }
-						else if (kt >= _tafWindAdvisoryKt) { AppendBlock(wind, boldedToken, "#B8860B"); if (isTrendMarker) windTrend = true; }
-						else if (isTrendMarker && windTrend) { AppendBlock(wind, boldedToken, "blue"); windTrend = false; }
+						if (kt > _tafWindCatIKt) { AppendBlock(wind, boldedToken, "red"); meta.WindRed = true; if (isPersisting) windTrend = true; }
+						else if (kt >= _tafWindAdvisoryKt) { AppendBlock(wind, boldedToken, "#B8860B"); if (isPersisting) windTrend = true; }
+						else if (isPersisting && windTrend) { AppendBlock(wind, boldedToken, "blue"); windTrend = false; }
 					}
 				}
 				foreach (Match m in Regex.Matches(token, @"([a-zA-Z0-9]{5,8})MPS"))
@@ -1034,9 +1040,9 @@ namespace ICAO_CSV
 					if (int.TryParse(spd, out mps))
 					{
 						string boldedToken = BoldWindSpeed(token, m);
-						if (mps > _tafWindCatIMps) { AppendBlock(wind, boldedToken, "red"); windWindows.Add(tokenWindow); if (isTrendMarker) windTrend = true; }
-						else if (mps >= _tafWindAdvisoryMps) { AppendBlock(wind, boldedToken, "#B8860B"); if (isTrendMarker) windTrend = true; }
-						else if (isTrendMarker && windTrend) { AppendBlock(wind, boldedToken, "blue"); windTrend = false; }
+						if (mps > _tafWindCatIMps) { AppendBlock(wind, boldedToken, "red"); meta.WindRed = true; if (isPersisting) windTrend = true; }
+						else if (mps >= _tafWindAdvisoryMps) { AppendBlock(wind, boldedToken, "#B8860B"); if (isPersisting) windTrend = true; }
+						else if (isPersisting && windTrend) { AppendBlock(wind, boldedToken, "blue"); windTrend = false; }
 					}
 				}
 				// TS / snow / freezing precip — always flagged red, no threshold tiers
@@ -1045,8 +1051,22 @@ namespace ICAO_CSV
 				// just the bare "TS"/"SN" substring — \w*TS\w* extends the match to the full
 				// alphanumeric run around it, and the optional leading +/- keeps intensity
 				// prefixes attached.
-				if (Regex.IsMatch(token, "TS")) { AppendBlockHighlighted(ts, token, @"[+\-]?\b\w*TS\w*\b"); tsWindows.Add(tokenWindow); }
-				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) { AppendBlockHighlighted(snow, token, @"[+\-]?\b\w*(?:SN|FZRA|FZDZ)\w*\b"); snowWindows.Add(tokenWindow); }
+				if (Regex.IsMatch(token, "TS")) { AppendBlockHighlighted(ts, token, @"[+\-]?\b\w*TS\w*\b"); meta.TSRed = true; }
+				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) { AppendBlockHighlighted(snow, token, @"[+\-]?\b\w*(?:SN|FZRA|FZDZ)\w*\b"); meta.SnowRed = true; }
+
+				metas.Add(meta);
+			}
+
+			// Second pass: now that every token's own bounds and red flags are known, compute the
+			// real effective window for each red flag — see ComputeWindow's header comment.
+			List<TafWindow> visCeilWindows = new List<TafWindow>(), windWindows = new List<TafWindow>(),
+				tsWindows = new List<TafWindow>(), snowWindows = new List<TafWindow>();
+			for (int i = 0; i < metas.Count; i++)
+			{
+				if (metas[i].VisCeilRed) visCeilWindows.Add(ComputeWindow(metas, i, validFrom, validTo, delegate(TafTokenMeta m) { return m.VisCeilRed; }));
+				if (metas[i].WindRed) windWindows.Add(ComputeWindow(metas, i, validFrom, validTo, delegate(TafTokenMeta m) { return m.WindRed; }));
+				if (metas[i].TSRed) tsWindows.Add(ComputeWindow(metas, i, validFrom, validTo, delegate(TafTokenMeta m) { return m.TSRed; }));
+				if (metas[i].SnowRed) snowWindows.Add(ComputeWindow(metas, i, validFrom, validTo, delegate(TafTokenMeta m) { return m.SnowRed; }));
 			}
 
 			TafFragments frag;
@@ -1061,38 +1081,89 @@ namespace ICAO_CSV
 			return frag;
 		}
 
-		// Derives the real-world UTC window a trend-group token covers. ddHH/ddHH (BECMG/TEMPO/
-		// PROB30/PROB40) gives an explicit start/end; FMddHHmm gives a start with the window
-		// running to the end of the TAF's own validity; anything else (the base/initial group,
-		// or a marker regex that doesn't match for some unforeseen TAF format quirk) falls back
-		// to the whole validity window — same "unparseable -> fall back to the wider window, never
-		// silently hide a real breach" principle as the NOTAM Conflict tab's own schedule parser
-		// (ParseNotamActiveWindows, MainForm.Conflict.cs).
-		private static TafWindow ParseTokenWindow(string token, bool isTrendMarker, DateTime validFrom, DateTime validTo)
+		// Per-token bookkeeping for the two-pass window computation below.
+		private struct TafTokenMeta
 		{
-			TafWindow w;
-			w.Start = validFrom;
-			w.End = validTo;
-			if (!isTrendMarker) return w;
+			public bool IsPersisting;
+			public DateTime OwnStart, OwnEnd;
+			public bool VisCeilRed, WindRed, TSRed, SnowRed;
+		}
+
+		// A token's OWN transition/closed bounds, straight from its own ddHH/ddHH (BECMG/TEMPO/
+		// PROB30/PROB40 all share this literal pattern) or FMddHHmm marker — independent of
+		// whether the token is persisting or closed; that distinction is applied afterward by
+		// ComputeWindow. Falls back to the whole validity window for the base/initial group (no
+		// marker at all) or any unrecognised format — same "unparseable -> fall back to the wider
+		// window, never silently hide a real breach" principle as the NOTAM Conflict tab's own
+		// schedule parser (ParseNotamActiveWindows, MainForm.Conflict.cs).
+		private static void ParseOwnBounds(string token, DateTime validFrom, DateTime validTo, out DateTime start, out DateTime end)
+		{
+			start = validFrom;
+			end = validTo;
 
 			Match range = Regex.Match(token, @"\b(\d{2})(\d{2})/(\d{2})(\d{2})\b");
 			if (range.Success)
 			{
 				DateTime? s = ParseDdHH(range.Groups[1].Value, range.Groups[2].Value, validFrom);
 				DateTime? e = ParseDdHH(range.Groups[3].Value, range.Groups[4].Value, validFrom);
-				if (s.HasValue) w.Start = s.Value;
-				if (e.HasValue) w.End = e.Value;
-				if (w.End < w.Start) w.End = w.End.AddDays(1); // short range wrapping past midnight
-				return w;
+				if (s.HasValue) start = s.Value;
+				if (e.HasValue) end = e.Value;
+				if (end < start) end = end.AddDays(1); // short range wrapping past midnight
+				return;
 			}
 			Match fm = Regex.Match(token, @"FM(\d{2})(\d{2})(\d{2})");
 			if (fm.Success)
 			{
 				DateTime? s = ParseDdHH(fm.Groups[1].Value, fm.Groups[2].Value, validFrom);
-				if (s.HasValue) w.Start = s.Value;
-				w.End = validTo; // open-ended forward
-				return w;
+				if (s.HasValue) start = s.Value;
+				// end left at validTo here — only used if ComputeWindow ever treated this token as
+				// non-persisting, which never happens for a real FM marker.
 			}
+		}
+
+		// A block's effective real-world window:
+		// - Non-persisting (TEMPO/PROB30/PROB40): a closed window, exactly its own parsed bounds —
+		//   "temporarily from X to Y, then back to whatever the surrounding conditions already
+		//   were", per definition. No extension.
+		// - Persisting (BECMG/FM/base group): starts at its own start (the earliest the change
+		//   could occur — conservative), and runs until the NEXT persisting group (skipping over
+		//   any TEMPO/PROB in between, which don't represent a real change of the base state):
+		//     - if that next group is ALSO flagged red for this same category (conditions staying
+		//       bad or worsening further), cut the current block off at the next one's OWN START —
+		//       the two windows sit back-to-back with no gap or overlap, since the next block's
+		//       own window already starts there too;
+		//     - if the next group is NOT flagged red (i.e. an improvement), conservatively assume
+		//       the bad conditions could persist all the way to the next group's OWN END (the
+		//       latest point the transition could still be completing);
+		//     - if there's no next persisting group at all, extend 24h forward from this block's
+		//       own start (capped at the TAF's own validity end).
+		private static TafWindow ComputeWindow(List<TafTokenMeta> metas, int idx, DateTime validFrom, DateTime validTo, Func<TafTokenMeta, bool> redSelector)
+		{
+			TafTokenMeta meta = metas[idx];
+			if (!meta.IsPersisting)
+			{
+				TafWindow closed;
+				closed.Start = meta.OwnStart;
+				closed.End = meta.OwnEnd;
+				return closed;
+			}
+
+			int next = -1;
+			for (int j = idx + 1; j < metas.Count; j++)
+				if (metas[j].IsPersisting) { next = j; break; }
+
+			TafWindow w;
+			w.Start = meta.OwnStart;
+			if (next < 0)
+			{
+				w.End = meta.OwnStart.AddHours(24);
+				if (w.End > validTo) w.End = validTo;
+			}
+			else
+			{
+				w.End = redSelector(metas[next]) ? metas[next].OwnStart : metas[next].OwnEnd;
+			}
+			if (w.End < w.Start) w.End = w.Start;
 			return w;
 		}
 
