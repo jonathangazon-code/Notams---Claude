@@ -126,6 +126,239 @@ namespace ICAO_CSV
 			catch { }
 		}
 
+		// ── TafStationFragments: snapshot of every red (CAT I)-flagged station from the last
+		// analysis, keyed by ICAO — the input BuildTafCheckVsScheduleHtml needs to rebuild the
+		// "Check vs schedule" section on demand (live tab render, Send) without re-downloading
+		// or re-parsing the raw TAF text, which isn't stored anywhere. Only flagged stations are
+		// kept (cleared and rewritten on every DownloadAndAnalyzeTafs() run) — a station with no
+		// red fragment at all is simply absent from the table. ──
+
+		public void EnsureTafStationFragmentsTable()
+		{
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+				conn.Open();
+				try
+				{
+					new OleDbCommand(
+						"CREATE TABLE TafStationFragments ([ICAO] TEXT(4), [VisCeil] MEMO, [Wind] MEMO, [TS] MEMO, [Snow] MEMO)", conn)
+						.ExecuteNonQuery();
+				}
+				catch { /* already exists */ }
+				conn.Close();
+			}
+			catch { /* DB not ready */ }
+		}
+
+		private void SaveTafStationFragments(Dictionary<string, TafFragments> fragByIcao)
+		{
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+				conn.Open();
+				new OleDbCommand("DELETE FROM TafStationFragments", conn).ExecuteNonQuery();
+				foreach (KeyValuePair<string, TafFragments> kv in fragByIcao)
+				{
+					TafFragments f = kv.Value;
+					// Only a CAT I (red)-flagged station is worth keeping — TS/Snow entries are
+					// always red, Vis/Ceiling/Wind may be red, amber, or blue.
+					bool anyRed = ContainsRed(f.VisCeil) || ContainsRed(f.Wind) || ContainsRed(f.TS) || ContainsRed(f.Snow);
+					if (!anyRed) continue;
+
+					OleDbCommand ins = new OleDbCommand(
+						"INSERT INTO TafStationFragments ([ICAO],[VisCeil],[Wind],[TS],[Snow]) VALUES (?,?,?,?,?)", conn);
+					ins.Parameters.AddWithValue("?", kv.Key);
+					ins.Parameters.AddWithValue("?", f.VisCeil ?? "");
+					ins.Parameters.AddWithValue("?", f.Wind ?? "");
+					ins.Parameters.AddWithValue("?", f.TS ?? "");
+					ins.Parameters.AddWithValue("?", f.Snow ?? "");
+					ins.ExecuteNonQuery();
+				}
+				conn.Close();
+			}
+			catch { }
+		}
+
+		private Dictionary<string, TafFragments> LoadTafStationFragments()
+		{
+			Dictionary<string, TafFragments> result = new Dictionary<string, TafFragments>(StringComparer.OrdinalIgnoreCase);
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+				conn.Open();
+				OleDbDataReader r = new OleDbCommand("SELECT ICAO,VisCeil,Wind,TS,Snow FROM TafStationFragments", conn).ExecuteReader();
+				while (r.Read())
+				{
+					if (r.IsDBNull(0)) continue;
+					TafFragments f;
+					f.VisCeil = r.IsDBNull(1) ? "" : r.GetString(1);
+					f.Wind    = r.IsDBNull(2) ? "" : r.GetString(2);
+					f.TS      = r.IsDBNull(3) ? "" : r.GetString(3);
+					f.Snow    = r.IsDBNull(4) ? "" : r.GetString(4);
+					result[r.GetString(0)] = f;
+				}
+				conn.Close();
+			}
+			catch { }
+			return result;
+		}
+
+		private static bool ContainsRed(string fragment)
+		{
+			return !string.IsNullOrEmpty(fragment) && fragment.IndexOf("color:red", StringComparison.OrdinalIgnoreCase) >= 0;
+		}
+
+		// ── Check vs Schedule: cross-references every CAT I (red)-flagged station against
+		// today's Flight Schedule, same visual language as the Conflict/Email tab's own report
+		// (airport header/diagram, flight chips) — reuses BuildAirportHeaderHtml/LoadFsFlights/
+		// ConflictMatch/FsFlight directly (all defined in MainForm.Conflict.cs, same partial
+		// class, so no visibility issue). Grouped into the same 4 categories as the full report
+		// below (Ceiling/Vis, Wind, Thunderstorms, Snow) — a station's OWN flagged fragment for
+		// that one category (frag.VisCeil/Wind/TS/Snow, already built by AnalyzeTaf) is shown
+		// verbatim, so the "incriminated" text here is identical to the detailed section further
+		// down the report, not a re-derived summary.
+		//
+		// Deliberately regenerated fresh on every call (not stored in TafReport.Html) — unlike
+		// the dispatcher-editable ops-type body, this section embeds runway-diagram images, which
+		// need raster+file:// for local viewing (rasterDiagrams=false/VML for the live tab, same
+		// as Conflict's own live view) and raster+cid: for the emailed copy (Outlook's Word
+		// engine only renders cid:-attached images in an HTML body). A single stored blob can't
+		// serve both, so LoadTafReportIntoBrowser and Btn_sendTafReportClick each call this with
+		// their own mode and prepend the result, wrapped in HTML comment markers
+		// (CvsStartMarker/CvsEndMarker) so SaveEditedTafReport can strip it back out before
+		// persisting a dispatcher's edit.
+		private string BuildTafCheckVsScheduleHtml(bool rasterDiagrams, bool cidImages, out Dictionary<string, string> inlineImages)
+		{
+			inlineImages = new Dictionary<string, string>();
+
+			Dictionary<string, TafFragments> fragByIcao = LoadTafStationFragments();
+			if (fragByIcao.Count == 0) return "";
+
+			List<FsFlight> flights = LoadFsFlights();
+
+			string[] catLabels = { "Ceiling/Vis", "Wind", "Thunderstorms", "Snow" };
+			string[] catDotColors = { "#1565c0", "#00838f", "#c62828", "#5e35b1" };
+
+			StringBuilder catBodies = new StringBuilder();
+			bool anyCategory = false;
+
+			if (flights.Count > 0)
+			{
+				for (int ci = 0; ci < 4; ci++)
+				{
+					StringBuilder catCards = new StringBuilder();
+					foreach (KeyValuePair<string, TafFragments> kv in fragByIcao)
+					{
+						string icao = kv.Key;
+						TafFragments frag = kv.Value;
+						string fragText = ci == 0 ? frag.VisCeil : ci == 1 ? frag.Wind : ci == 2 ? frag.TS : frag.Snow;
+						if (!ContainsRed(fragText)) continue;
+
+						List<ConflictMatch> matches = BuildTafFlightMatches(icao, flights);
+						if (matches.Count == 0) continue;
+
+						string flightChips = "";
+						foreach (ConflictMatch m in matches)
+							flightChips += "<span class=\"flightChip flightChipAlert\">" + m.Text + "</span>";
+
+						catCards.Append("<div class=\"card cardAlert\">");
+						catCards.Append(BuildAirportHeaderHtml(icao, rasterDiagrams, cidImages, inlineImages));
+						catCards.Append("<div class=\"body\">");
+						catCards.Append(flightChips);
+						catCards.Append("<div class=\"notamtext\">").Append(fragText).Append("</div>");
+						catCards.Append("</div></div>");
+					}
+					if (catCards.Length == 0) continue;
+					anyCategory = true;
+					catBodies.Append("<div class=\"sectionHeader\" style=\"border-left-color:").Append(catDotColors[ci]).Append("\">")
+						.Append("<span class=\"dot\" style=\"background:").Append(catDotColors[ci]).Append("\"></span>")
+						.Append("<span class=\"sectionTitle\">").Append(catLabels[ci]).Append("</span></div>");
+					catBodies.Append(catCards);
+				}
+			}
+
+			// Nothing to show at all: no station is currently flagged red for a category that
+			// also has a matching flight, AND the schedule isn't empty (that case still gets the
+			// warning below) — omit the whole section rather than an empty banner.
+			if (!anyCategory && flights.Count > 0) return "";
+
+			StringBuilder sb = new StringBuilder();
+			sb.Append("<p class=\"introLine\">Check vs schedule — today's CAT I TAF conditions cross-referenced against the flight schedule. " +
+				"Only flights actually exposed are listed below.</p>");
+			if (flights.Count == 0)
+				sb.Append("<div class=\"warnBanner\"><span class=\"warnIcon\">&#9888;</span>" +
+					"Flight Schedule is empty — no flights to cross-reference. Load the Flight Schedule tab first.</div>");
+			sb.Append(catBodies);
+
+			return CvsStartMarker + "<div id=\"tafCheckVsSchedule\" contenteditable=\"false\">" + sb + "</div>" + CvsEndMarker;
+		}
+
+		// Matches a station (by ICAO) against today's Flight Schedule the same way the Conflict
+		// tab does — Origin/Dest by IATA, plus filed Alt1/Alt2 diversion-estimate arrivals by
+		// ICAO — but with no ±hour window (unlike the NOTAM Conflict check): TAF coverage is
+		// same-day, so any flight scheduled today at that station counts. Chip text format
+		// matches Build_Conflict_Report()'s own ConflictMatch.Text exactly (MainForm.Conflict.cs).
+		private List<ConflictMatch> BuildTafFlightMatches(string icao, List<FsFlight> flights)
+		{
+			List<ConflictMatch> matches = new List<ConflictMatch>();
+			string iata = GetIATA(icao);
+			foreach (FsFlight f in flights)
+			{
+				if (iata != "" && f.Origin == iata && f.HasStd)
+					matches.Add(new ConflictMatch { FltlegId = f.FltlegID,
+						Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — origin — STD " + FormatUtc(f.Std) + "Z" });
+				if (iata != "" && f.Dest == iata && f.HasSta)
+					matches.Add(new ConflictMatch { FltlegId = f.FltlegID,
+						Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — destination — STA " + FormatUtc(f.Sta) + "Z" });
+				if (f.Alt1 == icao && f.FlightTimeMin > 0 && f.Alt1TimeMin > 0)
+				{
+					DateTime altArrival = f.Std.AddMinutes(f.FlightTimeMin + f.Alt1TimeMin);
+					matches.Add(new ConflictMatch { FltlegId = f.FltlegID,
+						Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 1 — est. diversion arrival " + FormatUtc(altArrival) + "Z" });
+				}
+				if (f.Alt2 == icao && f.FlightTimeMin > 0 && f.Alt2TimeMin > 0)
+				{
+					DateTime altArrival = f.Std.AddMinutes(f.FlightTimeMin + f.Alt2TimeMin);
+					matches.Add(new ConflictMatch { FltlegId = f.FltlegID,
+						Text = f.Callsign + " " + f.Origin + "-" + f.Dest + " — alternate 2 — est. diversion arrival " + FormatUtc(altArrival) + "Z" });
+				}
+			}
+			return matches;
+		}
+
+		// Subset of MainForm.Conflict.cs's own <style> block (same "twin, not shared" precedent
+		// used throughout this codebase for per-report HTML, e.g. BuildRwySvgMini) — just the
+		// classes BuildAirportHeaderHtml/the card/chip/banner markup above actually reference.
+		// The TAF report has its own <html><head><style> wrapper (LoadTafReportIntoBrowser/
+		// Btn_sendTafReportClick), unlike the Conflict report which never needed this section.
+		private static string TafCheckVsScheduleCss()
+		{
+			return
+				"v\\:*{behavior:url(#default#VML)}" +
+				".introLine{font-size:15.5px;font-weight:600;color:#0d47a1;background:#eef3fb;border-left:3px solid #1565c0;padding:8px 12px;border-radius:0 4px 4px 0;margin:0 0 16px 0;line-height:1.4}" +
+				".sectionHeader{position:relative;display:block;padding:10px 14px;border-left:4px solid;border-radius:6px;margin:16px 0 8px 0;background:#eceff1}" +
+				".dot{display:inline-block;width:10px;height:10px;border-radius:5px;margin-right:8px}" +
+				".sectionTitle{font-size:15px;font-weight:bold;color:#222}" +
+				".card{border:1px solid #cfd8dc;border-radius:8px;overflow:hidden;margin:0 0 18px 0}" +
+				".cardAlert{border:2px solid #c62828;box-shadow:0 0 0 1px #c62828}" +
+				".ahead{background:#263238;padding:14px 18px;position:relative}" +
+				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
+				".sub{font-size:13px;color:#78909c;margin-top:2px}" +
+				".apname{font-size:13px;color:#90a4ae;margin-top:1px}" +
+				".blk{font-size:12px;color:#b0bec5;background:#37474f;border-left:2px solid #546e7a;padding:6px 12px;margin-right:8px;vertical-align:top}" +
+				".rwytable{margin-top:8px}" +
+				".rwyline{white-space:nowrap;line-height:1.7}" +
+				".diagram{position:absolute;top:10px;right:60px}" +
+				".aheadTable td{vertical-align:top}" +
+				".body{padding:12px 18px}" +
+				".flightChip{display:inline-block;background:#fbe9e7;color:#4e342e;font-size:12px;padding:5px 10px;border-radius:6px;margin:0 8px 8px 0}" +
+				".flightChipAlert{background:#c62828;color:#fff;font-weight:bold}" +
+				".notamtext{background:#f5f5f5;border-radius:6px;padding:10px 12px;font-family:'Courier New',monospace;font-size:12.5px;white-space:pre-wrap;line-height:1.6}" +
+				".warnBanner{background:#fff3e0;color:#7a4a00;border:1px solid #ffcc80;border-radius:6px;padding:10px 14px;margin:0 0 16px 0;font-size:13px}" +
+				".warnIcon{margin-right:8px}";
+		}
+
 		// ── Tab lifecycle ──
 
 		void TafAnalysisTabEnter(object sender, EventArgs e)
@@ -142,10 +375,19 @@ namespace ICAO_CSV
 		private void LoadTafReportIntoBrowser()
 		{
 			string timeIssued;
-			string html = LoadTafReportHtml(out timeIssued);
-			if (html == "")
-				html = "<html><body style=\"font-family:Segoe UI, Arial, sans-serif; font-size:13px\">" +
-					"No TAF analysis yet — click \"TAF Analysis\" to download and analyze.</body></html>";
+			string storedBody = LoadTafReportHtml(out timeIssued);
+			if (storedBody == "")
+				storedBody = "No TAF analysis yet — click \"TAF Analysis\" to download and analyze.";
+
+			// Check vs Schedule is never part of the stored/editable body — it's rebuilt fresh
+			// every render (see BuildTafCheckVsScheduleHtml's header comment) and prepended here.
+			// Live tab uses VML (rasterDiagrams=false), same as the Conflict tab's own live view.
+			Dictionary<string, string> unusedInlineImages;
+			string checkHtml = BuildTafCheckVsScheduleHtml(false, false, out unusedInlineImages);
+
+			string html = "<html><head><style>" + TafCheckVsScheduleCss() + "</style></head>" +
+				"<body style=\"font-family:Segoe UI, Arial, sans-serif; font-size:13px\">" +
+				checkHtml + storedBody + "</body></html>";
 
 			_tafBodyLoaded = false;
 			Web_TafAnalysis.DocumentCompleted -= Web_TafAnalysisDocumentCompleted;
@@ -180,11 +422,29 @@ namespace ICAO_CSV
 				if (Web_TafAnalysis.Document == null || Web_TafAnalysis.Document.Body == null) return;
 				string html = Web_TafAnalysis.Document.Body.InnerHtml;
 				if (html == null) return;
+				html = StripCheckVsScheduleBlock(html);
 				string timeIssued;
 				LoadTafReportHtml(out timeIssued); // keep the existing "last analysis" timestamp — editing text isn't a new analysis
 				SaveTafReportHtml(html, timeIssued);
 			}
 			catch { }
+		}
+
+		// The Check vs Schedule block LoadTafReportIntoBrowser() prepends is marked with plain
+		// HTML comments (not a matched <div id="..."> pair — MSHTML's InnerHtml has no reliable
+		// "find the matching closing tag" primitive via regex once the block itself contains
+		// nested <div>s, as every airport card here does) so it can be sliced back out with a
+		// simple substring op before a dispatcher's edit gets persisted — otherwise every Leave
+		// would re-save a stale copy of this auto-generated section into TafReport.Html.
+		private const string CvsStartMarker = "<!--CVS_START-->";
+		private const string CvsEndMarker = "<!--CVS_END-->";
+
+		private static string StripCheckVsScheduleBlock(string html)
+		{
+			int s = html.IndexOf(CvsStartMarker, StringComparison.Ordinal);
+			int e = html.IndexOf(CvsEndMarker, StringComparison.Ordinal);
+			if (s < 0 || e < 0 || e < s) return html;
+			return html.Substring(0, s) + html.Substring(e + CvsEndMarker.Length);
 		}
 
 		// ── Top bar: TAF Analysis / Send / Recipients / Attach Image + threshold fields ──
@@ -456,19 +716,28 @@ namespace ICAO_CSV
 				fragByIcao[icao] = AnalyzeTaf(raw);
 			}
 
+			// Every station with at least one red (CAT I) fragment is snapshotted into
+			// TafStationFragments — the only data BuildTafCheckVsScheduleHtml needs to rebuild
+			// the "Check vs schedule" section on demand, both for the live tab and at Send time,
+			// without having to re-download/re-parse the raw TAF text.
+			SaveTafStationFragments(fragByIcao);
+
 			// Organised like the legacy standalone app's db_read(): one section per ops type
 			// (Long Haul / FedEx / Charters, same title colours), each broken into the same 4
 			// sub-categories (Ceiling & Visibility, Wind, Thunderstorms, Snow) — a station only
 			// appears under a category if that category actually flagged something for it.
+			// This is the dispatcher-editable body only — no outer <html>/<body> wrapper, since
+			// SaveEditedTafReport() likewise only ever stores Document.Body.InnerHtml; the
+			// wrapper (and the auto-generated Check vs Schedule section) is added back on at
+			// render/send time by LoadTafReportIntoBrowser/Btn_sendTafReportClick.
 			StringBuilder report = new StringBuilder();
-			report.Append("<html><body style=\"font-family:Segoe UI, Arial, sans-serif; font-size:13px\">");
 			report.Append("<span style=\"font-weight:bold;color:#888\">Last analysis: " +
 				DateTime.Now.ToString("dd/MM/yyyy HH:mm") + " (local)</span><hr />");
 			report.Append("<table style=\"text-align:left; font-size:13px\">");
 			AppendOpsSection(report, "LH", "Long Haul Ops :", "RoyalBlue", icaos, fragByIcao);
 			AppendOpsSection(report, "FedEx", "FedEx Ops :", "DarkMagenta", icaos, fragByIcao);
 			AppendOpsSection(report, "Charters", "Charters Ops :", "Green", icaos, fragByIcao);
-			report.Append("</table></body></html>");
+			report.Append("</table>");
 
 			string timeIssued = DateTime.Now.ToString("dd/MM/yyyy HH:mm") + " (local)";
 			SaveTafReportHtml(report.ToString(), timeIssued);
@@ -828,7 +1097,15 @@ namespace ICAO_CSV
 
 			string titleDate = DateTime.Now.ToString("ddMMMyyyy", System.Globalization.CultureInfo.InvariantCulture).ToUpper();
 			string subject = "TAF Analysis - " + titleDate;
-			string fullBody = "<html><body style=\"font-family:Segoe UI, Arial, sans-serif; font-size:13px\">" + bodyHtml + "</body></html>";
+
+			// Email mode: raster diagrams via cid: attachments (Outlook's Word engine renders
+			// neither VML nor data-URI images in an HTML body — only cid:-attached ones), same
+			// dual-mode precedent as BuildConflictReportHtml/Btn_sendReportsClick.
+			Dictionary<string, string> inlineImages;
+			string checkHtml = BuildTafCheckVsScheduleHtml(true, true, out inlineImages);
+			string fullBody = "<html><head><style>" + TafCheckVsScheduleCss() + "</style></head>" +
+				"<body style=\"font-family:Segoe UI, Arial, sans-serif; font-size:13px\">" +
+				checkHtml + bodyHtml + "</body></html>";
 
 			string step = "init";
 			try
@@ -879,6 +1156,24 @@ namespace ICAO_CSV
 				fullBody = bodyCloseIdx >= 0 ? fullBody.Insert(bodyCloseIdx, tail) : fullBody + tail;
 				mt.InvokeMember("HTMLBody", BindingFlags.SetProperty, null, mail, new object[] { fullBody });
 
+				// Runway-diagram PNGs for the Check vs Schedule cards: attached as hidden files
+				// whose PR_ATTACH_CONTENT_ID matches the "cid:..." reference embedded in the body
+				// above — same mechanics as Btn_sendReportsClick (MainForm.Email.cs).
+				step = "InlineImages";
+				object atts = mt.InvokeMember("Attachments", BindingFlags.GetProperty, null, mail, null);
+				Type at = atts.GetType();
+				foreach (KeyValuePair<string, string> kv in inlineImages)
+				{
+					object img = at.InvokeMember("Add", BindingFlags.InvokeMethod, null, atts, new object[] { kv.Value });
+					Type imgType = img.GetType();
+					object pa = imgType.InvokeMember("PropertyAccessor", BindingFlags.GetProperty, null, img, null);
+					Type pat = pa.GetType();
+					pat.InvokeMember("SetProperty", BindingFlags.InvokeMethod, null, pa,
+						new object[] { "http://schemas.microsoft.com/mapi/proptag/0x3712001E", kv.Key });
+					pat.InvokeMember("SetProperty", BindingFlags.InvokeMethod, null, pa,
+						new object[] { "http://schemas.microsoft.com/mapi/proptag/0x7FFE000B", true });
+				}
+
 				step = "Send";
 				mt.InvokeMember("Send", BindingFlags.InvokeMethod, null, mail, null);
 
@@ -888,6 +1183,11 @@ namespace ICAO_CSV
 			{
 				string msg = (ex.InnerException != null) ? ex.InnerException.Message : ex.Message;
 				MessageBox.Show("Failed to send via Outlook (step: " + step + "):\n" + msg, "Send TAF Report", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				foreach (string tempPath in inlineImages.Values)
+					try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
 			}
 		}
 	}
