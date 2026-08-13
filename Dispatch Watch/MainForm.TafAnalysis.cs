@@ -455,6 +455,15 @@ namespace ICAO_CSV
 		// 4 category buckets (VisCeil/Wind/TS/Snow) the report groups by.
 		private static TafFragments AnalyzeTaf(string raw)
 		{
+			// Display granularity matches the legacy app exactly: each flagged trend group is
+			// shown as its WHOLE block/clause (e.g. "BECMG 1310/1312 34012KT", not just
+			// "34012KT"), so the hourly period and rest of that block stay attached to whatever
+			// triggered it. Blocks are appended to their category bucket in the TAF's own
+			// chronological order, so a breach followed later by its recovery (BECMG/FM back
+			// above threshold) both land in the same fragment, one after another — the
+			// surrounding trend is visible without extra bookkeeping. Colors match the legacy
+			// app exactly: red for a CAT I breach, plain/uncolored text for the advisory tier,
+			// blue for a trend-group recovery — no third "amber" color exists there.
 			// Trend markers: BECMG/TEMPO/PROB30/PROB40/FM groups. The pattern's capturing group
 			// means Regex.Split also returns each matched marker as its own array element.
 			string patternTrend = @"(BECMG [0-9]{4}|TEMPO [0-9]{4}|PROB30 [0-9]{4}|PROB40 [0-9]{4}|FM[0-9]{4})";
@@ -501,20 +510,29 @@ namespace ICAO_CSV
 				string lead2 = token.Length >= 2 ? token.Substring(0, 2) : "";
 				bool isTrendMarker = lead2 == "BE" || lead2 == "FM" || (token.Length > 0 && char.IsDigit(token[0]));
 
+				// Vis + ceiling flags are aggregated across every match in this token, then the
+				// WHOLE block is appended once (red wins over the advisory tier over a trend
+				// recovery) — exactly the legacy app's ceilCatI/ceilTresh/visCatI/visTresh
+				// aggregate-then-decide-once pattern (lines 300-317 there), not a per-match append.
+				bool visCatI = false, visTresh = false, ceilCatI = false, ceilTresh = false;
 				foreach (Match m in Regex.Matches(token, @"(?<= )\b[0-9]{4,4}\b(?= )"))
 				{
 					int val = int.Parse(m.Value);
-					if (val < _tafVisCatIm) { AppendValue(visCeil, m.Value, "red"); if (isTrendMarker) visTrend = true; }
-					else if (val <= _tafVisAdvisoryM) { AppendValue(visCeil, m.Value, "#B8860B"); if (isTrendMarker) visTrend = true; }
-					else if (isTrendMarker && visTrend) { AppendValue(visCeil, m.Value, "blue"); visTrend = false; }
+					if (val < _tafVisCatIm) { visCatI = true; if (isTrendMarker) visTrend = true; }
+					else if (val <= _tafVisAdvisoryM) { visTresh = true; if (isTrendMarker) visTrend = true; }
 				}
-				foreach (Match m in Regex.Matches(token, @"(?:BKN|OVC|VV)[0-9]{3}"))
+				foreach (Match m in Regex.Matches(token, @"(?<=BKN|OVC|VV)[0-9]{3}"))
 				{
-					int val = int.Parse(m.Value.Substring(m.Value.Length - 3, 3));
-					if (val <= _tafCeilCatIHundredFt) { AppendValue(visCeil, m.Value, "red"); if (isTrendMarker) visTrend = true; }
-					else if (val <= _tafCeilAdvisoryHundredFt) { AppendValue(visCeil, m.Value, "#B8860B"); if (isTrendMarker) visTrend = true; }
-					else if (isTrendMarker && visTrend) { AppendValue(visCeil, m.Value, "blue"); visTrend = false; }
+					int val = int.Parse(m.Value);
+					if (val <= _tafCeilCatIHundredFt) { ceilCatI = true; if (isTrendMarker) visTrend = true; }
+					else if (val <= _tafCeilAdvisoryHundredFt) { ceilTresh = true; if (isTrendMarker) visTrend = true; }
 				}
+				if (ceilCatI || visCatI) AppendBlock(visCeil, token, "red");
+				else if (ceilTresh || visTresh) AppendBlock(visCeil, token, null);
+				else if (isTrendMarker && visTrend) { AppendBlock(visCeil, token, "blue"); visTrend = false; }
+
+				// Wind KT/MPS append per match (as the legacy app does), since a token normally
+				// carries at most one wind group.
 				foreach (Match m in Regex.Matches(token, @"([a-zA-Z0-9]{5,8})KT"))
 				{
 					string w = m.Value;
@@ -522,9 +540,9 @@ namespace ICAO_CSV
 					int kt;
 					if (int.TryParse(spd, out kt))
 					{
-						if (kt > _tafWindCatIKt) { AppendValue(wind, w, "red"); if (isTrendMarker) windTrend = true; }
-						else if (kt >= _tafWindAdvisoryKt) { AppendValue(wind, w, "#B8860B"); if (isTrendMarker) windTrend = true; }
-						else if (isTrendMarker && windTrend) { AppendValue(wind, w, "blue"); windTrend = false; }
+						if (kt > _tafWindCatIKt) { AppendBlock(wind, token, "red"); if (isTrendMarker) windTrend = true; }
+						else if (kt >= _tafWindAdvisoryKt) { AppendBlock(wind, token, null); if (isTrendMarker) windTrend = true; }
+						else if (isTrendMarker && windTrend) { AppendBlock(wind, token, "blue"); windTrend = false; }
 					}
 				}
 				foreach (Match m in Regex.Matches(token, @"([a-zA-Z0-9]{5,8})MPS"))
@@ -534,17 +552,15 @@ namespace ICAO_CSV
 					int mps;
 					if (int.TryParse(spd, out mps))
 					{
-						if (mps > _tafWindCatIMps) { AppendValue(wind, w, "red"); if (isTrendMarker) windTrend = true; }
-						else if (mps >= _tafWindAdvisoryMps) { AppendValue(wind, w, "#B8860B"); if (isTrendMarker) windTrend = true; }
-						else if (isTrendMarker && windTrend) { AppendValue(wind, w, "blue"); windTrend = false; }
+						if (mps > _tafWindCatIMps) { AppendBlock(wind, token, "red"); if (isTrendMarker) windTrend = true; }
+						else if (mps >= _tafWindAdvisoryMps) { AppendBlock(wind, token, null); if (isTrendMarker) windTrend = true; }
+						else if (isTrendMarker && windTrend) { AppendBlock(wind, token, "blue"); windTrend = false; }
 					}
 				}
-				// TS / snow / freezing precip — always flagged, no threshold tiers. The weather
-				// group itself (e.g. "+TSRA", "VCTS", "-SN") is captured, not the whole token.
-				foreach (Match m in Regex.Matches(token, @"[+\-]?\b\w*TS\w*\b"))
-					AppendValue(ts, m.Value, "red");
-				foreach (Match m in Regex.Matches(token, @"[+\-]?\b\w*(?:SN|FZRA|FZDZ)\w*\b"))
-					AppendValue(snow, m.Value, "red");
+				// TS / snow / freezing precip — always flagged, no threshold tiers, plain text
+				// (unconditional, exactly like the legacy app's TS+=valueBr / SN+=valueBr).
+				if (Regex.IsMatch(token, "TS")) AppendBlock(ts, token, null);
+				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) AppendBlock(snow, token, null);
 			}
 
 			TafFragments frag;
@@ -555,10 +571,12 @@ namespace ICAO_CSV
 			return frag;
 		}
 
-		private static void AppendValue(StringBuilder sb, string value, string color)
+		// Appends the whole trend-group block/clause, colored (or plain, when color is null —
+		// the advisory tier's uncolored text, matching the legacy app's plain "sb+=valueBr").
+		private static void AppendBlock(StringBuilder sb, string block, string color)
 		{
-			if (sb.Length > 0) sb.Append(", ");
-			sb.Append("<span style=\"color:").Append(color).Append(color == "red" ? ";font-weight:bold\">" : "\">").Append(value).Append("</span>");
+			if (color == null) { sb.Append(block); return; }
+			sb.Append("<span style=\"color:").Append(color).Append(color == "red" ? ";font-weight:bold\">" : "\">").Append(block).Append("</span>");
 		}
 
 		// ── Attach image (inserted directly into the editable report) ──
