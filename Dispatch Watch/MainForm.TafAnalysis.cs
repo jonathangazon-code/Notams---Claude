@@ -373,18 +373,26 @@ namespace ICAO_CSV
 				return;
 			}
 
-			StringBuilder report = new StringBuilder();
-			report.Append("<html><body style=\"font-family:Segoe UI, Arial, sans-serif; font-size:13px\">");
-			report.Append("<table style=\"font-family:'Courier New'; font-size:13px; border-collapse:collapse\">");
+			Dictionary<string, TafFragments> fragByIcao = new Dictionary<string, TafFragments>(StringComparer.OrdinalIgnoreCase);
 			foreach (string icao in icaos)
 			{
 				string raw;
 				if (!rawByIcao.TryGetValue(icao, out raw)) continue; // no FT returned for this station
-				string iata = GetIATA(icao);
-				string coloredText = AnalyzeTaf(raw);
-				report.Append("<tr><td style=\"vertical-align:top;padding:4px 10px;white-space:nowrap\"><b>" + icao +
-					(string.IsNullOrEmpty(iata) ? "" : " - " + iata) + "</b></td><td style=\"padding:4px 10px\">" + coloredText + "</td></tr>");
+				fragByIcao[icao] = AnalyzeTaf(raw);
 			}
+
+			// Organised like the legacy standalone app's db_read(): one section per ops type
+			// (Long Haul / FedEx / Charters, same title colours), each broken into the same 4
+			// sub-categories (Ceiling & Visibility, Wind, Thunderstorms, Snow) — a station only
+			// appears under a category if that category actually flagged something for it.
+			StringBuilder report = new StringBuilder();
+			report.Append("<html><body style=\"font-family:Segoe UI, Arial, sans-serif; font-size:13px\">");
+			report.Append("<span style=\"font-weight:bold;color:#888\">Last analysis: " +
+				DateTime.Now.ToString("dd/MM/yyyy HH:mm") + " (local)</span><hr />");
+			report.Append("<table style=\"text-align:left; font-size:13px\">");
+			AppendOpsSection(report, "LH", "Long Haul Ops :", "RoyalBlue", icaos, fragByIcao);
+			AppendOpsSection(report, "FedEx", "FedEx Ops :", "DarkMagenta", icaos, fragByIcao);
+			AppendOpsSection(report, "Charters", "Charters Ops :", "Green", icaos, fragByIcao);
 			report.Append("</table></body></html>");
 
 			string timeIssued = DateTime.Now.ToString("dd/MM/yyyy HH:mm") + " (local)";
@@ -392,16 +400,60 @@ namespace ICAO_CSV
 			LoadTafReportIntoBrowser();
 		}
 
+		// Per-station threshold-analysis result, one HTML fragment per category — mirrors the
+		// legacy app's Vis_Ceiling/Wind/TS/Snow accumulator columns (TAF_analysis table there).
+		// Each fragment only ever contains the tokens that actually matched that category (same
+		// as the legacy accumulators), colored red/amber/blue exactly like AnalyzeTaf's combined
+		// mode did before this change — it's the same underlying per-token analysis, just routed
+		// into 4 separate buckets instead of one combined colored line.
+		private struct TafFragments
+		{
+			public string VisCeil, Wind, TS, Snow;
+		}
+
+		// One ops-type section (title + hr), each broken into the 4 sub-category blocks below.
+		private static void AppendOpsSection(StringBuilder report, string opsType, string title, string color,
+			List<string> icaos, Dictionary<string, TafFragments> fragByIcao)
+		{
+			report.Append("<tr><th colspan=\"5\"><span style=\"font-weight:bold; font-size:16px; color:" + color + ";\">" +
+				title + "</span></th></tr>");
+			AppendCategory(report, "Ceiling & Visibility", opsType, icaos, fragByIcao, delegate(TafFragments f) { return f.VisCeil; });
+			AppendCategory(report, "Wind", opsType, icaos, fragByIcao, delegate(TafFragments f) { return f.Wind; });
+			AppendCategory(report, "Thunderstorms", opsType, icaos, fragByIcao, delegate(TafFragments f) { return f.TS; });
+			AppendCategory(report, "Snow", opsType, icaos, fragByIcao, delegate(TafFragments f) { return f.Snow; });
+			report.Append("<tr><th colspan=\"5\"><hr /></th></tr>");
+		}
+
+		private static void AppendCategory(StringBuilder report, string categoryTitle, string opsType, List<string> icaos,
+			Dictionary<string, TafFragments> fragByIcao, Func<TafFragments, string> selector)
+		{
+			report.Append("<tr><th colspan=\"5\"><b>" + categoryTitle + "</b></th></tr><tr><th colspan=\"5\">");
+			report.Append("<span style=\"font-family:'Courier New'; font-weight:normal;\">");
+			bool any = false;
+			foreach (string icao in icaos)
+			{
+				if (IsOpsType(opsType, icao) != "Yes") continue;
+				TafFragments frag;
+				if (!fragByIcao.TryGetValue(icao, out frag)) continue;
+				string val = selector(frag);
+				if (string.IsNullOrEmpty(val)) continue;
+				string iata = GetIATA(icao);
+				report.Append("<b style=\"color:DarkBlue;\">" + icao + (string.IsNullOrEmpty(iata) ? "" : " - " + iata) +
+					" : </b>" + val + "<br />");
+				any = true;
+			}
+			if (!any) report.Append("Nil");
+			report.Append("</span></th></tr>");
+		}
+
 		// Direct port of the legacy "TAF analysis" app's per-station algorithm
 		// (TAF analysis/Dispatch/MainForm.cs, Btn_addTAFClick, lines ~180-407) — the
 		// station/time splitting that code needs is unnecessary here since the webservice XML
-		// already hands back one clean forecast string per station. Rather than the legacy
-		// app's approach of extracting only the flagged fragments into separate Vis/Wind/TS/Snow
-		// buckets, this renders the FULL TAF text with inline color spans wherever a threshold
-		// is breached — a dispatcher scanning one continuous colored TAF line is more directly
-		// useful than several disjoint fragment lists, while still applying the exact same
-		// trend-group splitting and threshold/color rules.
-		private static string AnalyzeTaf(string raw)
+		// already hands back one clean forecast string per station. Like the legacy app, only
+		// the specific value(s) that breached a threshold are shown per category (not the whole
+		// TAF clause/token) — e.g. "OVC002" or "34012KT", colored by tier — routed into the same
+		// 4 category buckets (VisCeil/Wind/TS/Snow) the report groups by.
+		private static TafFragments AnalyzeTaf(string raw)
 		{
 			// Trend markers: BECMG/TEMPO/PROB30/PROB40/FM groups. The pattern's capturing group
 			// means Regex.Split also returns each matched marker as its own array element.
@@ -441,7 +493,7 @@ namespace ICAO_CSV
 			}
 			string[] tokens = Regex.Split(joined.ToString(), "<br />");
 
-			StringBuilder outp = new StringBuilder();
+			StringBuilder visCeil = new StringBuilder(), wind = new StringBuilder(), ts = new StringBuilder(), snow = new StringBuilder();
 			bool visTrend = false, windTrend = false;
 			foreach (string token in tokens)
 			{
@@ -449,21 +501,19 @@ namespace ICAO_CSV
 				string lead2 = token.Length >= 2 ? token.Substring(0, 2) : "";
 				bool isTrendMarker = lead2 == "BE" || lead2 == "FM" || (token.Length > 0 && char.IsDigit(token[0]));
 
-				bool red = false, amber = false, blue = false;
-
 				foreach (Match m in Regex.Matches(token, @"(?<= )\b[0-9]{4,4}\b(?= )"))
 				{
 					int val = int.Parse(m.Value);
-					if (val < _tafVisCatIm) { red = true; if (isTrendMarker) visTrend = true; }
-					else if (val <= _tafVisAdvisoryM) { amber = true; if (isTrendMarker) visTrend = true; }
-					else if (isTrendMarker && visTrend) { blue = true; visTrend = false; }
+					if (val < _tafVisCatIm) { AppendValue(visCeil, m.Value, "red"); if (isTrendMarker) visTrend = true; }
+					else if (val <= _tafVisAdvisoryM) { AppendValue(visCeil, m.Value, "#B8860B"); if (isTrendMarker) visTrend = true; }
+					else if (isTrendMarker && visTrend) { AppendValue(visCeil, m.Value, "blue"); visTrend = false; }
 				}
-				foreach (Match m in Regex.Matches(token, @"(?<=BKN|OVC|VV)[0-9]{3}"))
+				foreach (Match m in Regex.Matches(token, @"(?:BKN|OVC|VV)[0-9]{3}"))
 				{
-					int val = int.Parse(m.Value);
-					if (val <= _tafCeilCatIHundredFt) { red = true; if (isTrendMarker) visTrend = true; }
-					else if (val <= _tafCeilAdvisoryHundredFt) { amber = true; if (isTrendMarker) visTrend = true; }
-					else if (isTrendMarker && visTrend) { blue = true; visTrend = false; }
+					int val = int.Parse(m.Value.Substring(m.Value.Length - 3, 3));
+					if (val <= _tafCeilCatIHundredFt) { AppendValue(visCeil, m.Value, "red"); if (isTrendMarker) visTrend = true; }
+					else if (val <= _tafCeilAdvisoryHundredFt) { AppendValue(visCeil, m.Value, "#B8860B"); if (isTrendMarker) visTrend = true; }
+					else if (isTrendMarker && visTrend) { AppendValue(visCeil, m.Value, "blue"); visTrend = false; }
 				}
 				foreach (Match m in Regex.Matches(token, @"([a-zA-Z0-9]{5,8})KT"))
 				{
@@ -472,9 +522,9 @@ namespace ICAO_CSV
 					int kt;
 					if (int.TryParse(spd, out kt))
 					{
-						if (kt > _tafWindCatIKt) { red = true; if (isTrendMarker) windTrend = true; }
-						else if (kt >= _tafWindAdvisoryKt) { amber = true; if (isTrendMarker) windTrend = true; }
-						else if (isTrendMarker && windTrend) { blue = true; windTrend = false; }
+						if (kt > _tafWindCatIKt) { AppendValue(wind, w, "red"); if (isTrendMarker) windTrend = true; }
+						else if (kt >= _tafWindAdvisoryKt) { AppendValue(wind, w, "#B8860B"); if (isTrendMarker) windTrend = true; }
+						else if (isTrendMarker && windTrend) { AppendValue(wind, w, "blue"); windTrend = false; }
 					}
 				}
 				foreach (Match m in Regex.Matches(token, @"([a-zA-Z0-9]{5,8})MPS"))
@@ -484,21 +534,31 @@ namespace ICAO_CSV
 					int mps;
 					if (int.TryParse(spd, out mps))
 					{
-						if (mps > _tafWindCatIMps) { red = true; if (isTrendMarker) windTrend = true; }
-						else if (mps >= _tafWindAdvisoryMps) { amber = true; if (isTrendMarker) windTrend = true; }
-						else if (isTrendMarker && windTrend) { blue = true; windTrend = false; }
+						if (mps > _tafWindCatIMps) { AppendValue(wind, w, "red"); if (isTrendMarker) windTrend = true; }
+						else if (mps >= _tafWindAdvisoryMps) { AppendValue(wind, w, "#B8860B"); if (isTrendMarker) windTrend = true; }
+						else if (isTrendMarker && windTrend) { AppendValue(wind, w, "blue"); windTrend = false; }
 					}
 				}
-				// TS / snow / freezing precip — always flagged, no threshold tiers.
-				if (Regex.IsMatch(token, "TS") || Regex.IsMatch(token, "SN|FZRA|FZDZ")) red = true;
-
-				string color = red ? "red" : (blue ? "blue" : (amber ? "#B8860B" : null));
-				if (color != null)
-					outp.Append("<span style=\"color:").Append(color).Append(red ? ";font-weight:bold\">" : "\">").Append(token).Append("</span>");
-				else
-					outp.Append(token);
+				// TS / snow / freezing precip — always flagged, no threshold tiers. The weather
+				// group itself (e.g. "+TSRA", "VCTS", "-SN") is captured, not the whole token.
+				foreach (Match m in Regex.Matches(token, @"[+\-]?\b\w*TS\w*\b"))
+					AppendValue(ts, m.Value, "red");
+				foreach (Match m in Regex.Matches(token, @"[+\-]?\b\w*(?:SN|FZRA|FZDZ)\w*\b"))
+					AppendValue(snow, m.Value, "red");
 			}
-			return outp.ToString().Trim();
+
+			TafFragments frag;
+			frag.VisCeil = visCeil.ToString();
+			frag.Wind = wind.ToString();
+			frag.TS = ts.ToString();
+			frag.Snow = snow.ToString();
+			return frag;
+		}
+
+		private static void AppendValue(StringBuilder sb, string value, string color)
+		{
+			if (sb.Length > 0) sb.Append(", ");
+			sb.Append("<span style=\"color:").Append(color).Append(color == "red" ? ";font-weight:bold\">" : "\">").Append(value).Append("</span>");
 		}
 
 		// ── Attach image (inserted directly into the editable report) ──
