@@ -278,8 +278,6 @@ namespace ICAO_CSV
 			inlineImages = new Dictionary<string, string>();
 
 			Dictionary<string, TafFragments> fragByIcao = LoadTafStationFragments();
-			if (fragByIcao.Count == 0) return "";
-
 			List<FsFlight> flights = LoadFsFlights();
 
 			// Only the next 24h counts — a flight scheduled tomorrow evening isn't meaningfully
@@ -288,16 +286,28 @@ namespace ICAO_CSV
 			DateTime next24hEnd = nowUtc.AddHours(24);
 
 			string[] catLabels = { "Ceiling/Vis", "Wind", "Thunderstorms", "Snow" };
-			string[] catDotColors = { "#1565c0", "#00838f", "#c62828", "#5e35b1" };
+			string[] catBannerColors = { "#1565c0", "#00838f", "#c62828", "#5e35b1" };
+			string[] catBadgeBg      = { "#bbdefb", "#b2ebf2", "#ffcdd2", "#e1bee7" };
+			string[] catBadgeFg      = { "#0d47a1", "#00363a", "#7f0000", "#311b52" };
 
-			StringBuilder catBodies = new StringBuilder();
-			bool anyCategory = false;
+			StringBuilder sb = new StringBuilder();
+			sb.Append("<p class=\"introLine\">Check vs schedule — CAT I TAF conditions cross-referenced against flights in the next 24h. " +
+				"A flight only counts if its STD/STA/diversion time actually falls within the flagged block's own hours — " +
+				"only flights with a real, time-verified impact are listed below.</p>");
+			if (flights.Count == 0)
+				sb.Append("<div class=\"warnBanner\"><span class=\"warnIcon\">&#9888;</span>" +
+					"Flight Schedule is empty — no flights to cross-reference. Load the Flight Schedule tab first.</div>");
 
-			if (flights.Count > 0)
+			// Every category is always shown — same "the section stays visible, dimmed/Nil when
+			// empty" idiom the NOTAM Report tab's Section()/AppendImpactRow already uses, rather
+			// than silently disappearing when there's currently no impact (which reads as broken,
+			// not as "confirmed nothing to report").
+			for (int ci = 0; ci < 4; ci++)
 			{
-				for (int ci = 0; ci < 4; ci++)
+				StringBuilder catCards = new StringBuilder();
+				int count = 0;
+				if (flights.Count > 0)
 				{
-					StringBuilder catCards = new StringBuilder();
 					foreach (KeyValuePair<string, TafFragments> kv in fragByIcao)
 					{
 						string icao = kv.Key;
@@ -322,29 +332,23 @@ namespace ICAO_CSV
 						catCards.Append(flightChips);
 						catCards.Append("<div class=\"notamtext\">").Append(fragText).Append("</div>");
 						catCards.Append("</div></div>");
+						count++;
 					}
-					if (catCards.Length == 0) continue;
-					anyCategory = true;
-					catBodies.Append("<div class=\"sectionHeader\" style=\"border-left-color:").Append(catDotColors[ci]).Append("\">")
-						.Append("<span class=\"dot\" style=\"background:").Append(catDotColors[ci]).Append("\"></span>")
-						.Append("<span class=\"sectionTitle\">").Append(catLabels[ci]).Append("</span></div>");
-					catBodies.Append(catCards);
 				}
+
+				// Banner per category, same visual language as the Conflict report's MISC/Not-ALTN
+				// "X active in the coming 7 days" banners — a plain label + a solid count badge on
+				// the right, dimmed to 0 (still shown) when nothing currently qualifies.
+				sb.Append("<div class=\"banner\" style=\"border-left:4px solid ").Append(catBannerColors[ci]).Append("\">")
+					.Append(catLabels[ci])
+					.Append("<span class=\"bCount\" style=\"background:").Append(catBadgeBg[ci]).Append(";color:").Append(catBadgeFg[ci]).Append("\">")
+					.Append(count).Append(count == 1 ? " station" : " stations").Append("</span></div>");
+
+				if (count == 0)
+					sb.Append("<div class=\"nilRow\">Nil — no time-verified impact in the next 24h.</div>");
+				else
+					sb.Append(catCards);
 			}
-
-			// Nothing to show at all: no station is currently flagged red for a category that
-			// also has a matching flight, AND the schedule isn't empty (that case still gets the
-			// warning below) — omit the whole section rather than an empty banner.
-			if (!anyCategory && flights.Count > 0) return "";
-
-			StringBuilder sb = new StringBuilder();
-			sb.Append("<p class=\"introLine\">Check vs schedule — CAT I TAF conditions cross-referenced against flights in the next 24h. " +
-				"A flight only counts if its STD/STA/diversion time actually falls within the flagged block's own hours — " +
-				"only flights with a real, time-verified impact are listed below.</p>");
-			if (flights.Count == 0)
-				sb.Append("<div class=\"warnBanner\"><span class=\"warnIcon\">&#9888;</span>" +
-					"Flight Schedule is empty — no flights to cross-reference. Load the Flight Schedule tab first.</div>");
-			sb.Append(catBodies);
 
 			return CvsStartMarker + "<div id=\"tafCheckVsSchedule\" contenteditable=\"false\">" + sb + "</div>" + CvsEndMarker;
 		}
@@ -407,9 +411,12 @@ namespace ICAO_CSV
 			return
 				"v\\:*{behavior:url(#default#VML)}" +
 				".introLine{font-size:15.5px;font-weight:600;color:#0d47a1;background:#eef3fb;border-left:3px solid #1565c0;padding:8px 12px;border-radius:0 4px 4px 0;margin:0 0 16px 0;line-height:1.4}" +
-				".sectionHeader{position:relative;display:block;padding:10px 14px;border-left:4px solid;border-radius:6px;margin:16px 0 8px 0;background:#eceff1}" +
-				".dot{display:inline-block;width:10px;height:10px;border-radius:5px;margin-right:8px}" +
-				".sectionTitle{font-size:15px;font-weight:bold;color:#222}" +
+				// Banner + solid count badge — same shape as the Conflict report's MISC/Not-ALTN
+				// "X active in the coming 7 days" banners (MainForm.Conflict.cs), reused here so
+				// the 4 Check vs Schedule categories read as the same visual family.
+				".banner{position:relative;display:block;padding:10px 14px;border-radius:6px;margin:16px 0 8px 0;background:#eceff1;font-size:14px;font-weight:600;color:#37474f}" +
+				".banner .bCount{position:absolute;top:8px;right:10px;text-align:center;font-size:13px;font-weight:bold;padding:4px 10px;border-radius:3px}" +
+				".nilRow{color:#78909c;font-size:13px;font-style:italic;margin:0 0 12px 4px}" +
 				".card{border:1px solid #cfd8dc;border-radius:8px;overflow:hidden;margin:0 0 18px 0}" +
 				".cardAlert{border:2px solid #c62828;box-shadow:0 0 0 1px #c62828}" +
 				".ahead{background:#263238;padding:14px 18px;position:relative}" +
@@ -434,6 +441,13 @@ namespace ICAO_CSV
 		void TafAnalysisTabEnter(object sender, EventArgs e)
 		{
 			if (_tafTopBar == null) BuildTafTopBar();
+			// Check vs Schedule depends on FlightSchedule — same throttled (5 min), silent-for-
+			// Readers trigger the Flight Schedule and Conflict tabs already use
+			// (TryAutoRefreshFlightSchedule, MainForm.FlightSchedule.cs). The refresh itself runs
+			// on a BackgroundWorker, so this render pass still builds from whatever's already
+			// stored; RefreshFlightSchedule()'s own completion handler re-renders this tab if it's
+			// still the active one once the fresh data actually lands.
+			TryAutoRefreshFlightSchedule();
 			LoadTafReportIntoBrowser();
 		}
 
@@ -455,7 +469,13 @@ namespace ICAO_CSV
 			Dictionary<string, string> unusedInlineImages;
 			string checkHtml = BuildTafCheckVsScheduleHtml(false, false, out unusedInlineImages);
 
-			string html = "<html><head><style>" + TafCheckVsScheduleCss() + "</style></head>" +
+			// xmlns:v is required on the root <html> tag for the VML runway diagrams
+			// (BuildRwySvg/BuildRwySvgGeo) to render at all — without it MSHTML silently drops
+			// every <v:*> shape while still rendering the plain-<div> QFU labels next to them,
+			// which reads as "the diagram is half-broken" (QFU shown, no runway lines) rather
+			// than an obvious failure. Same wrapper Conflict/Email's own live tab already uses
+			// (MainForm.Conflict.cs, BuildConflictReportHtml).
+			string html = "<html xmlns:v=\"urn:schemas-microsoft-com:vml\"><head><style>" + TafCheckVsScheduleCss() + "</style></head>" +
 				"<body style=\"font-family:Segoe UI, Arial, sans-serif; font-size:13px\">" +
 				checkHtml + storedBody + "</body></html>";
 
