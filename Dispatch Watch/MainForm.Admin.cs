@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
@@ -44,6 +45,15 @@ namespace ICAO_CSV
 		// with the other endpoint settings even though the TAF tab has its own UI for thresholds.
 		private static string _metBaseUrl = "http://10.48.12.43:65080/efb-webservice/";
 		private static bool   _archiveConfigLoaded;
+
+		// Bumped by hand on notable releases — no build-time version stamping exists in this
+		// SharpDevelop project, so this is the one source of truth for "what version is this".
+		private const string AppVersion = "Dispatch Watch 1.0";
+		// User guide, placed by hand on V: next to the app (VAppFolder, MainForm.Deployment.cs) —
+		// not auto-copied to the local install like the app files themselves, since it's
+		// reference material a dispatcher opens directly from the shared drive, not something
+		// each local install needs its own copy of.
+		private static string UserGuidePath { get { return Path.Combine(VAppFolder, "Dispatch Watch - User Guide.pdf"); } }
 
 		private TextBox _adminFlightScheduleUrl;
 		private TextBox _adminBriefingUrl;
@@ -173,62 +183,85 @@ namespace ICAO_CSV
 			EnsureArchiveConfig();
 			ClearTaggedControls(tabPage_Admin);
 
-			Label hdr = new Label { Tag = "dispose", Top = 18, Left = 20, AutoSize = true,
+			Label versionLbl = new Label { Tag = "dispose", Top = 14, Left = 20, AutoSize = true,
+				Font = new Font("Microsoft Sans Serif", 11f, FontStyle.Bold), Text = AppVersion };
+			tabPage_Admin.Controls.Add(versionLbl);
+
+			LinkLabel guideLink = new LinkLabel { Tag = "dispose", Top = 38, Left = 20, AutoSize = true, Text = "Open User Guide" };
+			guideLink.LinkClicked += delegate
+			{
+				try
+				{
+					if (!File.Exists(UserGuidePath))
+					{
+						MessageBox.Show("User guide not found:\n" + UserGuidePath, "Open User Guide", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						return;
+					}
+					Process.Start(UserGuidePath);
+				}
+				catch (Exception ex)
+				{
+					MessageBox.Show("Could not open the user guide:\n" + ex.Message, "Open User Guide", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				}
+			};
+			tabPage_Admin.Controls.Add(guideLink);
+
+			Label hdr = new Label { Tag = "dispose", Top = 66, Left = 20, AutoSize = true,
 				Font = new Font("Microsoft Sans Serif", 12f, FontStyle.Bold), Text = "Admin — Archive service endpoints" };
 			tabPage_Admin.Controls.Add(hdr);
 
-			Label lbl1 = new Label { Tag = "dispose", Top = 60, Left = 20, AutoSize = true,
+			Label lbl1 = new Label { Tag = "dispose", Top = 108, Left = 20, AutoSize = true,
 				Text = "Flight Schedule Service URL (getFlightList)" };
 			tabPage_Admin.Controls.Add(lbl1);
-			_adminFlightScheduleUrl = new TextBox { Tag = "dispose", Top = 82, Left = 20, Width = 520, Text = _flightScheduleBaseUrl };
+			_adminFlightScheduleUrl = new TextBox { Tag = "dispose", Top = 130, Left = 20, Width = 520, Text = _flightScheduleBaseUrl };
 			tabPage_Admin.Controls.Add(_adminFlightScheduleUrl);
 
-			Label lbl2 = new Label { Tag = "dispose", Top = 118, Left = 20, AutoSize = true,
+			Label lbl2 = new Label { Tag = "dispose", Top = 166, Left = 20, AutoSize = true,
 				Text = "Briefing Service URL (getBriefing)" };
 			tabPage_Admin.Controls.Add(lbl2);
-			_adminBriefingUrl = new TextBox { Tag = "dispose", Top = 140, Left = 20, Width = 520, Text = _briefingBaseUrl };
+			_adminBriefingUrl = new TextBox { Tag = "dispose", Top = 188, Left = 20, Width = 520, Text = _briefingBaseUrl };
 			tabPage_Admin.Controls.Add(_adminBriefingUrl);
 
-			Label lbl3 = new Label { Tag = "dispose", Top = 176, Left = 20, AutoSize = true,
+			Label lbl3 = new Label { Tag = "dispose", Top = 224, Left = 20, AutoSize = true,
 				Text = "Flight Schedule — callsign prefixes to keep (comma-separated)" };
 			tabPage_Admin.Controls.Add(lbl3);
-			_adminCallsignPrefixes = new TextBox { Tag = "dispose", Top = 198, Left = 20, Width = 520,
+			_adminCallsignPrefixes = new TextBox { Tag = "dispose", Top = 246, Left = 20, Width = 520,
 				Text = string.Join(",", _callsignPrefixFilters.ToArray()) };
 			tabPage_Admin.Controls.Add(_adminCallsignPrefixes);
 
-			Label lbl4 = new Label { Tag = "dispose", Top = 234, Left = 20, AutoSize = true,
+			Label lbl4 = new Label { Tag = "dispose", Top = 282, Left = 20, AutoSize = true,
 				Text = "Conflict tab — window around STD/STA (± hours)" };
 			tabPage_Admin.Controls.Add(lbl4);
-			_adminConflictWindow = new TextBox { Tag = "dispose", Top = 256, Left = 20, Width = 80,
+			_adminConflictWindow = new TextBox { Tag = "dispose", Top = 304, Left = 20, Width = 80,
 				Text = _conflictWindowHours.ToString() };
 			tabPage_Admin.Controls.Add(_adminConflictWindow);
 
-			Label lbl4b = new Label { Tag = "dispose", Top = 292, Left = 20, AutoSize = true,
+			Label lbl4b = new Label { Tag = "dispose", Top = 340, Left = 20, AutoSize = true,
 				Text = "Conflict tab — Not ALTN window around estimated alternate arrival (± hours)" };
 			tabPage_Admin.Controls.Add(lbl4b);
-			_adminAltnConflictWindow = new TextBox { Tag = "dispose", Top = 314, Left = 20, Width = 80,
+			_adminAltnConflictWindow = new TextBox { Tag = "dispose", Top = 362, Left = 20, Width = 80,
 				Text = _altnConflictWindowHours.ToString() };
 			tabPage_Admin.Controls.Add(_adminAltnConflictWindow);
 
-			Label lbl5 = new Label { Tag = "dispose", Top = 350, Left = 20, AutoSize = true,
+			Label lbl5 = new Label { Tag = "dispose", Top = 398, Left = 20, AutoSize = true,
 				Text = "Movement Manager XML messages folder" };
 			tabPage_Admin.Controls.Add(lbl5);
-			_adminMmMessagesPath = new TextBox { Tag = "dispose", Top = 372, Left = 20, Width = 520, Text = _mmMessagesPath };
+			_adminMmMessagesPath = new TextBox { Tag = "dispose", Top = 420, Left = 20, Width = 520, Text = _mmMessagesPath };
 			tabPage_Admin.Controls.Add(_adminMmMessagesPath);
 
-			Label lbl6 = new Label { Tag = "dispose", Top = 408, Left = 20, AutoSize = true,
+			Label lbl6 = new Label { Tag = "dispose", Top = 456, Left = 20, AutoSize = true,
 				Text = "Flight Sched CSV folder (shared — every dispatcher's fallback CSV drop)" };
 			tabPage_Admin.Controls.Add(lbl6);
-			_adminFlightSchedCsvPath = new TextBox { Tag = "dispose", Top = 430, Left = 20, Width = 520, Text = _flightSchedCsvPath };
+			_adminFlightSchedCsvPath = new TextBox { Tag = "dispose", Top = 478, Left = 20, Width = 520, Text = _flightSchedCsvPath };
 			tabPage_Admin.Controls.Add(_adminFlightSchedCsvPath);
 
-			Label lbl7 = new Label { Tag = "dispose", Top = 466, Left = 20, AutoSize = true,
+			Label lbl7 = new Label { Tag = "dispose", Top = 514, Left = 20, AutoSize = true,
 				Text = "Weather Service URL (getAdHocMET, TAF Analysis tab)" };
 			tabPage_Admin.Controls.Add(lbl7);
-			_adminMetUrl = new TextBox { Tag = "dispose", Top = 488, Left = 20, Width = 520, Text = _metBaseUrl };
+			_adminMetUrl = new TextBox { Tag = "dispose", Top = 536, Left = 20, Width = 520, Text = _metBaseUrl };
 			tabPage_Admin.Controls.Add(_adminMetUrl);
 
-			Button save = new Button { Tag = "dispose", Top = 524, Left = 20, Width = 100, Height = 30, Text = "Save" };
+			Button save = new Button { Tag = "dispose", Top = 572, Left = 20, Width = 100, Height = 30, Text = "Save" };
 			save.Click += delegate
 			{
 				if (!EnsureWriterOrWarn()) return;
@@ -250,7 +283,7 @@ namespace ICAO_CSV
 			};
 			tabPage_Admin.Controls.Add(save);
 
-			_adminStatus = new Label { Tag = "dispose", Top = 532, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
+			_adminStatus = new Label { Tag = "dispose", Top = 580, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
 			tabPage_Admin.Controls.Add(_adminStatus);
 		}
 	}

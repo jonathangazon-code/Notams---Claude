@@ -390,7 +390,7 @@ namespace ICAO_CSV
 				UploadDbToV();
 				_isWriter = false;
 				ApplyReaderModeUi();
-				ShowTransientNotice("You've been switched to Reader mode by " + current.Email + ".");
+				ShowTransientNotice("You've been switched to Reader mode by " + current.Email + ".", true);
 			}
 			else
 			{
@@ -436,21 +436,71 @@ namespace ICAO_CSV
 			}
 		}
 
-		private static void ShowTransientNotice(string text)
+		// Positioned on whichever screen THIS window (the dispatcher's actual Dispatch Watch
+		// instance) is currently on — not Screen.PrimaryScreen. On a multi-monitor ops-room setup
+		// with the app running maximized on a secondary screen, anchoring to the primary screen's
+		// corner put this notice somewhere the dispatcher wasn't looking.
+		//
+		// requireClick=true (the forced-Reader-mode takeover) shows a modal "OK"-dismissed popup
+		// instead of the old auto-fading toast — a dispatcher who stepped away or wasn't looking
+		// at that exact moment could otherwise miss the switch entirely and only discover it later
+		// via EnsureWriterOrWarn's popup on their next write attempt, with no idea who took over or
+		// when. requireClick=false (the inactivity auto-save notice) keeps the original
+		// non-blocking, auto-dismissing toast — routine background confirmations shouldn't force
+		// an acknowledgment.
+		private void ShowTransientNotice(string text, bool requireClick)
 		{
-			Form popup = new Form
+			Rectangle wa = Screen.FromControl(this).WorkingArea;
+
+			if (!requireClick)
 			{
-				FormBorderStyle = FormBorderStyle.None, StartPosition = FormStartPosition.Manual,
-				Width = 380, Height = 70, BackColor = Color.FromArgb(38, 50, 56), TopMost = true, ShowInTaskbar = false
-			};
-			Rectangle wa = Screen.PrimaryScreen.WorkingArea;
-			popup.Location = new Point(wa.Right - popup.Width - 16, wa.Bottom - popup.Height - 16);
-			popup.Controls.Add(new Label { Text = text, ForeColor = Color.White, Dock = DockStyle.Fill,
-				TextAlign = ContentAlignment.MiddleCenter, Padding = new Padding(10) });
-			popup.Show();
-			Timer t = new Timer { Interval = 4000 };
-			t.Tick += delegate { t.Stop(); popup.Close(); popup.Dispose(); };
-			t.Start();
+				Form toast = new Form
+				{
+					FormBorderStyle = FormBorderStyle.None, StartPosition = FormStartPosition.Manual,
+					Width = 380, Height = 70, BackColor = Color.FromArgb(38, 50, 56), TopMost = true, ShowInTaskbar = false
+				};
+				toast.Location = new Point(wa.Right - toast.Width - 16, wa.Bottom - toast.Height - 16);
+				toast.Controls.Add(new Label { Text = text, ForeColor = Color.White, Dock = DockStyle.Fill,
+					TextAlign = ContentAlignment.MiddleCenter, Padding = new Padding(10) });
+				toast.Show();
+				Timer t = new Timer { Interval = 6000 };
+				t.Tick += delegate { t.Stop(); toast.Close(); toast.Dispose(); };
+				t.Start();
+				return;
+			}
+
+			bool restart = false;
+			using (Form popup = new Form
+			{
+				FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.Manual,
+				Width = 380, Height = 190, BackColor = Color.FromArgb(38, 50, 56), TopMost = true, ShowInTaskbar = false,
+				ControlBox = false, MinimizeBox = false, MaximizeBox = false, Text = "Dispatch Watch"
+			})
+			{
+				popup.Location = new Point(wa.Right - popup.Width - 16, wa.Bottom - popup.Height - 16);
+				popup.Controls.Add(new Label { Text = text, ForeColor = Color.White, Dock = DockStyle.Top, Height = 76,
+					TextAlign = ContentAlignment.MiddleCenter, Padding = new Padding(10) });
+				popup.Controls.Add(new Label { Text = "Restart the application if you want to switch back to Writer mode.",
+					ForeColor = Color.FromArgb(176, 190, 197), Dock = DockStyle.Top, Height = 40,
+					TextAlign = ContentAlignment.MiddleCenter, Padding = new Padding(10, 0, 10, 0) });
+
+				Button continueBtn = new Button { Text = "Continue in Read-Mode", Top = 132, Left = 20, Width = 165, Height = 34,
+					BackColor = Color.FromArgb(69, 90, 100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+				Button restartBtn = new Button { Text = "Restart the Application", Top = 132, Left = 195, Width = 165, Height = 34,
+					BackColor = Color.IndianRed, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+				continueBtn.Click += delegate { popup.Close(); };
+				restartBtn.Click += delegate { restart = true; popup.Close(); };
+				popup.Controls.Add(continueBtn);
+				popup.Controls.Add(restartBtn);
+				popup.AcceptButton = continueBtn;
+				popup.ShowDialog();
+			}
+
+			// Restart only after the popup Form has fully closed and been disposed (the using
+			// block above) — Application.Restart() tears down the whole process, no cleanup of
+			// its own needed, but there's no reason to leave a disposed-but-still-referenced Form
+			// hanging around during the restart.
+			if (restart) Application.Restart();
 		}
 
 		// Silent counterpart to EndApp()'s upload step (MainForm.cs) — used by the forced-
@@ -533,7 +583,7 @@ namespace ICAO_CSV
 				{
 					UploadDbToV();
 					WriteLock(_currentUserEmail, _writerToken, _lockAcquiredAtUtc);   // heartbeat too, since this proves liveness
-					ShowTransientNotice("Auto-saved to V: at " + DateTime.Now.ToString("HH:mm") + " (2 min inactivity).");
+					ShowTransientNotice("Auto-saved to V: at " + DateTime.Now.ToString("HH:mm") + " (2 min inactivity).", false);
 					_lastActivityUtc = DateTime.UtcNow;   // don't re-fire every 10s for the rest of the idle period
 				}
 			};
