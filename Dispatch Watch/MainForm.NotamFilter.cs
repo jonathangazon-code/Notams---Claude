@@ -738,6 +738,24 @@ namespace ICAO_CSV
 			return nearestClsd <= nearestOpen;
 		}
 
+		// A runway mention that's just a route ENDPOINT for a taxiway closure, not a statement
+		// that the runway itself is closed — e.g. "TWY D FM RWY 04/22 TO TWY P CLSD." closes
+		// taxiway D (routed FROM the runway TO another taxiway); "CLSD" at the end applies to
+		// TWY D, but sits close enough to "RWY 04/22" that IsClosedNearby alone wrongly credited
+		// it as a runway closure (a real UACC NOTAM triggered an incorrect airport-wide APT CLSD
+		// this way, since it's the airport's only runway pair). Recognised by the "FM" that
+		// immediately precedes the runway mention together with a "TO TWY" that follows it.
+		private static bool IsTaxiwayRouteReference(string U, int index, int length)
+		{
+			int start = Math.Max(0, index - 20);
+			string before = U.Substring(start, index - start);
+			int afterStart = index + length;
+			int afterEnd = Math.Min(U.Length, afterStart + 25);
+			string after = U.Substring(afterStart, afterEnd - afterStart);
+			return System.Text.RegularExpressions.Regex.IsMatch(before, @"\bFM\s*$") &&
+				System.Text.RegularExpressions.Regex.IsMatch(after, @"^\s*TO\s+TWY\b");
+		}
+
 		private static System.Collections.Generic.List<string> ClosedThresholds(string U)
 		{
 			System.Collections.Generic.List<string> set = new System.Collections.Generic.List<string>();
@@ -748,17 +766,31 @@ namespace ICAO_CSV
 
 			// Runway mentions must carry the RWY/RUNWAY keyword themselves (a bare "16R/34L"
 			// with no RWY prefix is too easy to confuse with something else) AND have
-			// CLSD/CLOSED nearest — not just anywhere in the NOTAM.
+			// CLSD/CLOSED nearest — not just anywhere in the NOTAM. A trailing run of
+			// "AND dd[LCR]?/dd[LCR]?" chunks (e.g. "RWY 07/25 AND 15/33 CLOSED") shares the
+			// single RWY keyword and CLSD/CLOSED of the first pair — each of those pairs has no
+			// RWY/RUNWAY prefix of its own, so on its own it would never match this loop at all;
+			// captured here as a third group and split out below instead of missing them
+			// entirely (a real LFSB NOTAM closing both of an airport's two runway pairs this way
+			// only registered the first pair, so allRwyClosed never triggered).
 			foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(
-				U, @"R(?:WY|UNWAY)\s*(\d{1,2}[LCR]?)\s*/\s*(\d{1,2}[LCR]?)"))
+				U, @"R(?:WY|UNWAY)\s*(\d{1,2}[LCR]?)\s*/\s*(\d{1,2}[LCR]?)((?:\s*,?\s*AND\s+\d{1,2}[LCR]?\s*/\s*\d{1,2}[LCR]?)*)"))
 			{
+				if (IsTaxiwayRouteReference(U, m.Index, m.Length)) continue;
 				if (!taxiOnly && !IsClosedNearby(U, m.Index, m.Length)) continue;
 				if (!set.Contains(m.Groups[1].Value)) set.Add(m.Groups[1].Value);
 				if (!set.Contains(m.Groups[2].Value)) set.Add(m.Groups[2].Value);
+				foreach (System.Text.RegularExpressions.Match extra in
+					System.Text.RegularExpressions.Regex.Matches(m.Groups[3].Value, @"(\d{1,2}[LCR]?)\s*/\s*(\d{1,2}[LCR]?)"))
+				{
+					if (!set.Contains(extra.Groups[1].Value)) set.Add(extra.Groups[1].Value);
+					if (!set.Contains(extra.Groups[2].Value)) set.Add(extra.Groups[2].Value);
+				}
 			}
 			foreach (System.Text.RegularExpressions.Match m in
 				System.Text.RegularExpressions.Regex.Matches(U, @"R(?:WY|UNWAY)\s*(\d{1,2}[LCR]?)\b(?!\s*/)"))
 			{
+				if (IsTaxiwayRouteReference(U, m.Index, m.Length)) continue;
 				if (!taxiOnly && !IsClosedNearby(U, m.Index, m.Length)) continue;
 				if (!set.Contains(m.Groups[1].Value)) set.Add(m.Groups[1].Value);
 			}
@@ -809,11 +841,17 @@ namespace ICAO_CSV
 
 			// SUP — independent. Require an actual "SUP nnn/yyyy" reference (same pattern as
 			// ExtractSupRef), not a bare substring match — plain U.Contains("SUP") was a false
-			// positive on any word containing "SUP", e.g. "SECONDARY POWER SUPPLY".
-			s.Sup = System.Text.RegularExpressions.Regex.IsMatch(U, @"SUP\s*0*\d+\s*/\s*\d{2,4}");
+			// positive on any word containing "SUP", e.g. "SECONDARY POWER SUPPLY". A trigger
+			// NOTAM referencing an AIRAC AIP amendment sometimes cites it as "AIP SUPPLEMENT NR
+			// 023" instead, with no "SUP nnn/yyyy"-shaped reference in the text at all — the
+			// literal 2-word phrase is specific enough to add safely alongside the main pattern.
+			s.Sup = System.Text.RegularExpressions.Regex.IsMatch(U, @"SUP\s*0*\d+\s*/\s*\d{2,4}") || RegexAny(U, @"AIP\s+SUPPLEMENT\b");
 
-			// Fuel (3/3 on sample)
-			s.Fuel = RegexAny(U, @"FUEL.{0,20}(NOT\s+AVBL|U/S|NIL|UNAVAIL)", @"NO\s+FUEL", @"FUEL\s+DISRUPTION");
+			// Fuel (3/3 on sample). NOT AVAILABLE (spelled out, not just AVBL) missed a real
+			// LFLL NOTAM — "REFUELLING NOT AVAILABLE FOR AIRLINES REFUELLED BY..." — since
+			// "FUEL" (inside "REFUELLING") was only followed by "NOT AVAILABLE", never "NOT
+			// AVBL", so the original AVBL-only alternative never matched.
+			s.Fuel = RegexAny(U, @"FUEL.{0,20}(NOT\s+(AVBL|AVAILABLE)|U/S|NIL|UNAVAIL)", @"NO\s+FUEL", @"FUEL\s+DISRUPTION");
 
 			// Not as alternate / PPR / delay (7/7 on sample).
 			// \bPPR\b excludes three common false-positive shapes seen on NAVAID/TWY NOTAMs:
@@ -831,9 +869,21 @@ namespace ICAO_CSV
 			// followed by "TRAFFIC" (e.g. "MIDGU M717 NOT AVBL FOR LANDING TRAFFIC TO MUSCAT...")
 			// is an en-route ATS-route/traffic-flow restriction on a point along an airway, not
 			// a statement that the destination airport itself can't be used — also excluded.
+			// A bare "PPR" inside a TMA/airspace-activity restriction (e.g. "BRUSSELS TMA
+			// (IFR TRG / PJE / VFR FLT) PPR BLW FL075") is prior permission to conduct that
+			// activity inside the TMA below a level, not a diversion-suitability restriction
+			// on the airport itself — same idea as the hours-activation carve-out below,
+			// excluded separately since it's about a TMA, not opening hours. A NOTAM that's
+			// itself just amending the wording of a LOCAL AD REGULATIONS paragraph (e.g. "REF
+			// AIP ... LOCAL AD REGULATIONS ... AMEND FIFTH SENTENCE TO READ AS FLW: EXEMPTIONS
+			// APPLY TO SAR FLIGHTS...") is an administrative text correction, not an
+			// operational restriction — even though it happens to mention "PPR CODE" — also
+			// excluded.
 			bool exceptAltn = RegexAny(U, @"(EXC|EXCEPT)\s+ALTN");
 			bool hoursActivation = RegexAny(U, @"OPR\s*HR", @"OPERATING\s+HOURS", @"\b(ATZ|CTR|CTA)\s+ACTIVAT");
-			s.NotAltn = !exceptAltn && !hoursActivation && RegexAny(U,
+			bool tmaAirspace = RegexAny(U, @"\bTMA\b.{0,60}\bPPR\b", @"\bPPR\b.{0,60}\bTMA\b");
+			bool regAmendment = RegexAny(U, @"LOCAL\s+AD\s+REGULATIONS", @"AMEND.{0,20}SENTENCE");
+			s.NotAltn = !exceptAltn && !hoursActivation && !tmaAirspace && !regAmendment && RegexAny(U,
 				@"\bPPR\b(?!\s*\d[\d\-]{5,})(?!\s*\d{1,3}\s*MIN\b)(?!\s*\d{2,3}\.\d)", @"PRIOR\s+PERMISSION", @"CANNOT\s+BE\s+CHOSEN\s+AS",
 				@"NOT.{0,12}ALTERNATE", @"NOT\s+AVBL\s+AS\s+ALTN", @"\bDIVERSION", @"SUBJ.{0,10}DLA",
 				@"EXPECT\s+DELAY", @"DELAY\s+EXPECTED", @"\bO/R\s+ONLY", @"NOT\s+AVBL\s+FOR\s+LANDING\b(?!\s+TRAFFIC)");
@@ -878,28 +928,81 @@ namespace ICAO_CSV
 				// good that other capability is: 5 independent dispatcher corrections (LEMD,
 				// LEST, PANC x2, EPWA) rejected a "C" suggestion every time another runway was
 				// actually CAT II/III — a much better runway remaining elsewhere isn't a
-				// CAT-I-level event worth flagging at all. Only escalate to CAT I when the best
-				// surviving runway is exactly CAT I; a CAT II/III survivor suppresses to nothing
-				// (still not "No ILS" — the airport plainly isn't without instrument capability);
-				// if no other runway has any CAT at all, NoILS stays true (set above).
-				int bestOtherCat = 0;
+				// CAT-I-level event worth flagging at all. A further 4 corrections (LKTB x2,
+				// EFTU x2) showed the same reasoning also applies when the runway LOSING its
+				// ILS was never better than CAT I to begin with — losing an already-CAT-I-only
+				// ILS while another CAT I ILS remains elsewhere isn't a downgrade of anything,
+				// there's nothing to lose. So: only escalate to CAT I when the affected
+				// runway itself was CAT II/III-capable (a genuine capability loss) AND the best
+				// surviving runway elsewhere is no better than CAT I; a CAT II/III survivor, or
+				// an affected runway that was only ever CAT I, both suppress to nothing (still
+				// not "No ILS" — the airport plainly isn't without instrument capability); if no
+				// other runway has any CAT at all, NoILS stays true (set above).
+				int affectedBestCat = 0, bestOtherCat = 0;
 				foreach (RwyInfo r in runways)
-					if (!affectedRwys.Contains(r.Desig.ToUpper())) bestOtherCat = Math.Max(bestOtherCat, r.CatMax);
-				if (bestOtherCat == 1) { s.NoILS = false; s.CatI = true; }
-				else if (bestOtherCat >= 2) { s.NoILS = false; }
+				{
+					if (affectedRwys.Contains(r.Desig.ToUpper())) affectedBestCat = Math.Max(affectedBestCat, r.CatMax);
+					else bestOtherCat = Math.Max(bestOtherCat, r.CatMax);
+				}
+				if (bestOtherCat >= 1)
+				{
+					s.NoILS = false;
+					if (affectedBestCat >= 2 && bestOtherCat < 2) s.CatI = true;
+				}
 			}
 
 			// CAT I (3/6): CAT II/III lost, or downgrade to CAT I, or ILS U/S except LVP.
 			// Matches either word order — "CAT II ... NOT AVAILABLE" or the reversed
-			// "NOT AVAILABLE: ... ILS CAT II" (both seen in real NOTAMs).
-			s.CatI = s.CatI || RegexAny(U,
-				@"CAT\s*(II|III|2|3)\b.{0,28}(NOT\s+(AUTH|AVBL|AVAILABLE)|U/S|UNSERVICEABLE|DOWNGRAD)",
-				@"(NOT\s+(AUTH|AVBL|AVAILABLE)|U/S|UNSERVICEABLE).{0,40}CAT\s*(II|III|2|3)\b",
+			// "NOT AVAILABLE: ... ILS CAT II" (both seen in real NOTAMs). "NA" is accepted as a
+			// synonym for "NOT AVAILABLE" — a real KBGR NOTAM phrased this as "NAV ILS RWY 15
+			// CAT II NA", which the spelled-out-only alternation missed entirely.
+			bool catDowngradeText = RegexAny(U,
+				@"CAT\s*(II|III|2|3)\b.{0,28}(NOT\s+(AUTH|AVBL|AVAILABLE)|\bNA\b|U/S|UNSERVICEABLE|DOWNGRAD)",
+				@"(NOT\s+(AUTH|AVBL|AVAILABLE)|\bNA\b|U/S|UNSERVICEABLE).{0,40}CAT\s*(II|III|2|3)\b",
 				@"DOWNGRAD.{0,15}CAT\s*(I|1)\b")
 				|| (lvpExc && RegexAny(U, @"ILS.{0,20}U/S"));
 
-			// APT CLSD (22/30, 4 FP): aerodrome closed, OR this NOTAM closes EVERY runway
-			bool apClsdText = RegexAny(U, @"\bAD\s+CLSD", @"\bARP\s+CLSD", @"AERODROME\s+CLOSED", @"AIRPORT\s+CLOSED");
+			if (catDowngradeText)
+			{
+				// Same affected-runway-vs-survivors reasoning as the No-ILS escalation above,
+				// applied here too — an EHAM NOTAM ("ILS CAT II/III OPS RWY 27 NOT AVBL DUE TO
+				// CRANE...") matched this pattern directly (never going through the No-ILS branch
+				// at all, since it doesn't say the ILS itself is U/S) and got wrongly flagged C
+				// even though the airport had five OTHER CAT III-capable runways.
+				if (runways.Count == 0)
+				{
+					s.CatI = true; // no runway data to reason about -> don't hide a real breach
+				}
+				else
+				{
+					System.Collections.Generic.List<string> mentioned = new System.Collections.Generic.List<string>();
+					foreach (System.Text.RegularExpressions.Match m in
+						System.Text.RegularExpressions.Regex.Matches(U, @"RWY\s*(\d{1,2}[LCR]?)"))
+						if (!mentioned.Contains(m.Groups[1].Value)) mentioned.Add(m.Groups[1].Value);
+
+					if (mentioned.Count == 0)
+					{
+						s.CatI = true; // no runway singled out -> applies airport-wide
+					}
+					else
+					{
+						int affectedBest = 0, otherBest = 0;
+						foreach (RwyInfo r in runways)
+						{
+							if (mentioned.Contains(r.Desig.ToUpper())) affectedBest = Math.Max(affectedBest, r.CatMax);
+							else otherBest = Math.Max(otherBest, r.CatMax);
+						}
+						if (affectedBest >= 2 && otherBest < 2) s.CatI = true;
+					}
+				}
+			}
+
+			// APT CLSD (22/30, 4 FP): aerodrome closed, OR this NOTAM closes EVERY runway.
+			// "AERODROME CLSD"/"AIRPORT CLSD" (abbreviated CLSD instead of the spelled-out
+			// CLOSED) is a real UCFM NOTAM shape the original two spelled-out-only alternatives
+			// missed entirely.
+			bool apClsdText = RegexAny(U, @"\bAD\s+CLSD", @"\bARP\s+CLSD",
+				@"AERODROME\s+(CLOSED|CLSD)", @"AIRPORT\s+(CLOSED|CLSD)");
 			System.Collections.Generic.List<string> closed = ClosedThresholds(U);
 			bool allRwyClosed = false;
 			if (runways.Count > 0)

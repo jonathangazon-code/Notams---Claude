@@ -310,10 +310,12 @@ namespace ICAO_CSV
 			string[] catBadgeBg      = { "#bbdefb", "#b2ebf2", "#ffcdd2", "#e1bee7" };
 			string[] catBadgeFg      = { "#0d47a1", "#00363a", "#7f0000", "#311b52" };
 
+			// Wording matches the NOTAM Conflict tab's own introLine (MainForm.Conflict.cs) —
+			// same 3-line structure, no "CAT I" jargon.
 			StringBuilder sb = new StringBuilder();
-			sb.Append("<p class=\"introLine\">Check vs schedule — CAT I TAF conditions cross-referenced against flights in the next 24h. " +
-				"A flight only counts if its STD/STA/diversion time actually falls within the flagged block's own hours — " +
-				"only flights with a real, time-verified impact are listed below.</p>");
+			sb.Append("<p class=\"introLine\">Below is a summary of significant weather conditions in the coming 24h, cross-referenced against the flight schedule.<br>" +
+				"For Origin/Dest, a match is checked at STD/STA &plusmn;1Hr, verified against the flagged TAF block's own hours.<br>" +
+				"For ALTN use, the check is done at STD + flight time + diversion time &plusmn;2Hrs, verified against the flagged TAF block's own hours.</p>");
 			if (flights.Count == 0)
 				sb.Append("<div class=\"warnBanner\"><span class=\"warnIcon\">&#9888;</span>" +
 					"Flight Schedule is empty — no flights to cross-reference. Load the Flight Schedule tab first.</div>");
@@ -862,6 +864,10 @@ namespace ICAO_CSV
 			// wrapper (and the auto-generated Check vs Schedule section) is added back on at
 			// render/send time by LoadTafReportIntoBrowser/Btn_sendTafReportClick.
 			StringBuilder report = new StringBuilder();
+			// Same blue banner style as the Check vs Schedule / Conflict report's own introLine
+			// (defined in TafCheckVsScheduleCss(), available here too since this body is always
+			// concatenated into that same document) — reused as-is rather than a one-off style.
+			report.Append("<p class=\"introLine\">NETWORK OVERVIEW</p>");
 			report.Append("<span style=\"font-weight:bold;color:#888\">Last analysis: " +
 				DateTime.Now.ToString("dd/MM/yyyy HH:mm") + " (local)</span><hr />");
 			report.Append("<table style=\"text-align:left; font-size:13px\">");

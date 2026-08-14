@@ -669,13 +669,16 @@ namespace ICAO_CSV
 				// banner below, since it's no longer "in conflict" with anything to badge.
 				if (code == "M")
 				{
-					body.Append("<div class=\"banner purple\">MISC NOTAMs active in the coming 7 days<span class=\"bCount\">" +
-						miscRows.Count + " NOTAM" + (miscRows.Count == 1 ? "" : "s") + "</span></div>");
+					body.Append(BuildBannerHtml("MISC NOTAMs active in the coming 7 days",
+						miscRows.Count + " NOTAM" + (miscRows.Count == 1 ? "" : "s"), "#f3e5f5", "#e3c6f0", "#4a148c"));
 					foreach (Tuple<DateTime, string> row in miscRows) body.Append(row.Item2);
 					continue;
 				}
 
-				Color c = ImpactColor(code);
+				// Not ALTN's section header is yellow here specifically (Conflict/Email report
+				// only) rather than ImpactColor's shared orangered — that shared color still drives
+				// the NOTAM Filter/Report tabs' own D) chips/strips, untouched.
+				Color c = code == "D" ? Color.FromArgb(249, 168, 37) : ImpactColor(code);
 				string hex = ColorTranslator.ToHtml(c);
 				string label = ImpactLabel(code);
 				List<string> cards = cardsByImpact[code];
@@ -701,8 +704,8 @@ namespace ICAO_CSV
 					if (notAltnOtherRows.Count > 0)
 					{
 						body.Append("<hr class=\"sepline\">");
-						body.Append("<div class=\"banner yellow\">Not as Alternate NOTAMs active in the coming 7 days<span class=\"bCount\">" +
-							notAltnOtherRows.Count + " NOTAM" + (notAltnOtherRows.Count == 1 ? "" : "s") + "</span></div>");
+						body.Append(BuildBannerHtml("Not as Alternate NOTAMs active in the coming 7 days",
+							notAltnOtherRows.Count + " NOTAM" + (notAltnOtherRows.Count == 1 ? "" : "s"), "#fff8dc", "#ffe9a8", "#7a5b00"));
 						foreach (Tuple<DateTime, string> row in notAltnOtherRows) body.Append(row.Item2);
 					}
 				}
@@ -1110,6 +1113,25 @@ namespace ICAO_CSV
 			string firstLine = nlIdx >= 0 ? trimmed.Substring(0, nlIdx) : trimmed;
 			if (!firstLine.Trim().Equals("No", StringComparison.OrdinalIgnoreCase)) return text;
 			return nlIdx >= 0 ? trimmed.Substring(nlIdx).TrimStart('\r', '\n') : "";
+		}
+
+		// The MISC/Not-ALTN banners (plain text + a solid rectangular count badge on the right)
+		// used to be a single CSS-only ".banner"/".bCount" div — renders fine in the live
+		// WebBrowser tab, but Outlook's Word rendering engine neither honors the badge's
+		// "position:absolute; right:..." (it stays flush left / stacked instead) nor reliably
+		// keeps its CSS "background" color, the same two failures already worked around
+		// elsewhere in this file (BuildAirportHeaderHtml's raster path, AppendImpactRow's
+		// bgcolor). Table-based two-column layout + bgcolor attributes on both the banner and
+		// the badge cell fixes both — renders identically in the live tab (bgcolor there too,
+		// harmlessly alongside the CSS it was already using) and in the emailed copy.
+		private static string BuildBannerHtml(string label, string countText, string bannerBg, string badgeBg, string badgeFg)
+		{
+			return "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"" + bannerBg + "\" " +
+				"style=\"background:" + bannerBg + ";border-radius:6px;margin:0 0 12px 0\"><tr>" +
+				"<td bgcolor=\"" + bannerBg + "\" style=\"padding:10px 14px;font-size:14px;font-weight:600;color:#37474f\">" + label + "</td>" +
+				"<td bgcolor=\"" + badgeBg + "\" align=\"right\" style=\"padding:4px 10px;border-radius:3px\">" +
+				"<span style=\"color:" + badgeFg + ";font-size:13px;font-weight:bold\">" + countText + "</span>" +
+				"</td></tr></table>";
 		}
 
 		// The airport header block (ICAO/IATA/name/RWY table/diagram, i.e. the ".ahead" div)

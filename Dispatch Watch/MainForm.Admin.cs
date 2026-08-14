@@ -23,7 +23,7 @@ namespace ICAO_CSV
 		private static List<string> _callsignPrefixFilters = new List<string> { "TAY", "FDX", "DHL" };
 		// ±window (hours) the Conflict tab uses around a flight's STD/STA to decide
 		// whether an overlapping NOTAM counts as a conflict. Editable here.
-		private static int _conflictWindowHours = 12;
+		private static int _conflictWindowHours = 1;
 		// ±window (hours) the Conflict tab uses around a flight's ESTIMATED ARRIVAL AT AN
 		// ALTERNATE (STD + FlightTimeMin + AltNTimeMin) to decide whether a "Not ALTN" NOTAM
 		// at that alternate is a real diversion-time conflict — kept independent of
