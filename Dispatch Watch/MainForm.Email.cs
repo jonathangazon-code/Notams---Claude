@@ -4,6 +4,7 @@ using System.Data.OleDb;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
@@ -46,7 +47,16 @@ namespace ICAO_CSV
 
 		// Returns the user's default Outlook signature as HTML (read from the signature files),
 		// or "" if none. Avoids GetInspector, which breaks programmatic .Send.
-		string ReadDefaultSignatureHtml()
+		//
+		// inlineImages: any image the signature references (e.g. a company logo) gets rewritten
+		// to a "cid:..." reference and its real file registered in this dictionary, the same
+		// (cid -> temp/real path) map the runway-diagram images already use — the caller attaches
+		// every entry as a hidden file whose PR_ATTACH_CONTENT_ID matches the cid (see
+		// Btn_sendReportsClick/Btn_sendTafReportClick's own "InlineImages" step). A "file:///..."
+		// reference — what this used to rewrite to — only ever resolves on the SENDER's own
+		// machine (it points at a path under this user's local AppData); every recipient just
+		// sees a broken-image placeholder, since they have no access to that path at all.
+		string ReadDefaultSignatureHtml(Dictionary<string, string> inlineImages)
 		{
 			try
 			{
@@ -87,9 +97,26 @@ namespace ICAO_CSV
 				if (file == "") return "";
 
 				string html = File.ReadAllText(file);
-				// Point relative image links to the absolute signature folder so they may resolve.
+
+				// Outlook signatures store their images in a sibling "<name>_files" folder,
+				// referenced by relative "<name>_files/imageNNN.png" src attributes. Each one that
+				// actually exists on disk gets replaced with a "cid:sig_..." reference, and its
+				// real path registered for the caller to attach as a hidden image.
 				string imgDir = Path.GetFileNameWithoutExtension(file) + "_files";
-				html = html.Replace("\"" + imgDir + "/", "\"file:///" + Path.Combine(sigDir, imgDir).Replace("\\", "/") + "/");
+				string imgDirPath = Path.Combine(sigDir, imgDir);
+				if (inlineImages != null && Directory.Exists(imgDirPath))
+				{
+					html = Regex.Replace(html, "\"" + Regex.Escape(imgDir) + "/([^\"]+)\"", delegate(Match m)
+					{
+						string fileName = m.Groups[1].Value;
+						string fullPath = Path.Combine(imgDirPath, fileName);
+						if (!File.Exists(fullPath)) return m.Value;
+						string cid = "sig_" + Regex.Replace(fileName, @"[^A-Za-z0-9]", "_");
+						inlineImages[cid] = fullPath;
+						return "\"cid:" + cid + "\"";
+					});
+				}
+
 				return "<br>" + html;
 			}
 			catch { return ""; }
@@ -202,7 +229,7 @@ namespace ICAO_CSV
 				step = "Body";
 				string fullBody = bodyHtml;
 				int bodyCloseIdx = fullBody.LastIndexOf("</body>", StringComparison.OrdinalIgnoreCase);
-				string tail = attachmentNote + ReadDefaultSignatureHtml();
+				string tail = attachmentNote + ReadDefaultSignatureHtml(inlineImages);
 				fullBody = bodyCloseIdx >= 0 ? fullBody.Insert(bodyCloseIdx, tail) : fullBody + tail;
 				mt.InvokeMember("HTMLBody", BindingFlags.SetProperty, null, mail, new object[] { fullBody });
 
@@ -241,8 +268,15 @@ namespace ICAO_CSV
 			}
 			finally
 			{
-				foreach (string tempPath in inlineImages.Values)
-					try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+				// inlineImages now also holds the dispatcher's REAL Outlook signature image
+				// file(s) (ReadDefaultSignatureHtml), not just the runway-diagram PNGs this
+				// cleanup was originally written for — only delete what's actually a temp copy
+				// (under Path.GetTempPath()), or a resend would permanently destroy their
+				// signature's logo.
+				string tempRoot = Path.GetTempPath();
+				foreach (string p in inlineImages.Values)
+					if (p.StartsWith(tempRoot, StringComparison.OrdinalIgnoreCase))
+						try { if (File.Exists(p)) File.Delete(p); } catch { }
 			}
 		}
 	}

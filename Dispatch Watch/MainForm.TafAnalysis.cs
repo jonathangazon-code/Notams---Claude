@@ -1522,7 +1522,7 @@ namespace ICAO_CSV
 
 				step = "Body";
 				int bodyCloseIdx = fullBody.LastIndexOf("</body>", StringComparison.OrdinalIgnoreCase);
-				string tail = ReadDefaultSignatureHtml();
+				string tail = ReadDefaultSignatureHtml(inlineImages);
 				fullBody = bodyCloseIdx >= 0 ? fullBody.Insert(bodyCloseIdx, tail) : fullBody + tail;
 				mt.InvokeMember("HTMLBody", BindingFlags.SetProperty, null, mail, new object[] { fullBody });
 
@@ -1556,8 +1556,15 @@ namespace ICAO_CSV
 			}
 			finally
 			{
-				foreach (string tempPath in inlineImages.Values)
-					try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+				// inlineImages now also holds the dispatcher's REAL Outlook signature image
+				// file(s) (ReadDefaultSignatureHtml), not just the runway-diagram PNGs this
+				// cleanup was originally written for — only delete what's actually a temp copy
+				// (under Path.GetTempPath()), or a resend would permanently destroy their
+				// signature's logo.
+				string tempRoot = Path.GetTempPath();
+				foreach (string p in inlineImages.Values)
+					if (p.StartsWith(tempRoot, StringComparison.OrdinalIgnoreCase))
+						try { if (File.Exists(p)) File.Delete(p); } catch { }
 			}
 		}
 	}
