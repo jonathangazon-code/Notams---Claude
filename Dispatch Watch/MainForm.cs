@@ -39,6 +39,7 @@ namespace ICAO_CSV
 			EnsureUsersTable();
 			UpsertCurrentUser(_currentUserEmail);
 			AcquireOrPromptForLock();
+			LogUserAction("Login (" + (IsWriter ? "Writer" : "Reader") + ")");
 
 			StartApp();
 			EnsureSchema();
@@ -103,6 +104,7 @@ namespace ICAO_CSV
 		{
 			if (_lockHeartbeatTimer != null) _lockHeartbeatTimer.Stop();
 			if (_idleCheckTimer != null) _idleCheckTimer.Stop();
+			LogUserAction("Logout");
 			ReleaseLock();   // before the upload below, so the next launcher never sees a stale "in use" state
 			EndApp();
 		}

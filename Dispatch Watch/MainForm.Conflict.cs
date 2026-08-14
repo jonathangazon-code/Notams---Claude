@@ -139,6 +139,7 @@ namespace ICAO_CSV
 					ins.Parameters.AddWithValue("?", a);
 					ins.ExecuteNonQuery();
 					conn.Close();
+					LogUserAction("Add report recipient " + a);
 
 					addBox.Clear();
 					list.Items.Clear();
@@ -162,6 +163,7 @@ namespace ICAO_CSV
 					del.Parameters.AddWithValue("?", a);
 					del.ExecuteNonQuery();
 					conn.Close();
+					LogUserAction("Remove report recipient " + a);
 
 					list.Items.Clear();
 					foreach (string r in LoadRecipients()) list.Items.Add(r);
@@ -200,7 +202,7 @@ namespace ICAO_CSV
 		{
 			if (EnsureWriterOrWarn())
 			{
-				try { InsertConflictDismissal(notamKey, fltlegId); } catch { }
+				try { InsertConflictDismissal(notamKey, fltlegId); LogUserAction("Dismiss conflict match " + notamKey + " / FltlegID " + fltlegId); } catch { }
 			}
 			Build_Conflict_Report();
 		}
@@ -212,7 +214,7 @@ namespace ICAO_CSV
 		{
 			if (EnsureWriterOrWarn())
 			{
-				try { DeleteManualConflict(fltlegId); } catch { }
+				try { DeleteManualConflict(fltlegId); LogUserAction("Remove forced conflict via checkbox, FltlegID " + fltlegId); } catch { }
 			}
 			Build_Conflict_Report();
 		}

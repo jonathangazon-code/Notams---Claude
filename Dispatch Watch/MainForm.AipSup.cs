@@ -37,6 +37,7 @@ namespace ICAO_CSV
 			upd.Parameters.AddWithValue("?", i);
 			upd.ExecuteNonQuery();
 			conn.Close();
+			LogUserAction("Set Aviobook-loaded=" + (newStatus == "Yes") + " on NOTAM ID " + i);
 
 			// Update only the checkbox in the HTML — no full redraw
 			if (Web_Sup_report.Document != null)

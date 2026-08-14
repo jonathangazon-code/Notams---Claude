@@ -399,6 +399,7 @@ string xmlNotams = "";
 		{
 			if (!EnsureWriterOrWarn()) return;
 			if (_dbUpdateWorker != null && _dbUpdateWorker.IsBusy) return;   // already running
+			LogUserAction("DB Update");
 
 			Btn_updateDB.Enabled = false;
 			if (Btn_dbUpdateQuick != null) Btn_dbUpdateQuick.Enabled = false;

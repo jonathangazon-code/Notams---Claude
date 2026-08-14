@@ -313,6 +313,7 @@ namespace ICAO_CSV
 				upd.ExecuteNonQuery();
 			}
 			conn.Close();
+			LogUserAction((isNew ? "Add airport " : "Edit airport ") + icao);
 
 			// New airport -> pre-encode its runways from the CSV
 			if (isNew)
@@ -340,6 +341,7 @@ namespace ICAO_CSV
 			cmd.Parameters.AddWithValue("?", (int)row.Tag);
 			cmd.ExecuteNonQuery();
 			conn.Close();
+			LogUserAction("Delete airport " + icao);
 
 			_aptDgv.Rows.Remove(row);
 			LoadStationsCache();

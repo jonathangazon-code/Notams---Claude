@@ -758,6 +758,7 @@ namespace ICAO_CSV
 			if (int.TryParse(_tafWindMpsCatIBox.Text.Trim(), out v) && v > 0) _tafWindCatIMps = v;
 			if (int.TryParse(_tafWindMpsAdvBox.Text.Trim(), out v) && v > 0) _tafWindAdvisoryMps = v;
 			SaveArchiveConfig();
+			LogUserAction("Save TAF thresholds");
 			MessageBox.Show("Thresholds saved.", "TAF Analysis", MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
 
@@ -766,6 +767,7 @@ namespace ICAO_CSV
 		public void DownloadAndAnalyzeTafs()
 		{
 			if (!EnsureWriterOrWarn()) return;
+			LogUserAction("TAF Analysis run");
 			if (_stationsCache == null) LoadStationsCache();
 
 			List<string> icaos = new List<string>();
@@ -1340,6 +1342,7 @@ namespace ICAO_CSV
 					{
 						Web_TafAnalysis.Document.Body.InnerHtml = Web_TafAnalysis.Document.Body.InnerHtml + imgTag;
 						SaveEditedTafReport();
+						LogUserAction("Attach image to TAF report");
 					}
 				}
 				catch (Exception ex)
@@ -1390,6 +1393,7 @@ namespace ICAO_CSV
 					ins.Parameters.AddWithValue("?", a);
 					ins.ExecuteNonQuery();
 					conn.Close();
+					LogUserAction("Add TAF recipient " + a);
 
 					addBox.Clear();
 					list.Items.Clear();
@@ -1413,6 +1417,7 @@ namespace ICAO_CSV
 					del.Parameters.AddWithValue("?", a);
 					del.ExecuteNonQuery();
 					conn.Close();
+					LogUserAction("Remove TAF recipient " + a);
 
 					list.Items.Clear();
 					foreach (string r in LoadTafRecipients()) list.Items.Add(r);
@@ -1546,6 +1551,7 @@ namespace ICAO_CSV
 
 				step = "Send";
 				mt.InvokeMember("Send", BindingFlags.InvokeMethod, null, mail, null);
+				LogUserAction("Send TAF Report email to " + rcp.Count + " recipient(s)");
 
 				MessageBox.Show("TAF report sent to " + rcp.Count + " recipient(s).", "Send TAF Report", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}

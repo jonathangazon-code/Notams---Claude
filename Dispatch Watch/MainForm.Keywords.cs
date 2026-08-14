@@ -83,6 +83,7 @@ namespace ICAO_CSV
 			ins.Parameters.AddWithValue("?", w);
 			ins.ExecuteNonQuery();
 			conn.Close();
+			LogUserAction("Add keyword " + w);
 
 			TxtBox_keyword.Clear();
 			LoadKeywords();
@@ -101,6 +102,7 @@ namespace ICAO_CSV
 			del.Parameters.AddWithValue("?", w);
 			del.ExecuteNonQuery();
 			conn.Close();
+			LogUserAction("Remove keyword " + w);
 
 			LoadKeywords();
 			Keywords_Refresh();

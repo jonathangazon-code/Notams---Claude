@@ -1636,6 +1636,7 @@ namespace ICAO_CSV
 			u.Parameters.AddWithValue("?", notam_ID);
 			u.ExecuteNonQuery();
 			conn.Close();
+			LogUserAction((isSup ? "Set SUP ref" : "Set remark") + " on NOTAM ID " + notam_ID);
 		}
 
 		// Toggle an impact for a Stations-tab NOTAM and reload.
@@ -1668,6 +1669,7 @@ namespace ICAO_CSV
 			ImpactSuggestion sug = SuggestImpacts(notamText, runways, new System.Collections.Generic.List<string>(), null);
 			string sugCode = SuggestedSingleCode(sug);
 			LogImpactCorrection(icao, key, notamText, runways, sugCode, on ? code : "", sug.Sup, sug.Sup);
+			LogUserAction((on ? "Set impact " + code : "Clear impact") + " on NOTAM " + key + " (" + icao + ")");
 
 			ICAO_Notams();
 		}
@@ -1698,6 +1700,7 @@ namespace ICAO_CSV
 			// only a genuine Sup-suggestion mismatch triggers a row.
 			ImpactSuggestion sug = SuggestImpacts(notamText, runways, new System.Collections.Generic.List<string>(), null);
 			LogImpactCorrection(icao, key, notamText, runways, "", "", sug.Sup, on);
+			LogUserAction((on ? "Set SUP" : "Clear SUP") + " on NOTAM " + key + " (" + icao + ")");
 
 			ICAO_Notams();
 		}
@@ -1712,6 +1715,7 @@ namespace ICAO_CSV
 			cmd.Parameters.AddWithValue("?", notam_ID);
 			cmd.ExecuteNonQuery();
 			conn.Close();
+			LogUserAction("Keep NOTAM ID " + notam_ID);
 			RefreshCurrentView();
 		}
 
@@ -1770,6 +1774,7 @@ namespace ICAO_CSV
 			cmd.Parameters.AddWithValue("?", notam_ID);
 			cmd.ExecuteNonQuery();
 			conn.Close();
+			LogUserAction("Ignore NOTAM ID " + notam_ID);
 			RefreshCurrentView();
 		}
 
@@ -1857,6 +1862,7 @@ namespace ICAO_CSV
 			cmd.Parameters.AddWithValue("?", AP);
 			cmd.ExecuteNonQuery();
 			conn.Close();
+			LogUserAction("Submit NOTAM triage for " + AP + " (" + _pendImpactChks.Count + " NOTAM(s))");
 			Filter_Notams();
 		}
 

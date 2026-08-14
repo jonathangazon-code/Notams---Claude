@@ -258,6 +258,7 @@ namespace ICAO_CSV
 
 				step = "Send";
 				mt.InvokeMember("Send", BindingFlags.InvokeMethod, null, mail, null);
+				LogUserAction("Send Reports email to " + rcp.Count + " recipient(s)");
 
 				MessageBox.Show("Reports sent to " + rcp.Count + " recipient(s).", "Send Reports", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}

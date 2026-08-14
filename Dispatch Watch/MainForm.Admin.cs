@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data.OleDb;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -60,6 +61,7 @@ namespace ICAO_CSV
 		private TextBox _adminCallsignPrefixes;
 		private TextBox _adminConflictWindow;
 		private TextBox _adminAltnConflictWindow;
+		private DataGridView _adminUsersDgv;
 		private TextBox _adminMmMessagesPath;
 		private TextBox _adminFlightSchedCsvPath;
 		private TextBox _adminMetUrl;
@@ -279,12 +281,75 @@ namespace ICAO_CSV
 					_altnConflictWindowHours = parsedAltnWindow;
 				SaveArchiveConfig();
 				EnsureFlightSchedFolder();
+				LogUserAction("Save Admin settings");
 				_adminStatus.Text = "Saved.";
 			};
 			tabPage_Admin.Controls.Add(save);
 
 			_adminStatus = new Label { Tag = "dispose", Top = 580, Left = 130, AutoSize = true, ForeColor = Color.Gray, Text = "" };
 			tabPage_Admin.Controls.Add(_adminStatus);
+
+			Label usersHdr = new Label { Tag = "dispose", Top = 622, Left = 20, AutoSize = true,
+				Font = new Font("Microsoft Sans Serif", 11f, FontStyle.Bold), Text = "Connected users" };
+			tabPage_Admin.Controls.Add(usersHdr);
+
+			_adminUsersDgv = new DataGridView
+			{
+				Tag = "dispose", Top = 650, Left = 20, Width = 520, Height = 220,
+				AllowUserToAddRows = false, AllowUserToDeleteRows = false, ReadOnly = true,
+				AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+				SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+				RowHeadersVisible = false
+			};
+			_adminUsersDgv.Columns.Add("Email", "Email");
+			_adminUsersDgv.Columns.Add("LastSeen", "Last connected");
+			_adminUsersDgv.Columns.Add("FirstSeen", "First connected");
+			tabPage_Admin.Controls.Add(_adminUsersDgv);
+			LoadUsersGrid();
+		}
+
+		// Every dispatcher who has ever launched the app, from the shared Users table
+		// (Email/FirstSeen/LastSeen, MainForm.Deployment.cs — updated on every launch via
+		// UpsertCurrentUser). Sorted most-recently-connected first.
+		private void LoadUsersGrid()
+		{
+			if (_adminUsersDgv == null) return;
+			_adminUsersDgv.Rows.Clear();
+			try
+			{
+				OleDbConnection conn = new OleDbConnection(@"Provider=Microsoft.JET.OLEDB.4.0;Data source= ICAO_storedNotams.mdb");
+				conn.Open();
+				OleDbDataReader r = new OleDbCommand("SELECT Email, LastSeen, FirstSeen FROM Users", conn).ExecuteReader();
+				List<string[]> rows = new List<string[]>();
+				while (r.Read())
+				{
+					string email = r.IsDBNull(0) ? "" : r.GetString(0);
+					string lastSeen = r.IsDBNull(1) ? "" : r.GetString(1);
+					string firstSeen = r.IsDBNull(2) ? "" : r.GetString(2);
+					rows.Add(new string[] { email, FormatUserTimestamp(lastSeen), FormatUserTimestamp(firstSeen), lastSeen });
+				}
+				conn.Close();
+				// Most-recently-connected first — sort on the raw ISO LastSeen (4th column,
+				// not shown), since it sorts correctly as plain text while the display-formatted
+				// "dd/MM/yyyy HH:mm" version doesn't.
+				rows.Sort(delegate(string[] a, string[] b) { return string.CompareOrdinal(b[3], a[3]); });
+				foreach (string[] row in rows)
+					_adminUsersDgv.Rows.Add(row[0], row[1], row[2]);
+			}
+			catch { /* Users table not ready yet on a brand-new DB */ }
+		}
+
+		// Users.FirstSeen/LastSeen are stored via DateTime.Now.ToString("o") (round-trip ISO,
+		// local time) — reformatted here to "dd/MM/yyyy HH:mm" (date AND time, not just time) for
+		// a compact, readable column. Falls back to the raw stored value if it doesn't parse.
+		private static string FormatUserTimestamp(string iso)
+		{
+			if (string.IsNullOrEmpty(iso)) return "";
+			DateTime dt;
+			if (DateTime.TryParse(iso, System.Globalization.CultureInfo.InvariantCulture,
+				System.Globalization.DateTimeStyles.RoundtripKind, out dt))
+				return dt.ToString("dd/MM/yyyy HH:mm");
+			return iso;
 		}
 	}
 }

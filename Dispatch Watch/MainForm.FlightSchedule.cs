@@ -154,7 +154,7 @@ namespace ICAO_CSV
 				Font = new Font("Microsoft Sans Serif", 12f, FontStyle.Bold), Text = "Schedule next 14 days (UTC)" };
 			topBar.Controls.Add(hdr);
 			Button refresh = new Button { Top = 10, Left = 400, Width = 90, Height = 28, Text = "Refresh" };
-			refresh.Click += delegate { RefreshFlightSchedule(); };
+			refresh.Click += delegate { LogUserAction("Flight Schedule manual refresh"); RefreshFlightSchedule(); };
 			topBar.Controls.Add(refresh);
 			Button exportPdf = new Button { Top = 10, Left = 498, Width = 100, Height = 28, Text = "Export PDF" };
 			exportPdf.Click += Btn_fsExportReportClick;
@@ -1013,12 +1013,14 @@ namespace ICAO_CSV
 					string selectedKey = line.Split(new[] { "  " }, StringSplitOptions.None)[0].Trim();
 					if (!EnsureWriterOrWarn()) return;
 					AssignManualConflict(fltlegId, selectedKey);
+					LogUserAction("Force conflict " + selectedKey + " on FltlegID " + fltlegId);
 					dlg.Close();
 				};
 				clear.Click += delegate
 				{
 					if (!EnsureWriterOrWarn()) return;
 					DeleteManualConflict(fltlegId);
+					LogUserAction("Clear forced conflict on FltlegID " + fltlegId);
 					dlg.Close();
 				};
 				cancel.Click += delegate { dlg.Close(); };
