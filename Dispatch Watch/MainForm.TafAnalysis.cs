@@ -38,6 +38,12 @@ namespace ICAO_CSV
 		private TextBox _tafVisCatIBox, _tafVisAdvBox, _tafCeilCatIBox, _tafCeilAdvBox,
 			_tafWindKtCatIBox, _tafWindKtAdvBox, _tafWindMpsCatIBox, _tafWindMpsAdvBox;
 		private bool _tafBodyLoaded;
+		// Session-only (not persisted) — true once DownloadAndAnalyzeTafs() has actually
+		// completed a run in this app session. TafReport.Html can be stale from a previous
+		// session/dispatcher (or never generated on this station's DB copy at all), so
+		// Btn_sendTafReportClick warns before sending if nobody has clicked "TAF Analysis"
+		// since this instance started, even though a stored report might still exist.
+		private bool _tafAnalysisRunThisSession;
 
 		// ── TafRecipients: independent recipient list from the Conflict tab's EmailRecipients ──
 
@@ -348,7 +354,11 @@ namespace ICAO_CSV
 						foreach (ConflictMatch m in matches)
 							flightChips += "<span class=\"flightChip flightChipAlert\">" + m.Text + "</span>";
 
-						catCards.Append("<div class=\"card cardAlert\">");
+						// Card border matches this category's own banner colour (catBannerColors[ci])
+						// rather than the fixed red ".cardAlert" the Conflict report uses — Ceiling/Vis
+						// cards are blue-bordered, Wind teal, Thunderstorms red, Snow purple.
+						catCards.Append("<div class=\"card\" style=\"border:2px solid ").Append(catBannerColors[ci])
+							.Append(";box-shadow:0 0 0 1px ").Append(catBannerColors[ci]).Append("\">");
 						catCards.Append(BuildAirportHeaderHtml(icao, rasterDiagrams, cidImages, inlineImages));
 						catCards.Append("<div class=\"body\">");
 						catCards.Append(flightChips);
@@ -440,7 +450,6 @@ namespace ICAO_CSV
 				".banner .bCount{position:absolute;top:8px;right:10px;text-align:center;font-size:13px;font-weight:bold;padding:4px 10px;border-radius:3px}" +
 				".nilRow{color:#78909c;font-size:13px;font-style:italic;margin:0 0 12px 4px}" +
 				".card{border:1px solid #cfd8dc;border-radius:8px;overflow:hidden;margin:0 0 18px 0}" +
-				".cardAlert{border:2px solid #c62828;box-shadow:0 0 0 1px #c62828}" +
 				".ahead{background:#263238;padding:14px 18px;position:relative}" +
 				".icao{font-size:18px;font-weight:bold;color:#eceff1;letter-spacing:3px}" +
 				".sub{font-size:13px;color:#78909c;margin-top:2px}" +
@@ -878,6 +887,7 @@ namespace ICAO_CSV
 
 			string timeIssued = DateTime.Now.ToString("dd/MM/yyyy HH:mm") + " (local)";
 			SaveTafReportHtml(report.ToString(), timeIssued);
+			_tafAnalysisRunThisSession = true;
 			LoadTafReportIntoBrowser();
 		}
 
@@ -1004,8 +1014,15 @@ namespace ICAO_CSV
 			// whole TAF has been walked once.
 			List<TafTokenMeta> metas = new List<TafTokenMeta>();
 
-			StringBuilder visCeil = new StringBuilder(), wind = new StringBuilder(), ts = new StringBuilder(), snow = new StringBuilder();
+			// Each colored contribution is tagged with the index of the token it came from,
+			// instead of being appended straight into a StringBuilder — display-time filtering
+			// (below) needs to be able to drop a token's contribution from every category after
+			// the fact, once every token's own bounds are known.
+			List<FragEntry> visCeilEntries = new List<FragEntry>(), windEntries = new List<FragEntry>(),
+				tsEntries = new List<FragEntry>(), snowEntries = new List<FragEntry>();
+
 			bool visTrend = false, windTrend = false;
+			int tokenIdx = 0;
 			foreach (string token in tokens)
 			{
 				if (token.Trim() == "") continue;
@@ -1037,9 +1054,9 @@ namespace ICAO_CSV
 					if (val <= _tafCeilCatIHundredFt) { ceilCatI = true; if (isPersisting) visTrend = true; }
 					else if (val <= _tafCeilAdvisoryHundredFt) { ceilTresh = true; if (isPersisting) visTrend = true; }
 				}
-				if (ceilCatI || visCatI) { AppendBlock(visCeil, token, "red"); meta.VisCeilRed = true; }
-				else if (ceilTresh || visTresh) AppendBlock(visCeil, token, "#B8860B");
-				else if (isPersisting && visTrend) { AppendBlock(visCeil, token, "blue"); visTrend = false; }
+				if (ceilCatI || visCatI) { visCeilEntries.Add(new FragEntry(tokenIdx, BlockHtml(token, "red"))); meta.VisCeilRed = true; }
+				else if (ceilTresh || visTresh) visCeilEntries.Add(new FragEntry(tokenIdx, BlockHtml(token, "#B8860B")));
+				else if (isPersisting && visTrend) { visCeilEntries.Add(new FragEntry(tokenIdx, BlockHtml(token, "blue"))); visTrend = false; }
 
 				// Wind KT/MPS append per match (as the legacy app does), since a token normally
 				// carries at most one wind group. The speed/gust portion of the matched wind
@@ -1053,9 +1070,9 @@ namespace ICAO_CSV
 					if (int.TryParse(spd, out kt))
 					{
 						string boldedToken = BoldWindSpeed(token, m);
-						if (kt > _tafWindCatIKt) { AppendBlock(wind, boldedToken, "red"); meta.WindRed = true; if (isPersisting) windTrend = true; }
-						else if (kt >= _tafWindAdvisoryKt) { AppendBlock(wind, boldedToken, "#B8860B"); if (isPersisting) windTrend = true; }
-						else if (isPersisting && windTrend) { AppendBlock(wind, boldedToken, "blue"); windTrend = false; }
+						if (kt > _tafWindCatIKt) { windEntries.Add(new FragEntry(tokenIdx, BlockHtml(boldedToken, "red"))); meta.WindRed = true; if (isPersisting) windTrend = true; }
+						else if (kt >= _tafWindAdvisoryKt) { windEntries.Add(new FragEntry(tokenIdx, BlockHtml(boldedToken, "#B8860B"))); if (isPersisting) windTrend = true; }
+						else if (isPersisting && windTrend) { windEntries.Add(new FragEntry(tokenIdx, BlockHtml(boldedToken, "blue"))); windTrend = false; }
 					}
 				}
 				foreach (Match m in Regex.Matches(token, @"([a-zA-Z0-9]{5,8})MPS"))
@@ -1066,9 +1083,9 @@ namespace ICAO_CSV
 					if (int.TryParse(spd, out mps))
 					{
 						string boldedToken = BoldWindSpeed(token, m);
-						if (mps > _tafWindCatIMps) { AppendBlock(wind, boldedToken, "red"); meta.WindRed = true; if (isPersisting) windTrend = true; }
-						else if (mps >= _tafWindAdvisoryMps) { AppendBlock(wind, boldedToken, "#B8860B"); if (isPersisting) windTrend = true; }
-						else if (isPersisting && windTrend) { AppendBlock(wind, boldedToken, "blue"); windTrend = false; }
+						if (mps > _tafWindCatIMps) { windEntries.Add(new FragEntry(tokenIdx, BlockHtml(boldedToken, "red"))); meta.WindRed = true; if (isPersisting) windTrend = true; }
+						else if (mps >= _tafWindAdvisoryMps) { windEntries.Add(new FragEntry(tokenIdx, BlockHtml(boldedToken, "#B8860B"))); if (isPersisting) windTrend = true; }
+						else if (isPersisting && windTrend) { windEntries.Add(new FragEntry(tokenIdx, BlockHtml(boldedToken, "blue"))); windTrend = false; }
 					}
 				}
 				// TS / snow / freezing precip — always flagged red, no threshold tiers
@@ -1077,10 +1094,11 @@ namespace ICAO_CSV
 				// just the bare "TS"/"SN" substring — \w*TS\w* extends the match to the full
 				// alphanumeric run around it, and the optional leading +/- keeps intensity
 				// prefixes attached.
-				if (Regex.IsMatch(token, "TS")) { AppendBlockHighlighted(ts, token, @"[+\-]?\b\w*TS\w*\b"); meta.TSRed = true; }
-				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) { AppendBlockHighlighted(snow, token, @"[+\-]?\b\w*(?:SN|FZRA|FZDZ)\w*\b"); meta.SnowRed = true; }
+				if (Regex.IsMatch(token, "TS")) { tsEntries.Add(new FragEntry(tokenIdx, HighlightedBlockHtml(token, @"[+\-]?\b\w*TS\w*\b"))); meta.TSRed = true; }
+				if (Regex.IsMatch(token, "SN|FZRA|FZDZ")) { snowEntries.Add(new FragEntry(tokenIdx, HighlightedBlockHtml(token, @"[+\-]?\b\w*(?:SN|FZRA|FZDZ)\w*\b"))); meta.SnowRed = true; }
 
 				metas.Add(meta);
+				tokenIdx++;
 			}
 
 			// Second pass: now that every token's own bounds and red flags are known, compute the
@@ -1095,16 +1113,69 @@ namespace ICAO_CSV
 				if (metas[i].SnowRed) snowWindows.Add(ComputeWindow(metas, i, validFrom, validTo, delegate(TafTokenMeta m) { return m.SnowRed; }));
 			}
 
+			// Third pass — drop from the DISPLAYED text (not from the windows/red-flags above,
+			// which Check vs Schedule's own 24h+block-hours check already keeps honest) whatever
+			// is no longer worth showing as of right now:
+			//  - a closed TEMPO/PROB block whose own window has already fully ended;
+			//  - a persisting (BECMG/FM/base) block once superseded by a LATER persisting block
+			//    that has itself already completed (its own transition end is in the past) AND
+			//    clears every one of Ceiling/Vis and Wind (a real, accomplished return to normal
+			//    — a still-red or still-amber next block means the earlier one stays relevant as
+			//    context for how the trend got here).
+			DateTime nowUtc = DateTime.UtcNow;
+			bool[] suppressPast = new bool[metas.Count];
+			bool[] supersededClear = new bool[metas.Count];
+			for (int i = 0; i < metas.Count; i++)
+			{
+				if (!metas[i].IsPersisting) { suppressPast[i] = metas[i].OwnEnd < nowUtc; continue; }
+
+				int next = -1;
+				for (int j = i + 1; j < metas.Count; j++)
+					if (metas[j].IsPersisting) { next = j; break; }
+				if (next >= 0 && metas[next].OwnEnd < nowUtc && !metas[next].VisCeilRed && !metas[next].WindRed)
+					supersededClear[i] = true;
+			}
+
+			string visCeilHtml = JoinSurviving(visCeilEntries, suppressPast, supersededClear);
+			string windHtml = JoinSurviving(windEntries, suppressPast, supersededClear);
+			// TS/Snow only drop past TEMPO/PROB blocks — the "superseded by a cleared BECMG" rule
+			// is scoped to Ceiling/Vis and Wind only, per the reasoning above.
+			string tsHtml = JoinSurviving(tsEntries, suppressPast, null);
+			string snowHtml = JoinSurviving(snowEntries, suppressPast, null);
+
 			TafFragments frag;
-			frag.VisCeil = visCeil.ToString();
-			frag.Wind = wind.ToString();
-			frag.TS = ts.ToString();
-			frag.Snow = snow.ToString();
+			frag.VisCeil = visCeilHtml;
+			frag.Wind = windHtml;
+			frag.TS = tsHtml;
+			frag.Snow = snowHtml;
 			frag.VisCeilWindows = visCeilWindows;
 			frag.WindWindows = windWindows;
 			frag.TSWindows = tsWindows;
 			frag.SnowWindows = snowWindows;
 			return frag;
+		}
+
+		// One category's colored contribution from a single token, tagged with that token's
+		// index so a later pass can drop it without needing to re-parse the HTML.
+		private struct FragEntry
+		{
+			public int TokenIndex;
+			public string Html;
+			public FragEntry(int tokenIndex, string html) { TokenIndex = tokenIndex; Html = html; }
+		}
+
+		// Concatenates every entry not suppressed by either filter (supersededClear may be null
+		// for categories that rule doesn't apply to).
+		private static string JoinSurviving(List<FragEntry> entries, bool[] suppressPast, bool[] supersededClear)
+		{
+			StringBuilder sb = new StringBuilder();
+			foreach (FragEntry e in entries)
+			{
+				if (suppressPast[e.TokenIndex]) continue;
+				if (supersededClear != null && supersededClear[e.TokenIndex]) continue;
+				sb.Append(e.Html);
+			}
+			return sb.ToString();
 		}
 
 		// Per-token bookkeeping for the two-pass window computation below.
@@ -1215,22 +1286,22 @@ namespace ICAO_CSV
 			return candidate;
 		}
 
-		// Appends the whole trend-group block/clause wrapped in a color span — red (CAT I),
-		// amber (advisory tier), or blue (trend recovery); every Vis/Ceiling/Wind caller passes one.
-		private static void AppendBlock(StringBuilder sb, string block, string color)
+		// The whole trend-group block/clause wrapped in a color span — red (CAT I), amber
+		// (advisory tier), or blue (trend recovery); every Vis/Ceiling/Wind caller passes one.
+		private static string BlockHtml(string block, string color)
 		{
-			sb.Append("<span style=\"color:").Append(color).Append(color == "red" ? ";font-weight:bold\">" : "\">").Append(block).Append("</span>");
+			return "<span style=\"color:" + color + (color == "red" ? ";font-weight:bold\">" : "\">") + block + "</span>";
 		}
 
 		// TS/Snow: keep the whole block/clause visible (same context-preserving reasoning as
-		// AppendBlock), but only the matched keyword itself (TS/TSRA/SN/FZRA/FZDZ/...) is
-		// colored red — the rest of the block stays plain text.
-		private static void AppendBlockHighlighted(StringBuilder sb, string block, string keywordPattern)
+		// BlockHtml), but only the matched keyword itself (TS/TSRA/SN/FZRA/FZDZ/...) is colored
+		// red — the rest of the block stays plain text.
+		private static string HighlightedBlockHtml(string block, string keywordPattern)
 		{
-			sb.Append(Regex.Replace(block, keywordPattern, delegate(Match m)
+			return Regex.Replace(block, keywordPattern, delegate(Match m)
 			{
 				return "<span style=\"color:red;font-weight:bold\">" + m.Value + "</span>";
-			}));
+			});
 		}
 
 		// Bolds the speed/gust portion of a matched wind group within its containing token/block
@@ -1379,6 +1450,16 @@ namespace ICAO_CSV
 			{
 				MessageBox.Show("No TAF recipients defined. Add at least one address.", "Send TAF Report", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
+			}
+
+			// A stored TafReport can be non-empty and still stale — it might be left over from a
+			// previous session (or a previous dispatcher, on a shared V: copy) rather than a
+			// fresh analysis of today's TAFs. Warn explicitly if "TAF Analysis" hasn't actually
+			// been clicked yet during this app session, separate from the emptiness check above.
+			if (!_tafAnalysisRunThisSession)
+			{
+				if (MessageBox.Show("TAF Analysis has not been run during this session. The report being sent may be outdated.\n\nSend anyway?",
+					"Send TAF Report", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
 			}
 
 			if (MessageBox.Show("Send the current TAF report to " + rcp.Count + " recipient(s)?",

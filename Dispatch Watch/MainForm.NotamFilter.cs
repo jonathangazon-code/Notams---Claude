@@ -1594,8 +1594,12 @@ namespace ICAO_CSV
 			{
 				int rowLeft = areaLeft, rowTop = Top + 94, rowW = areaW, gap = 8;
 				// Fuel/MISC default to the FULL NOTAM text rather than the first-line/dates
-				// default every other impact uses.
-				string effectiveDefault = (Impact == "F" || Impact == "M") ? notamText.Trim() : remarkDefault;
+				// default every other impact uses — but still strip the leading "No" line
+				// GetXML/Split (MainForm.NotamData.cs) prepends when the D) field is absent
+				// (StripLeadingNoMarker, MainForm.Conflict.cs — same marker NotamRemarkDefault
+				// above already checks for), since a lone "No" line reads as a parsing glitch,
+				// not as data worth keeping in the remark textbox.
+				string effectiveDefault = (Impact == "F" || Impact == "M") ? StripLeadingNoMarker(notamText).Trim() : remarkDefault;
 				if (impactOn && supStored)
 				{
 					AddStationRemark(parent, notam_ID, false, rowLeft, rowTop, rowW * 2 / 3,
@@ -1898,7 +1902,7 @@ namespace ICAO_CSV
 			// usually further down in the text.
 			string remarkInit;
 			if (stored) remarkInit = storedRemark;
-			else if (sugCode == "F" || sugCode == "M") remarkInit = notamText.Trim();
+			else if (sugCode == "F" || sugCode == "M") remarkInit = StripLeadingNoMarker(notamText).Trim();
 			else if (sugCode != "") remarkInit = remarkDefault;
 			else remarkInit = "";
 			TextBox remark = new TextBox { Top=0, Left=0, Size=new Size(250,24), Text=remarkInit };
