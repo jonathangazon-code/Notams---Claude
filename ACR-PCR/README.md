@@ -1,12 +1,18 @@
-# ACR / PCR — vérification des masses maximales
+# ACR/PCR et ACN/PCN — vérification des masses maximales
 
-Petit exe autonome : on saisit le **PCR publié** d'une piste (ex. `690/R/B/W/T`) et il affiche,
-pour **B737-400, B737-800, B747-400F et B747-400ERF**, leur ACR et la **masse maximale admissible**
+Petit exe autonome : on saisit le code publié d'une piste et il affiche, pour **B737-400,
+B737-800, B747-400F et B747-400ERF**, leur classification et la **masse maximale admissible**
 sur cette chaussée.
 
-Depuis le 28 nov. 2024 l'OACI a remplacé ACN/PCN par ACR/PCR. La règle d'exploitation est
-`ACR ≤ PCR`. La FAA publie le moteur de calcul officiel mais **sans interface** — d'où cet outil,
-qui est le front-end manquant.
+La fenêtre est en deux moitiés, même présentation sur 4 lignes :
+
+- **en haut, PCR** (ex. `690/R/B/W/T`) — méthode actuelle, en vigueur depuis le 28 nov. 2024
+- **en bas, PCN** (ex. `80/R/B/W/T`) — méthode legacy, encore publiée par beaucoup d'AIP
+
+Les deux moitiés sont la même classe (`RatingSection`) : elles ne peuvent pas diverger de
+présentation. Ce qui change est derrière l'interface `IRatingEngine`.
+
+La FAA publie le moteur de calcul ACR officiel mais **sans interface** — d'où cet outil.
 
 **Sans rapport avec Dispatch Watch.** Application distincte, solution distincte : ne pas ajouter
 `AcrTool.csproj` à `Dispatch Watch.sln`.
@@ -48,6 +54,72 @@ n'est jamais utilisée par cet outil, donc rien n'en est porté. Le source VB re
 Dispatch Watch, il ne peut pas être en 4.0. Si SharpDevelop dit ne pas trouver le framework
 4.6.1, installer le **.NET Framework 4.8 Developer Pack** (gratuit, Microsoft) : il fournit les
 assemblies de référence pour toutes les versions 4.x.
+
+## Les deux méthodes ne sont pas interchangeables
+
+Même forme de code à 5 composantes, mais des sens différents. Se tromper de table donne un
+verdict faux **sans erreur visible** :
+
+| | ACN/PCN (legacy) | ACR/PCR (actuel) |
+|---|---|---|
+| échelle | — | ~10× l'ACN |
+| sous-couche souple | CBR 15 / 10 / 6 / 3 | module E |
+| sous-couche rigide | k = 150 / 80 / 40 / 20 MN/m³ | module E |
+| pneus X | ≤ 1,50 MPa (217 psi) | ≤ 1,75 MPa (254 psi) |
+| pneus Y | ≤ 1,00 MPa (145 psi) | ≤ 1,25 MPa (181 psi) |
+| pneus Z | ≤ 0,50 MPa (73 psi) | ≤ 0,50 MPa (73 psi) |
+
+`PavementCode.TyrePressureLimitPsi()` applique la bonne limite selon la méthode.
+
+## D'où viennent les chiffres ACN
+
+**Ils ne sont pas calculés.** Contrairement à l'ACR, il n'existe aucune bibliothèque appelable
+pour la méthode legacy : ICAO-ACN 1.0 ne livre qu'un programme graphique, sans API, sans source
+et sans point d'entrée documenté (détails dans `vendor/faa-acn/README.txt`).
+
+Les valeurs viennent des tables constructeur fournies dans **`ACN.xlsx`**, à la racine du projet.
+`AcrTool/acn-data.xml` est **généré depuis ce classeur**, pas recopié à la main — si le classeur
+change, il faut le régénérer.
+
+- masses = colonne **F du classeur, en kg** (`weightKg`) ; elles coïncident avec les masses max
+  que la moitié ACR lit dans la bibliothèque FAA **à moins d'une livre près** sur les quatre
+  avions, donc les deux moitiés sont sur la même base
+- les colonnes C et E du classeur (MTOW/MLW opérateur, équivalents en lb) ne servent pas au calcul
+- les lignes « PCN » du classeur (L6, L15, L24, L33) sont des valeurs de test, pas des données
+- les pressions pneus ne figurent pas dans le classeur : elles viennent de la bibliothèque FAA
+  (`aircraft.xml`, `Cp/us`) — à confirmer contre la même source que les tables ACN
+
+### La formule
+
+Celle du classeur, à l'identique — interpolation linéaire en masse :
+
+```
+masse = masseMax − (ACNmax − PCN) / (ACNmax − ACNmin) × (masseMax − masseMin)
+```
+
+Vérifiée en rejouant les 32 combinaisons (4 avions × 8 sous-couches) contre le classeur :
+**aucun écart**.
+
+Deux différences volontaires, aux bords de la plage publiée, où le classeur extrapole :
+
+- `PCN` supérieur à l'ACN à masse max → l'outil renvoie la masse max et affiche « pas de
+  limitation chaussée », au lieu d'une masse extrapolée au-delà du certifié
+- `PCN` inférieur à l'ACN à vide → l'outil affiche « inutilisable » : si l'avion ne passe pas
+  même vide, il ne passe pas
+
+L'inversion est exacte — on inverse la droite du bon segment, sans recherche, contrairement au
+côté ACR où le moteur est une boîte noire et où il faut bisecter.
+
+### Formules cassées dans le classeur
+
+Les lignes de résultat du classeur (L8, L17, L26, L35) pointent vers des cellules vides : les
+trois premiers blocs référencent `F40/F41`, `F49/F50`, `F58/F59` — 37 lignes trop bas, la feuille
+s'arrêtant ligne 35 — et affichent donc **0** ; le quatrième référence `F13/F14`, c'est-à-dire les
+masses du 737-800, et sort des valeurs fausses. Les bonnes références sont `F3/F4`, `F12/F13`,
+`F21/F22`, `F30/F31`. L'outil applique la formule correcte ; le classeur, lui, reste à corriger.
+
+Un avion avec moins de deux points publiés est traité comme « pas de donnée » : la moitié basse
+le dit explicitement plutôt que d'afficher une réponse inventée.
 
 ## Vérifier — à faire avant tout usage
 
@@ -103,11 +175,32 @@ Contrôle **indépendant** de l'ACR : un avion peut passer en ACR et être refus
 La lettre du code PCR donne la limite — `W` illimité, `X` ≤ 1,75 MPa (254 psi), `Y` ≤ 1,25 MPa
 (181 psi), `Z` ≤ 0,50 MPa (73 psi).
 
-## Surcharge
+## Surcharge — case à cocher, jamais par défaut
 
-L'outil affiche `ACR ≤ PCR` et rien de plus. Exploiter au-delà du PCR publié est une décision de
-l'exploitant d'aérodrome, pas un calcul : **aucune tolérance de surcharge n'est appliquée**.
-Aide à la planification, à recouper avec l'AIP.
+Chaque moitié a une case **« Allow ICAO overload tolerance (+10% flexible / +5% rigid) »**,
+décochée au démarrage. Cochée, la limite comparée devient `PCR × 1,10` en souple et `× 1,05` en
+rigide (`PavementCode.EffectiveValue`).
+
+Rien n'est appliqué en silence :
+
+- la ligne d'information passe en orange et affiche **les deux** valeurs — la limite effective
+  utilisée *et* le code publié
+- chaque verdict concerné est suffixé `(overload +10%)` ou `(overload +5%)`
+- la colonne *Margin* est calculée contre la limite effective, pas contre le code publié
+
+Ce sont les critères OACI classiques de l'ère ACN/PCN : des mouvements **occasionnels** dont
+l'ACN dépasse le PCN publié de 10 % au plus (souple) ou 5 % au plus (rigide ou composite). Ils
+s'accompagnent de conditions que l'outil **ne peut pas vérifier** — ces mouvements doivent rester
+une faible part des départs annuels, et aucun n'est acceptable sur une chaussée présentant des
+signes de dégradation. La décision reste celle de l'exploitant d'aérodrome.
+
+Les mêmes 10 %/5 % sont proposés sur la moitié PCR par cohérence d'interface. **À confirmer**
+contre le Doc 9157 partie 3 avant de s'en servir en ACR : ces chiffres sont ceux de la méthode
+legacy, et je n'ai pas vérifié que l'OACI les a repris à l'identique pour l'ACR/PCR.
+
+La tolérance peut faire basculer un cas de « inutilisable » à utilisable — par exemple le
+B737-400 en souple sous-couche C avec PCN 17,6 : rien en strict, 35 454 kg avec la tolérance,
+parce que la limite relevée repasse au-dessus de l'ACN à vide.
 
 ## Provenance
 

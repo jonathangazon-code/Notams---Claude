@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  Published ACN values for the legacy ACN/PCN method.
+
+  GENERATED FROM ACN.xlsx - do not hand-edit; regenerate if the workbook changes.
+
+  These are NOT computed. There is no callable FAA library for the legacy method
+  (ICAO-ACN 1.0 ships a GUI program only, no API, no source - see
+  vendor/faa-acn/README.txt), so the values are taken as published and
+  interpolated by weight, which is the ICAO convention: ACN is published at the
+  maximum and empty weights precisely because it varies essentially linearly
+  between them.
+
+  Weights are the workbook's column F, in kilograms. They agree with the maximum
+  weights the ACR half reads from the FAA aircraft library to within one pound on
+  all four aircraft, so both halves of the window are on the same basis.
+
+  Tyre pressures are not in the workbook; they come from the FAA aircraft library
+  (aircraft.xml, Cp/us) - worth confirming against the same source as the ACN
+  tables.
+
+  Subgrade letters here are the ACN ones - flexible CBR 15/10/6/3 and rigid
+  k 150/80/40/20 MN/m3 - not the ACR ones. Do not mix the two.
+-->
+<AcnData source="ACN.xlsx (tables constructeur fournies par le dispatch ASL), colonne F en kg">
+
+  <Aircraft name="B737-400" tyrePressurePsi="185">   <!-- feuille : B737-400 -->
+    <Point weightKg="33643"   flexA="16" flexB="17" flexC="18" flexD="21" rigidA="18" rigidB="19" rigidC="20" rigidD="21" />   <!-- masse à vide, L4 -->
+    <Point weightKg="68266"   flexA="37" flexB="39" flexC="44" flexD="48" rigidA="42" rigidB="44" rigidC="47" rigidD="48" />   <!-- masse maximale, L3 -->
+  </Aircraft>
+
+  <Aircraft name="B737-800" tyrePressurePsi="204">   <!-- feuille : B737-800 -->
+    <Point weightKg="41413"   flexA="20" flexB="21" flexC="22" flexD="26" rigidA="23" rigidB="24" rigidC="25" rigidD="27" />   <!-- masse à vide, L13 -->
+    <Point weightKg="79242"   flexA="43" flexB="45" flexC="50" flexD="55" rigidA="49" rigidB="52" rigidC="54" rigidD="56" />   <!-- masse maximale, L12 -->
+  </Aircraft>
+
+  <Aircraft name="B747-400F" tyrePressurePsi="200">   <!-- feuille : B747F -->
+    <Point weightKg="179200"  flexA="20" flexB="21" flexC="23" flexD="30" rigidA="19" rigidB="21" rigidC="25" rigidD="29" />   <!-- masse à vide, L22 -->
+    <Point weightKg="397801"  flexA="53" flexB="59" flexC="73" flexD="94" rigidA="53" rigidB="62" rigidC="74" rigidD="85" />   <!-- masse maximale, L21 -->
+  </Aircraft>
+
+  <Aircraft name="B747-400ERF" tyrePressurePsi="230">   <!-- feuille : B747ERF -->
+    <Point weightKg="164400"  flexA="18" flexB="19" flexC="21" flexD="26" rigidA="19" rigidB="20" rigidC="23" rigidD="27" />   <!-- masse à vide, L31 -->
+    <Point weightKg="414130"  flexA="57" flexB="63" flexC="78" flexD="100" rigidA="59" rigidB="69" rigidC="81" rigidD="92" />   <!-- masse maximale, L30 -->
+  </Aircraft>
+
+</AcnData>

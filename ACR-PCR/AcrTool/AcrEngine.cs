@@ -31,7 +31,7 @@ namespace AcrTool
 	/// FAA's own ICAO-ACR program (ACRClassDriver/Form1_ICAO.vb) rather than
 	/// derived independently, so results can be compared against it directly.
 	/// </summary>
-	public class AcrEngine
+	public class AcrEngine : IRatingEngine
 	{
 		// aircraft.xml is read in US units throughout: pounds, psi, inches.
 		const bool Metric = false;
@@ -185,30 +185,51 @@ namespace AcrTool
 		/// step runs the layered-elastic solver, which is not cheap, so it stops
 		/// at 50 lb - far finer than any operational use of the answer.
 		/// </summary>
-		public float MaxAllowableWeightLb(AircraftSpec spec, PcrCode pcr, out bool limitedByPavement)
+		public float MaxAllowableWeightLb(AircraftSpec spec, PavementCode pcr, float limit, out bool limitedByPavement)
 		{
 			limitedByPavement = false;
 
 			float mtow = MaxWeightLb(spec);
-			if (Acr(spec, mtow, pcr.Pavement).For(pcr.Subgrade) <= pcr.Value)
+			if (Acr(spec, mtow, pcr.Pavement).For(pcr.Subgrade) <= limit)
 				return mtow;
 
 			limitedByPavement = true;
 
 			float low = mtow * 0.20f;              // well below any realistic empty weight
-			if (Acr(spec, low, pcr.Pavement).For(pcr.Subgrade) > pcr.Value)
+			if (Acr(spec, low, pcr.Pavement).For(pcr.Subgrade) > limit)
 				return 0f;
 
 			float high = mtow;
 			for (int i = 0; i < 20 && (high - low) > 50f; i++)
 			{
 				float mid = (low + high) / 2f;
-				if (Acr(spec, mid, pcr.Pavement).For(pcr.Subgrade) <= pcr.Value)
+				if (Acr(spec, mid, pcr.Pavement).For(pcr.Subgrade) <= limit)
 					low = mid;
 				else
 					high = mid;
 			}
 			return low;
+		}
+
+		// ---- IRatingEngine ----------------------------------------------------
+
+		public string RatingName { get { return "ACR"; } }
+		public RatingMethod Method { get { return RatingMethod.Acr; } }
+		public bool Ready { get { return _lib != null; } }
+		public string NotReadyReason { get { return Ready ? null : "The aircraft library has not been loaded."; } }
+
+		public string Provenance
+		{
+			get
+			{
+				return "ACR computed by the FAA ICAO-ACR engine (ACRClassLib.dll); gear geometry from the FAA "
+					+ "aircraft library (aircraft.xml, version " + (LibraryVersion ?? "not loaded") + ").";
+			}
+		}
+
+		public float Rating(AircraftSpec spec, float weightLb, PavementCode code)
+		{
+			return Acr(spec, weightLb, code.Pavement).For(code.Subgrade);
 		}
 
 		public const float LbPerKg = 2.2046226f;

@@ -43,16 +43,22 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="MainForm.cs" />
-    <Compile Include="PcrCode.cs" />
+    <Compile Include="PavementCode.cs" />
     <Compile Include="AircraftSpec.cs" />
     <Compile Include="AircraftLibrary.cs" />
     <Compile Include="AcrEngine.cs" />
+    <Compile Include="AcnEngine.cs" />
+    <Compile Include="IRatingEngine.cs" />
+    <Compile Include="RatingSection.cs" />
     <Compile Include="SelfTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\vendor\faa-lib\aircraft.xml">
       <Link>aircraft.xml</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="acn-data.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
