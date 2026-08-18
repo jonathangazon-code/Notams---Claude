@@ -54,6 +54,56 @@ namespace AcrTool
 		/// </summary>
 		public static object SyncRoot { get { return _libLock; } }
 
+		// ---- timing diagnostics ------------------------------------------------
+		//
+		// Two rounds of optimising by reasoning about call counts did not match what
+		// the app actually does, so this records what really happens: one line per
+		// call into the library, with the time it took. Written next to the exe,
+		// rewritten on each run. Cheap enough to leave on.
+
+		static readonly System.Text.StringBuilder _timing = new System.Text.StringBuilder();
+		static int _calls;
+		static double _totalMs;
+
+		static void Timed(string what, System.Action body)
+		{
+			System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
+			body();
+			sw.Stop();
+
+			_calls++;
+			_totalMs += sw.Elapsed.TotalMilliseconds;
+			lock (_timing)
+			{
+				if (_timing.Length < 400000)
+					_timing.AppendLine(string.Format(
+						System.Globalization.CultureInfo.InvariantCulture,
+						"{0,8:0.0} ms  {1}", sw.Elapsed.TotalMilliseconds, what));
+			}
+		}
+
+		/// <summary>Call count and total solver time since the process started.</summary>
+		public static string TimingSummary()
+		{
+			return string.Format(System.Globalization.CultureInfo.InvariantCulture,
+				"{0} solver calls, {1:0.0} s total", _calls, _totalMs / 1000.0);
+		}
+
+		/// <summary>Writes the per-call log next to the exe. Never throws.</summary>
+		public static void DumpTiming(string path)
+		{
+			try
+			{
+				lock (_timing)
+				{
+					System.IO.File.WriteAllText(path,
+						"ACR solver timing - " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + Environment.NewLine +
+						TimingSummary() + Environment.NewLine + Environment.NewLine + _timing);
+				}
+			}
+			catch { /* diagnostics must never break the app */ }
+		}
+
 		Dictionary<string, AircraftEntry> _lib;
 
 		// One layered-elastic solve is expensive, and the same weight gets asked
@@ -190,12 +240,18 @@ namespace AcrTool
 
 			if (!spec.HasBodyGear)
 			{
-				lock (_libLock)
-				{
-					ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
-					data = runner.CalculateACR(pt, grossWeightLb, percent1, wheels1,
-					                           main.TyrePressurePsi, x1, y1, sw1, Metric);
-				}
+				ACRClassLib.clsACR.ACRdata d1 = default(ACRClassLib.clsACR.ACRdata);
+				Timed(spec.Display + " flex 1-gear " + wheels1 + "w " + Math.Round(grossWeightLb) + "lb",
+					delegate
+					{
+						lock (_libLock)
+						{
+							ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
+							d1 = runner.CalculateACR(pt, grossWeightLb, percent1, wheels1,
+							                         main.TyrePressurePsi, x1, y1, sw1, Metric);
+						}
+					});
+				data = d1;
 			}
 			else
 			{
@@ -209,12 +265,18 @@ namespace AcrTool
 				Coords(body, wheels2, out x2, out y2);
 				int[] sw2 = StrainGrid(x2, wheels2);
 
-				lock (_libLock)
-				{
-					ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
-					data = runner.CalculateACR(pt, grossWeightLb, percent1, wheels1, main.TyrePressurePsi, x1, y1,
-					                           percent2, wheels2, body.TyrePressurePsi, x2, y2, sw1, sw2, Metric);
-				}
+				ACRClassLib.clsACR.ACRdata d2 = default(ACRClassLib.clsACR.ACRdata);
+				Timed(spec.Display + " flex 2-gear " + wheels1 + "+" + wheels2 + "w " + Math.Round(grossWeightLb) + "lb",
+					delegate
+					{
+						lock (_libLock)
+						{
+							ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
+							d2 = runner.CalculateACR(pt, grossWeightLb, percent1, wheels1, main.TyrePressurePsi, x1, y1,
+							                         percent2, wheels2, body.TyrePressurePsi, x2, y2, sw1, sw2, Metric);
+						}
+					});
+				data = d2;
 			}
 
 			return Unpack(data);
@@ -230,12 +292,18 @@ namespace AcrTool
 
 			// No SW here: the rigid path already loads a single truck, and the FAA
 			// driver likewise passes the overload without it.
-			lock (_libLock)
-			{
-				ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
-				return Unpack(runner.CalculateACR(pt, grossWeightLb, ac.MainGearPercent, wheels,
-				                                  ac.TyrePressurePsi, x, y, Metric));
-			}
+			ACRClassLib.clsACR.ACRdata data = default(ACRClassLib.clsACR.ACRdata);
+			Timed(libraryName + " rigid " + wheels + "w " + Math.Round(grossWeightLb) + "lb",
+				delegate
+				{
+					lock (_libLock)
+					{
+						ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
+						data = runner.CalculateACR(pt, grossWeightLb, ac.MainGearPercent, wheels,
+						                           ac.TyrePressurePsi, x, y, Metric);
+					}
+				});
+			return Unpack(data);
 		}
 
 		/// <summary>

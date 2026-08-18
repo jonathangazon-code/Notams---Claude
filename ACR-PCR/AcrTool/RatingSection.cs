@@ -136,8 +136,7 @@ namespace AcrTool
 			flow.Controls.Add(_overloadBox);
 
 			_progress = new ProgressBar();
-			_progress.Style = ProgressBarStyle.Marquee;
-			_progress.MarqueeAnimationSpeed = 30;
+			_progress.Style = ProgressBarStyle.Blocks;
 			_progress.Size = new Size(130, 16);
 			_progress.Margin = new Padding(0, 8, 0, 0);
 			_progress.Visible = false;
@@ -271,6 +270,8 @@ namespace AcrTool
 
 		void StartRun(PavementCode code, float limit, bool overload)
 		{
+			_progress.Maximum = _fleet.Count;
+			_progress.Value = 0;
 			_progress.Visible = true;
 			_go.Enabled = false;
 
@@ -278,13 +279,29 @@ namespace AcrTool
 			// here cannot pull the rug from under a live one.
 			if (_worker != null) _worker.Dispose();
 			_worker = new BackgroundWorker();
+			_worker.WorkerReportsProgress = true;
 
 			_worker.DoWork += delegate(object s, DoWorkEventArgs e)
 			{
-				List<RowData> results = new List<RowData>();
-				foreach (AircraftSpec spec in _fleet)
-					results.Add(Compute(spec, code, limit));
-				e.Result = results;
+				BackgroundWorker bw = (BackgroundWorker)s;
+				for (int i = 0; i < _fleet.Count; i++)
+				{
+					// Reported one at a time so each aircraft appears as soon as it
+					// is solved, rather than the grid staying blank until all four
+					// are done.
+					RowData d = Compute(_fleet[i], code, limit);
+					bw.ReportProgress(i + 1, d);
+				}
+			};
+
+			_worker.ProgressChanged += delegate(object s, ProgressChangedEventArgs e)
+			{
+				_progress.Value = Math.Min(e.ProgressPercentage, _progress.Maximum);
+
+				int index = e.ProgressPercentage - 1;
+				RowData d = e.UserState as RowData;
+				if (d != null && index >= 0 && index < _grid.Rows.Count)
+					Render(_grid.Rows[index], d, code, limit, overload);
 			};
 
 			_worker.RunWorkerCompleted += delegate(object s, RunWorkerCompletedEventArgs e)
@@ -297,11 +314,14 @@ namespace AcrTool
 					SetFeedback("Evaluation failed: " + e.Error.Message, true);
 					ClearComputedCells();
 				}
-				else
+				else if (_engine.Method == RatingMethod.Acr)
 				{
-					List<RowData> results = (List<RowData>)e.Result;
-					for (int i = 0; i < _grid.Rows.Count && i < results.Count; i++)
-						Render(_grid.Rows[i], results[i], code, limit, overload);
+					// Rows were already filled in as they completed. Report what the
+					// solver actually cost, on screen and in a log next to the exe -
+					// guesswork about where the time goes has not served us well.
+					AcrEngine.DumpTiming(System.IO.Path.Combine(
+						Application.StartupPath, "acr_timing.txt"));
+					_feedback.Text += "   [" + AcrEngine.TimingSummary() + "]";
 				}
 
 				if (_rerunWanted)
