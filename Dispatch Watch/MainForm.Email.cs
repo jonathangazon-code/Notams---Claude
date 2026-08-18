@@ -56,13 +56,31 @@ namespace ICAO_CSV
 		// reference — what this used to rewrite to — only ever resolves on the SENDER's own
 		// machine (it points at a path under this user's local AppData); every recipient just
 		// sees a broken-image placeholder, since they have no access to that path at all.
+		// Diagnostic trace for the signature-image pipeline below — overwritten on every
+		// call (single-run snapshot, not an append log), next to the exe so it survives a
+		// V:-relaunch. Written because the "signature image missing in sent email" bug has
+		// resisted two blind fixes already; this pins down exactly which step is failing
+		// on the dispatcher's own machine/Outlook signature instead of guessing further.
+		private static void LogSigDebug(string message)
+		{
+			try
+			{
+				File.AppendAllText(Path.Combine(Application.StartupPath, "signature_debug.txt"),
+					DateTime.Now.ToString("s") + " " + message + "\r\n");
+			}
+			catch { }
+		}
+
 		string ReadDefaultSignatureHtml(Dictionary<string, string> inlineImages)
 		{
 			try
 			{
+				try { File.Delete(Path.Combine(Application.StartupPath, "signature_debug.txt")); } catch { }
+
 				string sigDir = Path.Combine(
 					Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Microsoft\Signatures");
-				if (!Directory.Exists(sigDir)) return "";
+				LogSigDebug("sigDir=" + sigDir + " exists=" + Directory.Exists(sigDir));
+				if (!Directory.Exists(sigDir)) { LogSigDebug("ABORT: signature folder not found — likely 'New Outlook' (no local .htm signatures) or no signature ever created."); return ""; }
 
 				// Default "new message" signature name, stored under Outlook's MailSettings.
 				string name = "";
@@ -77,10 +95,11 @@ namespace ICAO_CSV
 							object v = key.GetValue("NewSignature");
 							if (v is byte[]) name = Encoding.Unicode.GetString((byte[])v).TrimEnd('\0');
 							else if (v != null) name = v.ToString();
+							LogSigDebug("Office " + ver + " NewSignature registry value = \"" + name + "\"");
 							if (name != "") break;
 						}
 					}
-					catch { }
+					catch (Exception ex) { LogSigDebug("Office " + ver + " registry read failed: " + ex.Message); }
 				}
 
 				string file = "";
@@ -88,15 +107,19 @@ namespace ICAO_CSV
 				{
 					string cand = Path.Combine(sigDir, name + ".htm");
 					if (File.Exists(cand)) file = cand;
+					LogSigDebug("Candidate from registry name: " + cand + " exists=" + File.Exists(cand));
 				}
 				if (file == "")
 				{
 					string[] htms = Directory.GetFiles(sigDir, "*.htm");
+					LogSigDebug(".htm files found in sigDir: " + htms.Length + (htms.Length > 0 ? " [" + string.Join(", ", htms) + "]" : ""));
 					if (htms.Length > 0) file = htms[0];
 				}
-				if (file == "") return "";
+				if (file == "") { LogSigDebug("ABORT: no .htm signature file resolved."); return ""; }
+				LogSigDebug("Using signature file: " + file);
 
 				string html = File.ReadAllText(file);
+				LogSigDebug("html length=" + html.Length);
 
 				// Outlook signatures store their images in a sibling "<name>_files" folder,
 				// referenced by relative "<name>_files/imageNNN.png" src attributes. Each one that
@@ -104,22 +127,31 @@ namespace ICAO_CSV
 				// real path registered for the caller to attach as a hidden image.
 				string imgDir = Path.GetFileNameWithoutExtension(file) + "_files";
 				string imgDirPath = Path.Combine(sigDir, imgDir);
+				LogSigDebug("imgDirPath=" + imgDirPath + " exists=" + Directory.Exists(imgDirPath) +
+					(Directory.Exists(imgDirPath) ? " files=[" + string.Join(", ", Directory.GetFiles(imgDirPath)) + "]" : ""));
+				LogSigDebug("Contains a <img tag: " + (html.IndexOf("<img", StringComparison.OrdinalIgnoreCase) >= 0) +
+					" | Contains 'data:image' (pasted/embedded image, not a file): " + (html.IndexOf("data:image", StringComparison.OrdinalIgnoreCase) >= 0) +
+					" | Contains imgDir token '" + imgDir + "': " + (html.IndexOf(imgDir, StringComparison.OrdinalIgnoreCase) >= 0));
+
+				int replaced = 0;
 				if (inlineImages != null && Directory.Exists(imgDirPath))
 				{
-					html = Regex.Replace(html, "\"" + Regex.Escape(imgDir) + "/([^\"]+)\"", delegate(Match m)
+					html = Regex.Replace(html, "[\"']" + Regex.Escape(imgDir) + "/([^\"']+)[\"']", delegate(Match m)
 					{
 						string fileName = m.Groups[1].Value;
 						string fullPath = Path.Combine(imgDirPath, fileName);
-						if (!File.Exists(fullPath)) return m.Value;
+						if (!File.Exists(fullPath)) { LogSigDebug("Matched src but file missing on disk: " + fullPath); return m.Value; }
 						string cid = "sig_" + Regex.Replace(fileName, @"[^A-Za-z0-9]", "_");
 						inlineImages[cid] = fullPath;
+						replaced++;
 						return "\"cid:" + cid + "\"";
 					});
 				}
+				LogSigDebug("Images rewritten to cid: " + replaced);
 
 				return "<br>" + html;
 			}
-			catch { return ""; }
+			catch (Exception ex) { LogSigDebug("EXCEPTION: " + ex); return ""; }
 		}
 
 		// Sends today's two PDF reports via Outlook (late-bound COM, direct send).
