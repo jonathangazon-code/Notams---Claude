@@ -23,6 +23,13 @@ namespace AcrTool
 		/// <summary>Maximum weight from the source data, in pounds.</summary>
 		float MaxWeightLb(AircraftSpec spec);
 
+		/// <summary>
+		/// Lowest weight the source data covers, in pounds; 0 when none is
+		/// published. The ACN tables give an empty-weight point, the ACR side
+		/// does not.
+		/// </summary>
+		float MinWeightLb(AircraftSpec spec);
+
 		/// <summary>Tyre pressure, psi.</summary>
 		float TyrePressurePsi(AircraftSpec spec);
 

@@ -49,6 +49,9 @@ namespace AcrTool
 	/// </summary>
 	public static class AircraftLibrary
 	{
+		/// <summary>Set by Load - the library's own version stamp, for provenance.</summary>
+		public static string LastVersion { get; private set; }
+
 		public static Dictionary<string, AircraftEntry> Load(string path)
 		{
 			if (!File.Exists(path))
@@ -57,23 +60,36 @@ namespace AcrTool
 					Environment.NewLine + "Expected: " + path, path);
 
 			XDocument doc = XDocument.Load(path);
+			LastVersion = AttrValue(doc.Root, "LibraryVersion") ?? "unknown";
 
 			Dictionary<string, AircraftEntry> byName =
 				new Dictionary<string, AircraftEntry>(StringComparer.OrdinalIgnoreCase);
 
-			foreach (XElement plane in doc.Descendants()
-				.Where(e => e.Attributes().Any(a => a.Name.LocalName == "type" && a.Value.EndsWith("AirplaneInfo"))))
+			// Walk the Airplanes container's own children rather than every element
+			// in the document. Descendants() visits ~88 000 nodes and tests the
+			// attributes of each, to find 411 - it was the bulk of start-up time.
+			XElement airplanes = Child(doc.Root, "Airplanes");
+			if (airplanes == null)
+				throw new InvalidDataException(
+					path + " has no <Airplanes> section; it does not look like an FAA aircraft library.");
+
+			foreach (XElement plane in airplanes.Elements())
 			{
+				string type = AttrValue(plane, "type");
+				if (type == null || !type.EndsWith("AirplaneInfo")) continue;
+
 				string name = ChildText(plane, "Name");
 				if (string.IsNullOrEmpty(name) || byName.ContainsKey(name)) continue;
 
 				XElement coords = Child(plane, "WheelCoordinates");
 				if (coords == null) continue;
 
-				List<XElement> wheels = coords.Elements()
-					.Where(e => e.Attributes().Any(a => a.Name.LocalName == "type"
-					                                 && a.Value.EndsWith("LengthCoordinates")))
-					.ToList();
+				List<XElement> wheels = new List<XElement>();
+				foreach (XElement w in coords.Elements())
+				{
+					string wt = AttrValue(w, "type");
+					if (wt != null && wt.EndsWith("LengthCoordinates")) wheels.Add(w);
+				}
 				if (wheels.Count == 0) continue;
 
 				AircraftEntry entry = new AircraftEntry();
@@ -102,16 +118,20 @@ namespace AcrTool
 			return byName;
 		}
 
-		/// <summary>LibraryVersion attribute from the root element, for provenance.</summary>
+		static string AttrValue(XElement e, string localName)
+		{
+			foreach (XAttribute a in e.Attributes())
+				if (a.Name.LocalName == localName) return a.Value;
+			return null;
+		}
+
+		/// <summary>
+		/// LibraryVersion, as captured by the last Load. Reading it used to reparse
+		/// the whole 1.9 MB file a second time just for this one attribute.
+		/// </summary>
 		public static string Version(string path)
 		{
-			try
-			{
-				XDocument doc = XDocument.Load(path);
-				XAttribute a = doc.Root.Attributes().FirstOrDefault(x => x.Name.LocalName == "LibraryVersion");
-				return a == null ? "unknown" : a.Value;
-			}
-			catch { return "unknown"; }
+			return LastVersion ?? "unknown";
 		}
 
 		static XElement Child(XElement parent, string localName)

@@ -147,6 +147,12 @@ namespace AcrTool
 			return a.Points[a.Points.Count - 1].WeightLb;
 		}
 
+		/// <summary>Lowest published weight - the empty-weight point of the table.</summary>
+		public float MinWeightLb(AircraftSpec spec)
+		{
+			return Get(spec).Points[0].WeightLb;
+		}
+
 		public float TyrePressurePsi(AircraftSpec spec)
 		{
 			return Get(spec).TyrePressurePsi;

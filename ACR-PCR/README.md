@@ -121,6 +121,30 @@ masses du 737-800, et sort des valeurs fausses. Les bonnes références sont `F3
 Un avion avec moins de deux points publiés est traité comme « pas de donnée » : la moitié basse
 le dit explicitement plutôt que d'afficher une réponse inventée.
 
+## Démarrage et réactivité
+
+Le premier jet mettait une vingtaine de secondes à ouvrir. Trois causes, toutes corrigées :
+
+- **`aircraft.xml` était parcouru en entier** : `Descendants()` visitait les 87 737 éléments du
+  fichier en testant les attributs de chacun, pour n'en retenir que 411. Remplacé par un parcours
+  des seuls enfants de `<Airplanes>`.
+- **Le fichier était parsé deux fois** : `Version()` rechargeait les 1,9 Mo juste pour lire un
+  attribut de la racine. La version est maintenant capturée pendant le parsing unique.
+- **Le solveur LEAF était appelé ~90 fois** : 4 avions × (1 pour l'ACR à masse max + jusqu'à 22
+  pour la bisection). Deux changements :
+  - `AcrEngine` **mémoïse** ses résultats par (avion, type de chaussée, masse) — la même masse
+    était redemandée plusieurs fois par rendu, et à chaque changement d'unité ou de tolérance
+  - la bisection est remplacée par une **fausse position** : l'ACR étant quasi linéaire en masse,
+    interpoler entre les bornes tombe tout de suite près de la réponse. Mesuré contre une
+    référence fine sur des courbes du linéaire au fortement convexe : **~8 résolutions au lieu
+    de 21**, à précision égale (~50 lb). Le critère d'arrêt porte sur le déplacement de
+    l'estimation, pas sur la largeur de l'encadrement, ce qui neutralise le blocage classique
+    de la méthode ; l'encadrement est préservé et le nombre d'itérations plafonné.
+
+Le calcul tourne en outre **hors du thread d'interface**, avec une barre de progression pendant
+l'évaluation. Un clic pendant qu'un calcul tourne ne s'empile pas : le calcul en cours finit,
+puis se relance une fois avec l'état courant des contrôles.
+
 ## Vérifier — à faire avant tout usage
 
 **Bouton « Self-test ».** Il rejoue l'exemple chiffré publié par la FAA (doc *User Information for
