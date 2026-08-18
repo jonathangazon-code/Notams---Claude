@@ -39,11 +39,19 @@ namespace AcrTool
 				x[3] = -15f; y[3] = 55f;
 				x[4] = 15f;  y[4] = 55f;
 
-				ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
-				ACRClassLib.clsACR.ACRdata data = runner.CalculateACR(
-					ACRClassLib.clsACR.PavementType.Rigid,
-					GrossWeightLb, PercentGw, Wheels, TyrePressurePsi,
-					x, y, false);
+				// Deliberately the overload without SW: this is the FAA document's
+				// own worked example, and its published numbers go with it.
+				// AcrEngine.SyncRoot because the library keeps state in static VB
+				// modules and an evaluation may be running on the worker thread.
+				ACRClassLib.clsACR.ACRdata data;
+				lock (AcrEngine.SyncRoot)
+				{
+					ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
+					data = runner.CalculateACR(
+						ACRClassLib.clsACR.PavementType.Rigid,
+						GrossWeightLb, PercentGw, Wheels, TyrePressurePsi,
+						x, y, false);
+				}
 
 				sb.AppendLine("FAA reference case - 2D-400 gear, rigid pavement, US units");
 				sb.AppendLine("400 000 lb, 47.5% on the gear, 4 wheels, 200 psi");

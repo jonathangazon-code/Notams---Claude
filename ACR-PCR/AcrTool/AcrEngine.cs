@@ -36,6 +36,24 @@ namespace AcrTool
 		// aircraft.xml is read in US units throughout: pounds, psi, inches.
 		const bool Metric = false;
 
+		// ACRClassLib keeps its working state in VB modules - gICAOCodeIndex,
+		// gPavementType, gStrainTarget and friends - which are static, shared by
+		// every instance. It is therefore not thread-safe, and two concurrent
+		// CalculateACR calls would corrupt each other's results silently.
+		//
+		// That rules out evaluating the four aircraft in parallel, and it also
+		// matters here: the evaluation runs on a worker thread while the grid's
+		// "check a weight" cell can fire another call from the UI thread. This lock
+		// serialises every entry into the library.
+		static readonly object _libLock = new object();
+
+		/// <summary>
+		/// The same lock, for anything else that calls into ACRClassLib directly -
+		/// the self-test does, from the UI thread, and could otherwise land in the
+		/// middle of a running evaluation.
+		/// </summary>
+		public static object SyncRoot { get { return _libLock; } }
+
 		Dictionary<string, AircraftEntry> _lib;
 
 		// One layered-elastic solve is expensive, and the same weight gets asked
@@ -94,6 +112,31 @@ namespace AcrTool
 			}
 		}
 
+		/// <summary>
+		/// Which wheels define the strain evaluation grid, as the FAA driver builds
+		/// it: the mean lateral coordinate is taken, and every wheel at or beyond it
+		/// is included - in practice one side of a symmetric gear.
+		///
+		/// The library does not decide this; the API document is explicit that the
+		/// calling program must, and that including every wheel "would take much
+		/// longer" for an insignificant difference in the result. Passing nothing,
+		/// as this did before, paid exactly that price.
+		///
+		/// 1-based to match the coordinate arrays: slot 0 is unused.
+		/// </summary>
+		static int[] StrainGrid(float[] x, int wheels)
+		{
+			int[] sw = new int[wheels + 1];
+			if (wheels <= 0) return sw;
+
+			double sum = 0;
+			for (int i = 1; i <= wheels; i++) sum += x[i];
+			double mean = sum / wheels;
+
+			for (int i = 1; i <= wheels; i++) sw[i] = x[i] >= mean ? 1 : 0;
+			return sw;
+		}
+
 		/// <summary>ACR at a given gross weight, for all four subgrade categories.</summary>
 		public AcrResult Acr(AircraftSpec spec, float grossWeightLb, PavementKind pavement)
 		{
@@ -141,13 +184,18 @@ namespace AcrTool
 			float[] x1, y1;
 			Coords(main, wheels1, out x1, out y1);
 
-			ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
+			int[] sw1 = StrainGrid(x1, wheels1);
+
 			ACRClassLib.clsACR.ACRdata data;
 
 			if (!spec.HasBodyGear)
 			{
-				data = runner.CalculateACR(pt, grossWeightLb, percent1, wheels1,
-				                           main.TyrePressurePsi, x1, y1, Metric);
+				lock (_libLock)
+				{
+					ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
+					data = runner.CalculateACR(pt, grossWeightLb, percent1, wheels1,
+					                           main.TyrePressurePsi, x1, y1, sw1, Metric);
+				}
 			}
 			else
 			{
@@ -159,9 +207,14 @@ namespace AcrTool
 				float percent2 = body.MainGearPercent * 2f;
 				float[] x2, y2;
 				Coords(body, wheels2, out x2, out y2);
+				int[] sw2 = StrainGrid(x2, wheels2);
 
-				data = runner.CalculateACR(pt, grossWeightLb, percent1, wheels1, main.TyrePressurePsi, x1, y1,
-				                           percent2, wheels2, body.TyrePressurePsi, x2, y2, Metric);
+				lock (_libLock)
+				{
+					ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
+					data = runner.CalculateACR(pt, grossWeightLb, percent1, wheels1, main.TyrePressurePsi, x1, y1,
+					                           percent2, wheels2, body.TyrePressurePsi, x2, y2, sw1, sw2, Metric);
+				}
 			}
 
 			return Unpack(data);
@@ -175,9 +228,14 @@ namespace AcrTool
 			float[] x, y;
 			Coords(ac, wheels, out x, out y);
 
-			ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
-			return Unpack(runner.CalculateACR(pt, grossWeightLb, ac.MainGearPercent, wheels,
-			                                  ac.TyrePressurePsi, x, y, Metric));
+			// No SW here: the rigid path already loads a single truck, and the FAA
+			// driver likewise passes the overload without it.
+			lock (_libLock)
+			{
+				ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
+				return Unpack(runner.CalculateACR(pt, grossWeightLb, ac.MainGearPercent, wheels,
+				                                  ac.TyrePressurePsi, x, y, Metric));
+			}
 		}
 
 		/// <summary>

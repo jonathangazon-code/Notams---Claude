@@ -29,10 +29,11 @@ namespace AcrTool
 	///   4. tyre pressure      W, X, Y, Z
 	///   5. evaluation method  T = technical, U = using aircraft experience
 	///
-	/// They are NOT interchangeable. The subgrade letters mean different things
+	/// They are NOT interchangeable: the subgrade letters mean different things
 	/// (ACR uses subgrade modulus E, ACN uses CBR for flexible and k for rigid),
 	/// the numbers are on different scales (ACR is roughly ten times ACN), and the
-	/// tyre pressure letters have different limits - see TyrePressureLimitPsi.
+	/// overload allowance differs on rigid pavements - see OverloadFactor. The tyre
+	/// pressure categories, however, are identical in both.
 	/// </summary>
 	public class PavementCode
 	{
@@ -102,43 +103,51 @@ namespace AcrTool
 		/// <summary>
 		/// Maximum tyre pressure the code allows, in psi; float.MaxValue for W.
 		///
-		/// The two systems do NOT share these limits - ICAO raised X and Y when it
-		/// moved to ACR/PCR. Reusing the ACR figures for a PCN code would quietly
-		/// pass an aircraft that the pavement does not accept.
+		/// The same in both systems. ICAO's own before/after comparison of Annex 14
+		/// for 28 November 2024 lists an identical table on each side:
+		/// W unlimited, X 1.75 MPa, Y 1.25 MPa, Z 0.50 MPa.
 		///
-		///        ACN/PCN            ACR/PCR
-		///   X    1.50 MPa (217)     1.75 MPa (254)
-		///   Y    1.00 MPa (145)     1.25 MPa (181)
-		///   Z    0.50 MPa  (73)     0.50 MPa  (73)
+		/// An earlier version of this file gave ACN/PCN 1.50 and 1.00 MPa for X and
+		/// Y. Those are the pre-2008 categories, revised by ICAO long before the
+		/// move to ACR/PCR, and wrong for any PCN published today - they would have
+		/// refused aircraft that the pavement actually accepts.
 		/// </summary>
 		public float TyrePressureLimitPsi()
 		{
-			bool acr = Method == RatingMethod.Acr;
 			switch (TyreCategory)
 			{
-				case 'W': return float.MaxValue;
-				case 'X': return acr ? 254f : 217f;
-				case 'Y': return acr ? 181f : 145f;
-				case 'Z': return 73f;
+				case 'W': return float.MaxValue;   // no limit
+				case 'X': return 254f;             // 1.75 MPa
+				case 'Y': return 181f;             // 1.25 MPa
+				case 'Z': return 73f;              // 0.50 MPa
 				default:  return float.MaxValue;
 			}
 		}
 
 		/// <summary>
-		/// Overload tolerance factor: +10% on flexible, +5% on rigid.
+		/// Overload tolerance factor.
 		///
-		/// These are the classic ICAO overload criteria from the ACN/PCN era:
-		/// occasional movements by aircraft whose ACN exceeds the reported PCN by
-		/// no more than 10% (flexible) or 5% (rigid or composite) may be permitted.
-		/// They come with conditions this tool cannot check - overload movements
-		/// should stay a small share of annual departures, and none are acceptable
-		/// on a pavement showing signs of distress or failure.
+		///   ACR/PCR   +10% on flexible AND rigid
+		///   ACN/PCN   +10% on flexible, +5% on rigid or composite
+		///
+		/// The rigid allowance was raised from 5% to 10% with the move to ACR/PCR.
+		/// Annex 14 now reads "for flexible and rigid pavements, occasional
+		/// movements by aircraft with ACR not exceeding 10 per cent above the
+		/// reported PCR should not adversely affect the pavement". The legacy
+		/// method kept the two apart, so the PCN half must not inherit the ACR
+		/// figure.
+		///
+		/// Both carry conditions this tool cannot check: overload movements should
+		/// stay at roughly 5% of annual movements at most, none are acceptable on a
+		/// pavement showing distress or failure or during a thaw, and anything past
+		/// the allowance needs a cumulative-damage analysis.
 		///
 		/// Whether to allow any of it is the aerodrome operator's decision, so this
 		/// is never applied unless the dispatcher explicitly ticks the box.
 		/// </summary>
 		public float OverloadFactor()
 		{
+			if (Method == RatingMethod.Acr) return 1.10f;
 			return Pavement == PavementKind.Flexible ? 1.10f : 1.05f;
 		}
 
@@ -151,18 +160,17 @@ namespace AcrTool
 		/// <summary>e.g. "+10%" - for labelling what was applied.</summary>
 		public string OverloadText()
 		{
-			return Pavement == PavementKind.Flexible ? "+10%" : "+5%";
+			return OverloadFactor() >= 1.0999f ? "+10%" : "+5%";
 		}
 
 		public string TyreCategoryText()
 		{
-			bool acr = Method == RatingMethod.Acr;
 			switch (TyreCategory)
 			{
 				case 'W': return "W - unlimited";
-				case 'X': return acr ? "X - high, max 1.75 MPa (254 psi)" : "X - medium, max 1.50 MPa (217 psi)";
-				case 'Y': return acr ? "Y - medium, max 1.25 MPa (181 psi)" : "Y - low, max 1.00 MPa (145 psi)";
-				case 'Z': return acr ? "Z - low, max 0.50 MPa (73 psi)" : "Z - very low, max 0.50 MPa (73 psi)";
+				case 'X': return "X - high, max 1.75 MPa (254 psi)";
+				case 'Y': return "Y - medium, max 1.25 MPa (181 psi)";
+				case 'Z': return "Z - low, max 0.50 MPa (73 psi)";
 				default:  return TyreCategory.ToString();
 			}
 		}

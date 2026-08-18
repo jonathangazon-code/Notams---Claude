@@ -57,19 +57,27 @@ assemblies de référence pour toutes les versions 4.x.
 
 ## Les deux méthodes ne sont pas interchangeables
 
-Même forme de code à 5 composantes, mais des sens différents. Se tromper de table donne un
-verdict faux **sans erreur visible** :
+Même forme de code à 5 composantes, mais des sens différents :
 
-| | ACN/PCN (legacy) | ACR/PCR (actuel) |
+| | ACN/PCN (legacy) | ACR/PCR (depuis 28/11/2024) |
 |---|---|---|
 | échelle | — | ~10× l'ACN |
 | sous-couche souple | CBR 15 / 10 / 6 / 3 | module E |
 | sous-couche rigide | k = 150 / 80 / 40 / 20 MN/m³ | module E |
-| pneus X | ≤ 1,50 MPa (217 psi) | ≤ 1,75 MPa (254 psi) |
-| pneus Y | ≤ 1,00 MPa (145 psi) | ≤ 1,25 MPa (181 psi) |
-| pneus Z | ≤ 0,50 MPa (73 psi) | ≤ 0,50 MPa (73 psi) |
+| surcharge, souple | +10 % | +10 % |
+| surcharge, rigide | **+5 %** | **+10 %** |
+| pneus W / X / Y / Z | illimité / 1,75 / 1,25 / 0,50 MPa | *identique* |
 
-`PavementCode.TyrePressureLimitPsi()` applique la bonne limite selon la méthode.
+Les **catégories de pression pneus sont les mêmes dans les deux systèmes**. La comparaison
+avant/après du 28 novembre 2024 publiée par l'OACI donne un tableau identique de chaque côté.
+Une version antérieure de ce projet donnait 1,50 et 1,00 MPa pour X et Y en ACN : ce sont les
+catégories **d'avant 2008**, révisées par l'OACI bien avant le passage à l'ACR, et fausses pour
+tout PCN publié aujourd'hui — elles auraient refusé des avions que la chaussée accepte.
+
+Ce qui diffère réellement, côté tolérance, c'est la **surcharge sur chaussée rigide** : l'Annexe 14
+dit désormais « for flexible and rigid pavements ... ACR not exceeding 10 per cent above the
+reported PCR », alors que la méthode legacy distinguait les deux (10 % souple, 5 % rigide).
+`PavementCode.OverloadFactor()` applique la règle propre à chaque méthode.
 
 ## D'où viennent les chiffres ACN
 
@@ -130,8 +138,8 @@ Le premier jet mettait une vingtaine de secondes à ouvrir. Trois causes, toutes
   des seuls enfants de `<Airplanes>`.
 - **Le fichier était parsé deux fois** : `Version()` rechargeait les 1,9 Mo juste pour lire un
   attribut de la racine. La version est maintenant capturée pendant le parsing unique.
-- **Le solveur LEAF était appelé ~90 fois** : 4 avions × (1 pour l'ACR à masse max + jusqu'à 22
-  pour la bisection). Deux changements :
+- **Le solveur LEAF était appelé ~90 fois**, et chaque appel coûtait plus cher que nécessaire.
+  Quatre changements :
   - `AcrEngine` **mémoïse** ses résultats par (avion, type de chaussée, masse) — la même masse
     était redemandée plusieurs fois par rendu, et à chaque changement d'unité ou de tolérance
   - la bisection est remplacée par une **fausse position** : l'ACR étant quasi linéaire en masse,
@@ -140,6 +148,25 @@ Le premier jet mettait une vingtaine de secondes à ouvrir. Trois causes, toutes
     de 21**, à précision égale (~50 lb). Le critère d'arrêt porte sur le déplacement de
     l'estimation, pas sur la largeur de l'encadrement, ce qui neutralise le blocage classique
     de la méthode ; l'encadrement est préservé et le nombre d'itérations plafonné.
+  - le tableau **`SW()`** est désormais passé en chaussée souple (`StrainGrid`), comme le fait le
+    driver FAA : il restreint la grille d'évaluation des contraintes aux roues dont la coordonnée
+    latérale est au-dessus de la moyenne, soit un côté d'un train symétrique. La doc FAA est
+    explicite — inclure toutes les roues « would take much longer » pour une différence de
+    résultat « insignificant ». Ne rien passer, comme avant, revenait à payer ce prix.
+  - le chemin rigide n'utilise pas `SW` : il charge déjà un seul bogie, et le driver FAA passe
+    lui aussi la surcharge sans.
+
+### Pourquoi les avions ne sont pas calculés en parallèle
+
+`ACRClassLib` range son état de travail dans des **modules VB** (`gICAOCodeIndex`,
+`gPavementType`, `gStrainTarget`…), qui sont statiques et partagés par toutes les instances.
+La bibliothèque n'est donc pas réentrante : deux appels concurrents à `CalculateACR` se
+corrompraient mutuellement, **sans erreur visible**. Répartir les quatre avions sur plusieurs
+threads est l'optimisation évidente qu'il ne faut surtout pas faire ici.
+
+Pour la même raison, toute entrée dans la bibliothèque passe par `AcrEngine.SyncRoot` : le calcul
+tourne sur un worker pendant que la colonne « check a weight » de la grille peut en déclencher un
+autre depuis le thread d'interface, et le self-test également.
 
 Le calcul tourne en outre **hors du thread d'interface**, avec une barre de progression pendant
 l'évaluation. Un clic pendant qu'un calcul tourne ne s'empile pas : le calcul en cours finit,
@@ -201,26 +228,24 @@ La lettre du code PCR donne la limite — `W` illimité, `X` ≤ 1,75 MPa (254 p
 
 ## Surcharge — case à cocher, jamais par défaut
 
-Chaque moitié a une case **« Allow ICAO overload tolerance (+10% flexible / +5% rigid) »**,
-décochée au démarrage. Cochée, la limite comparée devient `PCR × 1,10` en souple et `× 1,05` en
-rigide (`PavementCode.EffectiveValue`).
+Chaque moitié a une case **« Allow ICAO overload (+10% flex / +5% rigid) »**, décochée au
+démarrage. Cochée, la limite comparée devient :
+
+- **PCR × 1,10** en souple comme en rigide
+- **PCN × 1,10** en souple, **× 1,05** en rigide ou composite
 
 Rien n'est appliqué en silence :
 
 - la ligne d'information passe en orange et affiche **les deux** valeurs — la limite effective
   utilisée *et* le code publié
 - chaque verdict concerné est suffixé `(overload +10%)` ou `(overload +5%)`
-- la colonne *Margin* est calculée contre la limite effective, pas contre le code publié
+- la colonne *Margin* est calculée contre la limite effective
 
-Ce sont les critères OACI classiques de l'ère ACN/PCN : des mouvements **occasionnels** dont
-l'ACN dépasse le PCN publié de 10 % au plus (souple) ou 5 % au plus (rigide ou composite). Ils
-s'accompagnent de conditions que l'outil **ne peut pas vérifier** — ces mouvements doivent rester
-une faible part des départs annuels, et aucun n'est acceptable sur une chaussée présentant des
-signes de dégradation. La décision reste celle de l'exploitant d'aérodrome.
-
-Les mêmes 10 %/5 % sont proposés sur la moitié PCR par cohérence d'interface. **À confirmer**
-contre le Doc 9157 partie 3 avant de s'en servir en ACR : ces chiffres sont ceux de la méthode
-legacy, et je n'ai pas vérifié que l'OACI les a repris à l'identique pour l'ACR/PCR.
+Ces critères s'accompagnent de conditions que l'outil **ne peut pas vérifier** : les mouvements
+en surcharge doivent rester de l'ordre de 5 % des mouvements annuels au plus, aucun n'est
+acceptable sur une chaussée présentant des signes de dégradation ou en période de dégel, et
+au-delà de la tolérance il faut une analyse de dommage cumulé (CDF). La décision reste celle de
+l'exploitant d'aérodrome.
 
 La tolérance peut faire basculer un cas de « inutilisable » à utilisable — par exemple le
 B737-400 en souple sous-couche C avec PCN 17,6 : rien en strict, 35 454 kg avec la tolérance,
