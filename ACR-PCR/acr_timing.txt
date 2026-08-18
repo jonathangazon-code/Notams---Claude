@@ -1,0 +1,19 @@
+ACR solver timing - 2026-08-18 15:04:23
+16 solver calls, 13.4 s total
+
+   733.9 ms  B737-400 rigid 2w 150500lb
+   696.4 ms  B737-800 rigid 2w 174700lb
+   861.7 ms  B747-400 rigid 4w 877000lb
+   863.7 ms  B747-400 Belly rigid 4w 877000lb
+   921.0 ms  B747-400ER rigid 4w 913000lb
+   912.1 ms  B747-400ER Belly rigid 4w 913000lb
+   718.2 ms  B747-400ER rigid 4w 182600lb
+   715.7 ms  B747-400ER Belly rigid 4w 182600lb
+   857.2 ms  B747-400ER rigid 4w 845499lb
+   853.4 ms  B747-400ER Belly rigid 4w 845499lb
+   871.5 ms  B747-400ER rigid 4w 861619lb
+   881.2 ms  B747-400ER Belly rigid 4w 861619lb
+   886.4 ms  B747-400ER rigid 4w 862133lb
+   874.1 ms  B747-400ER Belly rigid 4w 862133lb
+   897.1 ms  B747-400ER rigid 4w 862069lb
+   878.2 ms  B747-400ER Belly rigid 4w 862069lb
