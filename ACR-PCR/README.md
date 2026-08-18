@@ -13,27 +13,41 @@ qui est le front-end manquant.
 
 ## Construire
 
-Ouvrir `ACR-PCR.sln` dans SharpDevelop, **F8**. La solution contient trois projets :
+Ouvrir `ACR-PCR.sln` dans SharpDevelop, **F8**. Un seul projet, `AcrTool` (C#), qui référence
+`vendor/faa-lib/ACRClassLib.dll` — le moteur de calcul ACR de la FAA, en binaire.
 
-| Projet | Langue | Rôle |
-|---|---|---|
-| `AcrTool` | C# | l'interface (ce qu'on a écrit) |
-| `vendor/ACClassLib` | VB.NET | bibliothèque avions + géométrie des trains (code FAA) |
-| `vendor/ICAOModels` | VB.NET | modèle de données de `aircraft.xml` (code FAA) |
+`aircraft.xml` est copié à côté de l'exe à la compilation ; l'exe le lit au démarrage.
 
-Plus `vendor/faa-lib/ACRClassLib.dll`, le moteur de calcul ACR, référencé en binaire.
+### Pourquoi le code VB de la FAA n'est pas compilé
+
+Une première version référençait les projets VB `ACClassLib` / `ICAOModels` de la FAA. Ça ne
+compile pas dans SharpDevelop, pour deux raisons indépendantes :
+
+- ils sont en `ToolsVersion="15.0"` (Visual Studio 2017), que MSBuild 4.0 ne charge pas ;
+- ils utilisent `NameOf` (36 occurrences), syntaxe VB14 que le compilateur VB fourni refuse.
+
+Ils ne servent à rien ici : `AcrTool/AircraftLibrary.cs` lit `aircraft.xml` directement, et les
+cinq valeurs utilisées sont lues telles quelles depuis ce même XML par `clsAC.InitACLib`, sans
+aucune transformation (`clsAC.vb`, lignes 222-274) :
+
+| valeur | élément XML |
+|---|---|
+| pression pneus (psi) | `Cp/us` |
+| MTOW (lb) | `_GrossWeight/us` |
+| part de masse sur une paire de bogies | `MgPercentPCN` |
+| nombre de roues | nombre de `WheelCoordinates` |
+| coordonnées de roues (pouces) | `WheelCoordinates X/Y us`, écrites en base 1 |
+
+La géométrie dérivée de `modAC.vb` (points d'évaluation, cas particuliers par type de train)
+n'est jamais utilisée par cet outil, donc rien n'en est porté. Le source VB reste dans
+`vendor/faa-source-reference/` à titre de référence, hors build.
 
 ### Si la compilation échoue sur la version du framework
 
-`ACRClassLib.dll` cible **.NET 4.6.1**, et les deux projets VB ciblent **4.8** — donc, contrairement
-à Dispatch Watch, ce projet ne peut pas être en 4.0. Dans l'ordre :
-
-1. Installer le **.NET Framework 4.8 Developer Pack** (gratuit, Microsoft). C'est le cas le plus
-   probable et ça suffit en général.
-2. Si SharpDevelop refuse encore, rabaisser les trois `<TargetFrameworkVersion>` à `v4.6.1`.
-3. Si le compilateur VB fourni est trop ancien pour le source FAA (il utilise `NameOf`, VB14+),
-   recompiler `ACRClassLib` depuis le source complet — il est dans le zip d'origine — en ciblant
-   `v4.0`, la lib ne référence que `mscorlib 4.0.0.0`.
+`ACRClassLib.dll` cible **.NET 4.6.1**, et le projet est aligné dessus — donc, contrairement à
+Dispatch Watch, il ne peut pas être en 4.0. Si SharpDevelop dit ne pas trouver le framework
+4.6.1, installer le **.NET Framework 4.8 Developer Pack** (gratuit, Microsoft) : il fournit les
+assemblies de référence pour toutes les versions 4.x.
 
 ## Vérifier — à faire avant tout usage
 
@@ -106,7 +120,7 @@ Travail du gouvernement des États-Unis, domaine public.
 | `faa-lib/ACRClassLib.dll` | ICAO-ACR, build .NET 4.6.1 du 2020-12-14 |
 | `faa-lib/aircraft.xml` | bibliothèque avions FAA, `LibraryVersion 1.2.4`, 411 appareils |
 | `docs/User Information for ICAO-ACR.pdf` | doc d'API officielle (contient le cas de test) |
-| `ACClassLib/`, `ICAOModels/` | source VB, extrait de `20260615_ICAO-ACR_SourceCode.zip` |
+| `faa-source-reference/` | source VB, référence hors build (voir plus haut) |
 
 `aircraft.xml` est copié à côté de l'exe à la compilation. Pour le mettre à jour, remplacer
 `vendor/faa-lib/aircraft.xml` par la version courante et recompiler — la version chargée est

@@ -388,32 +388,10 @@ namespace AcrTool
 
 		void UpdateProvenance()
 		{
-			string libVersion = "unknown";
-			try
-			{
-				if (_engine.LibraryPath != null && File.Exists(_engine.LibraryPath))
-				{
-					// LibraryVersion sits in the opening tag, so a short read is enough.
-					using (StreamReader r = new StreamReader(_engine.LibraryPath))
-					{
-						char[] buf = new char[2048];
-						int n = r.Read(buf, 0, buf.Length);
-						string head = new string(buf, 0, n);
-						int i = head.IndexOf("LibraryVersion=\"", StringComparison.Ordinal);
-						if (i >= 0)
-						{
-							int j = head.IndexOf('"', i + 16);
-							if (j > i) libVersion = head.Substring(i + 16, j - i - 16);
-						}
-					}
-				}
-			}
-			catch { /* provenance only - never block the tool */ }
-
 			_provenance.Text =
-				"ACR computed by the FAA ICAO-ACR engine (ACRClassLib.dll); gear geometry from the FAA aircraft library "
-				+ "(aircraft.xml, version " + libVersion + "). The 747 freighters are evaluated on the -400 / -400ER "
-				+ "entries, which carry the same gear and the freighter weights.\r\n"
+				"ACR computed by the FAA ICAO-ACR engine (ACRClassLib.dll); gear geometry read from the FAA aircraft "
+				+ "library (aircraft.xml, version " + (_engine.LibraryVersion ?? "not loaded") + "). The 747 freighters "
+				+ "are evaluated on the -400 / -400ER entries, which carry the same gear and the freighter weights.\r\n"
 				+ "Planning aid only - check against the AIP. Operation above the published PCR is the aerodrome "
 				+ "operator's decision, not a calculation, so no overload allowance is applied here.";
 		}

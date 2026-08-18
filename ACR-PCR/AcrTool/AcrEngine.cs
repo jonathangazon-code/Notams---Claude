@@ -1,15 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 
 namespace AcrTool
 {
-	/// <summary>
-	/// Result of one ACR evaluation.
-	/// </summary>
+	/// <summary>Result of one ACR evaluation, per subgrade category.</summary>
 	public class AcrResult
 	{
-		/// <summary>ACR for subgrade A, B, C, D.</summary>
 		public float A, B, C, D;
 
 		public float For(char subgrade)
@@ -26,115 +22,72 @@ namespace AcrTool
 	}
 
 	/// <summary>
-	/// Wraps the FAA libraries:
-	///   ACClassLib.clsAC   - reads aircraft.xml into gear geometry (US units)
-	///   ACRClassLib.clsACR - computes the ACR itself
+	/// Drives ACRClassLib.dll (the FAA ACR engine) from gear data read out of
+	/// aircraft.xml by AircraftLibrary.
 	///
-	/// Everything here mirrors what the FAA's own ICAO-ACR program does in
-	/// ACRClassDriver/Form1_ICAO.vb. Where a choice existed, the driver's
-	/// behaviour was copied rather than reasoned about independently, so that the
-	/// output can be cross-checked against the FAA program directly.
+	/// Which wheels to use, and what share of the weight they carry, is not
+	/// something the engine decides - the FAA API document is explicit that the
+	/// calling program must determine it. Every rule below is copied from the
+	/// FAA's own ICAO-ACR program (ACRClassDriver/Form1_ICAO.vb) rather than
+	/// derived independently, so results can be compared against it directly.
 	/// </summary>
 	public class AcrEngine
 	{
-		// The library works entirely in US units: libGL is lb, libCP is psi,
-		// libTX/libTY are inches (see clsAC.InitACLib). So Metric is always false.
+		// aircraft.xml is read in US units throughout: pounds, psi, inches.
 		const bool Metric = false;
 
-		ACClassLib.clsAC.AircraftCharacteristics[] _lib;
-		short _count;
-
-		// Resolved once: each ACR evaluation would otherwise re-scan 411 entries,
-		// and MaxAllowableWeightLb evaluates many times per aircraft.
-		readonly Dictionary<string, int> _indexCache =
-			new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+		Dictionary<string, AircraftEntry> _lib;
 
 		public string LibraryPath { get; private set; }
+		public string LibraryVersion { get; private set; }
 
 		public void Load(string aircraftXmlPath)
 		{
-			if (!File.Exists(aircraftXmlPath))
-				throw new FileNotFoundException(
-					"The FAA aircraft library was not found.\r\n\r\nExpected: " + aircraftXmlPath, aircraftXmlPath);
-
+			_lib = AircraftLibrary.Load(aircraftXmlPath);
 			LibraryPath = aircraftXmlPath;
-
-			ACClassLib.clsAC loader = new ACClassLib.clsAC();
-			loader.XMLFileLocation = aircraftXmlPath;
-
-			ACClassLib.clsAC.AircraftCharacteristics[] ac = null;
-			short[] groups = null;
-			string[] groupNames = null;
-			short nac = 0, nbelly = 0, ngroups = 0;
-
-			// InitACLib ReDims every ByRef array itself.
-			loader.InitACLib(ref ac, ref groups, ref groupNames, ref nac, ref nbelly, ref ngroups, false);
-
-			_lib = ac;
-			_count = nac;
-			_indexCache.Clear();
+			LibraryVersion = AircraftLibrary.Version(aircraftXmlPath);
 		}
 
-		int IndexOf(string libraryName)
+		AircraftEntry Entry(string libraryName)
 		{
 			if (_lib == null)
 				throw new InvalidOperationException("The aircraft library has not been loaded.");
 
-			int cached;
-			if (_indexCache.TryGetValue(libraryName, out cached))
-				return cached;
-
-			for (int i = 0; i <= _count && i < _lib.Length; i++)
-			{
-				if (string.Equals(_lib[i].libACName, libraryName, StringComparison.OrdinalIgnoreCase))
-				{
-					_indexCache[libraryName] = i;
-					return i;
-				}
-			}
-			throw new InvalidOperationException(
-				"Aircraft \"" + libraryName + "\" is not present in this aircraft.xml.");
+			AircraftEntry e;
+			if (!_lib.TryGetValue(libraryName, out e))
+				throw new InvalidOperationException(
+					"Aircraft \"" + libraryName + "\" is not present in this aircraft.xml.");
+			return e;
 		}
 
 		/// <summary>Maximum take-off weight from the library, in pounds.</summary>
 		public float MaxWeightLb(AircraftSpec spec)
 		{
-			return _lib[IndexOf(spec.LibraryName)].libGL;
+			return Entry(spec.LibraryName).GrossWeightLb;
 		}
 
 		/// <summary>Tyre (inflation) pressure from the library, in psi.</summary>
 		public float TyrePressurePsi(AircraftSpec spec)
 		{
-			return _lib[IndexOf(spec.LibraryName)].libCP;
+			return Entry(spec.LibraryName).TyrePressurePsi;
 		}
 
 		/// <summary>
-		/// Copies wheel coordinates 0..n out of the library entry.
-		///
-		/// libTX/libTY are 1-based: clsAC fills indices 1..Count and leaves slot 0
-		/// unused, matching the "index values are 1 through 4" note in the FAA API
-		/// document. The driver copies 0..n inclusive, so this does too.
+		/// Takes the first <paramref name="wheels"/> coordinates, keeping the
+		/// 1-based layout the engine expects (slot 0 present but unused).
 		/// </summary>
-		static void CopyCoords(ACClassLib.clsAC.AircraftCharacteristics ac, int wheels,
-		                       out float[] x, out float[] y)
+		static void Coords(AircraftEntry ac, int wheels, out float[] x, out float[] y)
 		{
 			x = new float[wheels + 1];
 			y = new float[wheels + 1];
-
-			if (ac.libTX == null || ac.libTY == null)
-				throw new InvalidOperationException(
-					"Aircraft \"" + ac.libACName + "\" has no wheel coordinates in this aircraft.xml.");
-
-			for (int i = 0; i <= wheels; i++)
+			for (int i = 0; i <= wheels && i < ac.X.Length; i++)
 			{
-				x[i] = i < ac.libTX.Length ? ac.libTX[i] : 0f;
-				y[i] = i < ac.libTY.Length ? ac.libTY[i] : 0f;
+				x[i] = ac.X[i];
+				y[i] = ac.Y[i];
 			}
 		}
 
-		/// <summary>
-		/// ACR at a given gross weight, for all four subgrade categories.
-		/// </summary>
+		/// <summary>ACR at a given gross weight, for all four subgrade categories.</summary>
 		public AcrResult Acr(AircraftSpec spec, float grossWeightLb, PavementKind pavement)
 		{
 			ACRClassLib.clsACR.PavementType pt = pavement == PavementKind.Rigid
@@ -143,13 +96,13 @@ namespace AcrTool
 
 			if (pavement == PavementKind.Rigid)
 			{
-				// Rigid ACR uses the single most demanding truck only.
-				// Form1_ICAO.vb: wheels_number = libNWheels / 2, percent_gw = libMGpcntPCN.
+				// Rigid ACR loads one truck only:
+				// wheels_number = libNWheels / 2, percent_gw = libMGpcntPCN.
 				//
-				// For the 747 the wing and body trucks carry the same share at the
-				// same pressure and differ only in wheel spacing, so rather than
-				// guessing which is "most demanding" both are evaluated and the
-				// higher value is kept for each subgrade independently.
+				// On the 747 the wing and body trucks take the same share at the
+				// same pressure and differ only in spacing, so instead of guessing
+				// which is "most demanding" both are run and the higher value kept
+				// for each subgrade.
 				AcrResult wing = RigidOneTruck(pt, spec.LibraryName, grossWeightLb);
 				if (!spec.HasBodyGear) return wing;
 
@@ -163,13 +116,12 @@ namespace AcrTool
 			}
 
 			// Flexible ACR accounts for every wheel of the main landing gear.
-			int mainIdx = IndexOf(spec.LibraryName);
-			ACClassLib.clsAC.AircraftCharacteristics main = _lib[mainIdx];
+			AircraftEntry main = Entry(spec.LibraryName);
 
-			int wheels1 = main.libNWheels;
-			float percent1 = main.libMGpcntPCN * 2f;   // the entry covers one side; x2 for the pair
+			int wheels1 = main.WheelCount;
+			float percent1 = main.MainGearPercent * 2f;   // entry covers one side; x2 for the pair
 			float[] x1, y1;
-			CopyCoords(main, wheels1, out x1, out y1);
+			Coords(main, wheels1, out x1, out y1);
 
 			ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
 			ACRClassLib.clsACR.ACRdata data;
@@ -177,21 +129,21 @@ namespace AcrTool
 			if (!spec.HasBodyGear)
 			{
 				data = runner.CalculateACR(pt, grossWeightLb, percent1, wheels1,
-				                           main.libCP, x1, y1, Metric);
+				                           main.TyrePressurePsi, x1, y1, Metric);
 			}
 			else
 			{
-				// Wing gear and body gear are supplied as two separate gears, the
-				// same way Form1_ICAO.vb handles the 747 and A380.
-				ACClassLib.clsAC.AircraftCharacteristics belly = _lib[IndexOf(spec.BellyLibraryName)];
+				// Wing gear and body gear go in as two separate gears, the way
+				// Form1_ICAO.vb handles the 747 and A380.
+				AircraftEntry body = Entry(spec.BellyLibraryName);
 
-				int wheels2 = belly.libNWheels;
-				float percent2 = belly.libMGpcntPCN * 2f;
+				int wheels2 = body.WheelCount;
+				float percent2 = body.MainGearPercent * 2f;
 				float[] x2, y2;
-				CopyCoords(belly, wheels2, out x2, out y2);
+				Coords(body, wheels2, out x2, out y2);
 
-				data = runner.CalculateACR(pt, grossWeightLb, percent1, wheels1, main.libCP, x1, y1,
-				                           percent2, wheels2, belly.libCP, x2, y2, Metric);
+				data = runner.CalculateACR(pt, grossWeightLb, percent1, wheels1, main.TyrePressurePsi, x1, y1,
+				                           percent2, wheels2, body.TyrePressurePsi, x2, y2, Metric);
 			}
 
 			return Unpack(data);
@@ -199,22 +151,20 @@ namespace AcrTool
 
 		AcrResult RigidOneTruck(ACRClassLib.clsACR.PavementType pt, string libraryName, float grossWeightLb)
 		{
-			ACClassLib.clsAC.AircraftCharacteristics ac = _lib[IndexOf(libraryName)];
+			AircraftEntry ac = Entry(libraryName);
 
-			int wheels = ac.libNWheels / 2;
-			float percent = ac.libMGpcntPCN;
+			int wheels = ac.WheelCount / 2;
 			float[] x, y;
-			CopyCoords(ac, wheels, out x, out y);
+			Coords(ac, wheels, out x, out y);
 
 			ACRClassLib.clsACR runner = new ACRClassLib.clsACR();
-			return Unpack(runner.CalculateACR(pt, grossWeightLb, percent, wheels, ac.libCP, x, y, Metric));
+			return Unpack(runner.CalculateACR(pt, grossWeightLb, ac.MainGearPercent, wheels,
+			                                  ac.TyrePressurePsi, x, y, Metric));
 		}
 
 		/// <summary>
-		/// Reads the ACRdata arrays.
-		///
-		/// These are length 5 with slot 0 unused, and run backwards:
-		/// index 1 is subgrade D and index 4 is subgrade A.
+		/// Reads the ACRdata arrays, which are length 5 with slot 0 unused and run
+		/// backwards: index 1 is subgrade D and index 4 is subgrade A.
 		/// </summary>
 		static AcrResult Unpack(ACRClassLib.clsACR.ACRdata data)
 		{
@@ -228,13 +178,12 @@ namespace AcrTool
 
 		/// <summary>
 		/// Heaviest weight whose ACR still fits the given PCR, capped at MTOW.
+		/// Returns MTOW when the pavement is not the limit, and 0 when the
+		/// aircraft does not fit even at the lowest weight considered.
 		///
-		/// ACR rises monotonically with weight, so this is a plain bisection.
-		/// Returns MTOW when the aircraft already fits at MTOW, and 0 when it does
-		/// not fit even at the lowest weight considered.
-		///
-		/// Each step runs the layered-elastic solver, which is not cheap, so the
-		/// loop stops at 50 lb - far finer than any operational use of the answer.
+		/// ACR rises monotonically with weight, so a plain bisection works. Each
+		/// step runs the layered-elastic solver, which is not cheap, so it stops
+		/// at 50 lb - far finer than any operational use of the answer.
 		/// </summary>
 		public float MaxAllowableWeightLb(AircraftSpec spec, PcrCode pcr, out bool limitedByPavement)
 		{
@@ -242,13 +191,13 @@ namespace AcrTool
 
 			float mtow = MaxWeightLb(spec);
 			if (Acr(spec, mtow, pcr.Pavement).For(pcr.Subgrade) <= pcr.Value)
-				return mtow;                       // pavement is not the limit
+				return mtow;
 
 			limitedByPavement = true;
 
 			float low = mtow * 0.20f;              // well below any realistic empty weight
 			if (Acr(spec, low, pcr.Pavement).For(pcr.Subgrade) > pcr.Value)
-				return 0f;                         // unusable at any sensible weight
+				return 0f;
 
 			float high = mtow;
 			for (int i = 0; i < 20 && (high - low) > 50f; i++)

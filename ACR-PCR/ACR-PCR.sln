@@ -4,10 +4,6 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # SharpDevelop 5.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AcrTool", "AcrTool\AcrTool.csproj", "{5D487AB1-DD5F-4D49-A688-3E4B35596F74}"
 EndProject
-Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "ACClassLib", "vendor\ACClassLib\ACClassLib.vbproj", "{681CD69D-6408-4D75-8FC9-9544D38E251E}"
-EndProject
-Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "ICAOModels", "vendor\ICAOModels\ICAOModels.vbproj", "{7098DB6D-F0F4-422A-9368-4741DD69E850}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,13 +14,5 @@ Global
 		{5D487AB1-DD5F-4D49-A688-3E4B35596F74}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5D487AB1-DD5F-4D49-A688-3E4B35596F74}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5D487AB1-DD5F-4D49-A688-3E4B35596F74}.Release|Any CPU.Build.0 = Release|Any CPU
-		{681CD69D-6408-4D75-8FC9-9544D38E251E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{681CD69D-6408-4D75-8FC9-9544D38E251E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{681CD69D-6408-4D75-8FC9-9544D38E251E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{681CD69D-6408-4D75-8FC9-9544D38E251E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{7098DB6D-F0F4-422A-9368-4741DD69E850}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{7098DB6D-F0F4-422A-9368-4741DD69E850}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7098DB6D-F0F4-422A-9368-4741DD69E850}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7098DB6D-F0F4-422A-9368-4741DD69E850}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

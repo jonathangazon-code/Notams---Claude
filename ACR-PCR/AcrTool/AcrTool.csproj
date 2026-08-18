@@ -8,7 +8,7 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>AcrTool</RootNamespace>
     <AssemblyName>ACR-PCR</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <AppDesignerFolder>Properties</AppDesignerFolder>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Platform)' == 'AnyCPU' ">
@@ -41,20 +41,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\vendor\ACClassLib\ACClassLib.vbproj">
-      <Project>{681CD69D-6408-4D75-8FC9-9544D38E251E}</Project>
-      <Name>ACClassLib</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\vendor\ICAOModels\ICAOModels.vbproj">
-      <Project>{7098DB6D-F0F4-422A-9368-4741DD69E850}</Project>
-      <Name>ICAOModels</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="MainForm.cs" />
     <Compile Include="PcrCode.cs" />
     <Compile Include="AircraftSpec.cs" />
+    <Compile Include="AircraftLibrary.cs" />
     <Compile Include="AcrEngine.cs" />
     <Compile Include="SelfTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
