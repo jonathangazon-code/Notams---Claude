@@ -245,11 +245,13 @@ namespace AcrTool
 
 			// Tyre pressure is a separate limit: an aircraft can pass on the
 			// rating and still be refused on tyre pressure.
+			// Named tyreLimit, not limit: the rating limit is already a parameter
+			// here, and the two are unrelated checks.
 			float psi = _engine.TyrePressurePsi(spec);
-			float limit = code.TyrePressureLimitPsi();
-			bool tyreOk = psi <= limit;
+			float tyreLimit = code.TyrePressureLimitPsi();
+			bool tyreOk = psi <= tyreLimit;
 			row.Cells[ColTyres].Value = psi.ToString("0", CultureInfo.InvariantCulture) + " psi"
-				+ (tyreOk ? " - ok" : " - EXCEEDS " + limit.ToString("0", CultureInfo.InvariantCulture));
+				+ (tyreOk ? " - ok" : " - EXCEEDS " + tyreLimit.ToString("0", CultureInfo.InvariantCulture));
 			row.Cells[ColTyres].Style.ForeColor = tyreOk ? Color.FromArgb(30, 110, 40) : Color.Firebrick;
 
 			if (!limited)
